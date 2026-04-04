@@ -19,6 +19,7 @@ public sealed class BassMidiPlayer : IDisposable
     private TempoPoint[] _tempoMap = [new(0, 60_000_000d / DefaultTempoMicrosecondsPerQuarterNote)];
     private MidiFilterProcedure? _midiFilter;
     private readonly bool[] _channelMuted = new bool[16];
+    private readonly EffectScalingState _effectScaling = new();
 
     public bool IsChannelMuted(int channel)
     {
@@ -51,6 +52,11 @@ public sealed class BassMidiPlayer : IDisposable
             return false;
         }
 
+        if (_effectScaling.TryFilterEffectEvent(handle, midiEvent))
+        {
+            return false;
+        }
+
         if (midiEvent.Channel >= 0 && midiEvent.Channel < 16 && _channelMuted[midiEvent.Channel])
         {
             if (midiEvent.EventType == MidiEventType.Note)
@@ -65,6 +71,44 @@ public sealed class BassMidiPlayer : IDisposable
 
         return true;
     }
+
+    public const int DefaultChannelReverb = 40;
+    public const int DefaultChannelChorus = 0;
+    public const int DefaultEffectScalePercent = 100;
+    public const int MinEffectScalePercent = 0;
+    public const int MaxEffectScalePercent = 200;
+
+    private int _reverbScalePercent = DefaultEffectScalePercent;
+    private int _chorusScalePercent = DefaultEffectScalePercent;
+
+    public int ReverbScalePercent
+    {
+        get => _reverbScalePercent;
+        set
+        {
+            var clampedValue = Math.Clamp(value, MinEffectScalePercent, MaxEffectScalePercent);
+            if (_reverbScalePercent == clampedValue) return;
+            _reverbScalePercent = clampedValue;
+            _effectScaling.SetScalePercents(_reverbScalePercent, _chorusScalePercent);
+            ReapplyScaledEffects();
+        }
+    }
+
+    public int ChorusScalePercent
+    {
+        get => _chorusScalePercent;
+        set
+        {
+            var clampedValue = Math.Clamp(value, MinEffectScalePercent, MaxEffectScalePercent);
+            if (_chorusScalePercent == clampedValue) return;
+            _chorusScalePercent = clampedValue;
+            _effectScaling.SetScalePercents(_reverbScalePercent, _chorusScalePercent);
+            ReapplyScaledEffects();
+        }
+    }
+
+    private void ReapplyScaledEffects()
+        => _effectScaling.ApplyAll(_streamHandle);
 
     public int SampleRate
     {
@@ -179,6 +223,9 @@ public sealed class BassMidiPlayer : IDisposable
 
         RegisterMidiSyncs();
         BuildTempoMap();
+
+        _effectScaling.ResetTrackedValues();
+        ReapplyScaledEffects();
     }
 
     private void RegisterMidiSyncs()
@@ -205,7 +252,12 @@ public sealed class BassMidiPlayer : IDisposable
         _syncProcs[2] = (_, _, data, _) => ClearChannelNotes(GetMidiSyncChannel(data));
         RegisterMidiEventSync(MidiEventType.SoundOff, _syncProcs[2]);
 
-        _syncProcs[3] = (_, _, data, _) => ClearChannelNotes(GetMidiSyncChannel(data));
+        _syncProcs[3] = (_, _, data, _) =>
+        {
+            int channel = GetMidiSyncChannel(data);
+            ClearChannelNotes(channel);
+            _effectScaling.HandleResetEvent(_streamHandle, channel);
+        };
         RegisterMidiEventSync(MidiEventType.Reset, _syncProcs[3]);
 
         _loopSyncProc = (_, _, _, _) =>
@@ -215,8 +267,10 @@ public sealed class BassMidiPlayer : IDisposable
                 return;
             }
 
+            _effectScaling.ResetTrackedValues();
             Bass.ChannelSetPosition(_streamHandle, 0, PositionFlags.Bytes);
             ReapplySystemModeOverride();
+            ReapplyScaledEffects();
             ClearNotes();
         };
 
@@ -369,7 +423,7 @@ public sealed class BassMidiPlayer : IDisposable
             throw new ArgumentException("An output path is required.", nameof(options));
         }
 
-        ExportMidiToWav(MidiPath, SoundFontPath, options, _systemMode, _channelMuted);
+        ExportMidiToWav(MidiPath, SoundFontPath, options, _systemMode, _channelMuted, _reverbScalePercent, _chorusScalePercent);
     }
 
     public void Play()
@@ -411,12 +465,14 @@ public sealed class BassMidiPlayer : IDisposable
         var boundedSeconds = Math.Clamp(seconds, 0, GetDurationSeconds());
         var bytePosition = Bass.ChannelSeconds2Bytes(_streamHandle, boundedSeconds);
 
+        _effectScaling.ResetTrackedValues();
         if (!Bass.ChannelSetPosition(_streamHandle, bytePosition, PositionFlags.Bytes))
         {
             throw CreateBassException("Failed to seek");
         }
 
         ReapplySystemModeOverride();
+        ReapplyScaledEffects();
         ClearNotes();
     }
 
@@ -592,11 +648,22 @@ public sealed class BassMidiPlayer : IDisposable
         }
     }
 
-    private static void ConfigureExportFilter(int streamHandle, MidiSystem systemMode, bool[]? channelMuted, out MidiFilterProcedure filter)
+    private static void ConfigureExportFilter(
+        int streamHandle,
+        MidiSystem systemMode,
+        bool[]? channelMuted,
+        EffectScalingState effectScaling,
+        out MidiFilterProcedure filter,
+        out SyncProcedure resetSync)
     {
         filter = (handle, track, midiEvent, hirhythm, user) =>
         {
             if (systemMode != MidiSystem.Default && midiEvent.EventType is MidiEventType.System or MidiEventType.SystemEx)
+            {
+                return false;
+            }
+
+            if (effectScaling.TryFilterEffectEvent(handle, midiEvent))
             {
                 return false;
             }
@@ -619,6 +686,12 @@ public sealed class BassMidiPlayer : IDisposable
         if (!BassMidi.StreamSetFilter(streamHandle, true, filter, IntPtr.Zero))
         {
             throw CreateBassException("Failed to install export MIDI filter");
+        }
+
+        resetSync = (_, _, data, _) => effectScaling.HandleResetEvent(streamHandle, GetMidiSyncChannel(data));
+        if (Bass.ChannelSetSync(streamHandle, SyncFlags.MidiEvent, (long)MidiEventType.Reset, resetSync) == 0)
+        {
+            throw CreateBassException("Failed to register export reset sync");
         }
 
         if (systemMode != MidiSystem.Default)
@@ -645,6 +718,7 @@ public sealed class BassMidiPlayer : IDisposable
         _syncProcs = null;
         _loopSyncProc = null;
         _tempoMap = [new(0, 60_000_000d / DefaultTempoMicrosecondsPerQuarterNote)];
+        _effectScaling.ResetTrackedValues();
         Bass.StreamFree(_streamHandle);
         _streamHandle = 0;
         MidiPath = null;
@@ -669,7 +743,9 @@ public sealed class BassMidiPlayer : IDisposable
         string soundFontPath,
         WavExportOptions options,
         MidiSystem systemMode,
-        bool[]? channelMuted)
+        bool[]? channelMuted,
+        int reverbScalePercent,
+        int chorusScalePercent)
     {
         int exportStreamHandle = 0;
         int exportFontHandle = 0;
@@ -696,9 +772,12 @@ public sealed class BassMidiPlayer : IDisposable
 
             ApplySoundFont(exportStreamHandle, exportFontHandle);
 
-            ConfigureExportFilter(exportStreamHandle, systemMode, channelMuted, out MidiFilterProcedure filter);
+            var effectScaling = new EffectScalingState(reverbScalePercent, chorusScalePercent);
+            ConfigureExportFilter(exportStreamHandle, systemMode, channelMuted, effectScaling, out MidiFilterProcedure filter, out SyncProcedure resetSync);
+            effectScaling.ApplyAll(exportStreamHandle);
 
             WriteWaveFile(exportStreamHandle, options);
+            GC.KeepAlive(resetSync);
             GC.KeepAlive(filter);
         }
         finally
@@ -896,6 +975,185 @@ public sealed class BassMidiPlayer : IDisposable
         return clamped >= 0
             ? (int)Math.Round(clamped * 8388607f)
             : (int)Math.Round(clamped * 8388608f);
+    }
+
+    private sealed class EffectScalingState
+    {
+        private readonly object _syncRoot = new();
+        private readonly int[] _rawReverbValues = new int[16];
+        private readonly int[] _rawChorusValues = new int[16];
+        private int _reverbScalePercent;
+        private int _chorusScalePercent;
+
+        public EffectScalingState()
+            : this(DefaultEffectScalePercent, DefaultEffectScalePercent)
+        {
+        }
+
+        public EffectScalingState(int reverbScalePercent, int chorusScalePercent)
+        {
+            _reverbScalePercent = Math.Clamp(reverbScalePercent, MinEffectScalePercent, MaxEffectScalePercent);
+            _chorusScalePercent = Math.Clamp(chorusScalePercent, MinEffectScalePercent, MaxEffectScalePercent);
+            ResetTrackedValues();
+        }
+
+        public void SetScalePercents(int reverbScalePercent, int chorusScalePercent)
+        {
+            lock (_syncRoot)
+            {
+                _reverbScalePercent = Math.Clamp(reverbScalePercent, MinEffectScalePercent, MaxEffectScalePercent);
+                _chorusScalePercent = Math.Clamp(chorusScalePercent, MinEffectScalePercent, MaxEffectScalePercent);
+            }
+        }
+
+        public void ResetTrackedValues()
+        {
+            lock (_syncRoot)
+            {
+                Array.Fill(_rawReverbValues, DefaultChannelReverb);
+                Array.Fill(_rawChorusValues, DefaultChannelChorus);
+            }
+        }
+
+        public bool TryFilterEffectEvent(int streamHandle, MidiEvent midiEvent)
+        {
+            if ((uint)midiEvent.Channel >= 16)
+            {
+                return false;
+            }
+
+            SingleEffectEvent? pendingEvent = null;
+            bool handled = false;
+            lock (_syncRoot)
+            {
+                switch (midiEvent.EventType)
+                {
+                    case MidiEventType.Reverb:
+                        _rawReverbValues[midiEvent.Channel] = ClampMidiValue(midiEvent.Parameter);
+                        pendingEvent = CreateReverbEvent(midiEvent.Channel);
+                        handled = true;
+                        break;
+                    case MidiEventType.Chorus:
+                        _rawChorusValues[midiEvent.Channel] = ClampMidiValue(midiEvent.Parameter);
+                        pendingEvent = CreateChorusEvent(midiEvent.Channel);
+                        handled = true;
+                        break;
+                    case MidiEventType.Reset:
+                        ResetTrackedChannel(midiEvent.Channel);
+                        break;
+                    case MidiEventType.Control:
+                    {
+                        int controller = midiEvent.Parameter & 0xFF;
+                        int value = ClampMidiValue((midiEvent.Parameter >> 8) & 0xFF);
+                        if (controller == 91)
+                        {
+                            _rawReverbValues[midiEvent.Channel] = value;
+                            pendingEvent = CreateReverbEvent(midiEvent.Channel);
+                            handled = true;
+                            break;
+                        }
+
+                        if (controller == 93)
+                        {
+                            _rawChorusValues[midiEvent.Channel] = value;
+                            pendingEvent = CreateChorusEvent(midiEvent.Channel);
+                            handled = true;
+                        }
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+
+            ApplySingleEffect(streamHandle, pendingEvent);
+            return handled;
+        }
+
+        public void HandleResetEvent(int streamHandle, int channel)
+        {
+            if ((uint)channel >= 16)
+            {
+                return;
+            }
+
+            ChannelEffectState effectState;
+            lock (_syncRoot)
+            {
+                ResetTrackedChannel(channel);
+                effectState = CreateChannelEffectState(channel);
+            }
+
+            ApplyChannel(streamHandle, effectState);
+        }
+
+        public void ApplyAll(int streamHandle)
+        {
+            if (streamHandle == 0)
+            {
+                return;
+            }
+
+            var effectStates = new ChannelEffectState[16];
+            lock (_syncRoot)
+            {
+                for (int channel = 0; channel < 16; channel++)
+                {
+                    effectStates[channel] = CreateChannelEffectState(channel);
+                }
+            }
+
+            for (int channel = 0; channel < effectStates.Length; channel++)
+            {
+                ApplyChannel(streamHandle, effectStates[channel]);
+            }
+        }
+
+        private ChannelEffectState CreateChannelEffectState(int channel)
+            => new(channel, ScaleMidiValue(_rawReverbValues[channel], _reverbScalePercent), ScaleMidiValue(_rawChorusValues[channel], _chorusScalePercent));
+
+        private SingleEffectEvent CreateReverbEvent(int channel)
+            => new(channel, MidiEventType.Reverb, ScaleMidiValue(_rawReverbValues[channel], _reverbScalePercent));
+
+        private SingleEffectEvent CreateChorusEvent(int channel)
+            => new(channel, MidiEventType.Chorus, ScaleMidiValue(_rawChorusValues[channel], _chorusScalePercent));
+
+        private static void ApplySingleEffect(int streamHandle, SingleEffectEvent? effectEvent)
+        {
+            if (streamHandle == 0 || !effectEvent.HasValue)
+            {
+                return;
+            }
+
+            var value = effectEvent.Value;
+            BassMidi.StreamEvent(streamHandle, value.Channel, value.EventType, value.Value);
+        }
+
+        private static void ApplyChannel(int streamHandle, ChannelEffectState effectState)
+        {
+            if (streamHandle == 0)
+            {
+                return;
+            }
+
+            BassMidi.StreamEvent(streamHandle, effectState.Channel, MidiEventType.Reverb, effectState.ReverbValue);
+            BassMidi.StreamEvent(streamHandle, effectState.Channel, MidiEventType.Chorus, effectState.ChorusValue);
+        }
+
+        private void ResetTrackedChannel(int channel)
+        {
+            _rawReverbValues[channel] = DefaultChannelReverb;
+            _rawChorusValues[channel] = DefaultChannelChorus;
+        }
+
+        private static int ClampMidiValue(int value)
+            => Math.Clamp(value, 0, 127);
+
+        private static int ScaleMidiValue(int value, int scalePercent)
+            => Math.Clamp((int)Math.Round(ClampMidiValue(value) * (scalePercent / 100d)), 0, 127);
+
+        private readonly record struct ChannelEffectState(int Channel, int ReverbValue, int ChorusValue);
+        private readonly record struct SingleEffectEvent(int Channel, MidiEventType EventType, int Value);
     }
 
     private readonly record struct TempoPoint(long Tick, double Bpm);

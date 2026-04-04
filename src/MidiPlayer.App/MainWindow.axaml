@@ -122,6 +122,38 @@
         </StackPanel>
         
         <StackPanel Grid.Column="2" Margin="16,0,0,0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          
+          <!-- Reverb & Chorus Controls -->
+          <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,8,0">
+            <StackPanel Orientation="Vertical" Spacing="2" VerticalAlignment="Center">
+              <TextBlock Text="REVERB" FontSize="9" FontWeight="Bold" Foreground="#666" HorizontalAlignment="Center" />
+              <Slider
+                  Minimum="0"
+                  Maximum="200"
+                  Value="{Binding ReverbScalePercent, Mode=TwoWay}"
+                  Width="60"
+                  Foreground="#4A90E2"
+                  SmallChange="1"
+                  LargeChange="25"
+                  ToolTip.Tip="Double-click to reset to 100%"
+                  DoubleTapped="OnReverbSliderDoubleTapped" />
+            </StackPanel>
+
+            <StackPanel Orientation="Vertical" Spacing="2" VerticalAlignment="Center">
+              <TextBlock Text="CHORUS" FontSize="9" FontWeight="Bold" Foreground="#666" HorizontalAlignment="Center" />
+              <Slider
+                  Minimum="0"
+                  Maximum="200"
+                  Value="{Binding ChorusScalePercent, Mode=TwoWay}"
+                  Width="60"
+                  Foreground="#4A90E2"
+                  SmallChange="1"
+                  LargeChange="25"
+                  ToolTip.Tip="Double-click to reset to 100%"
+                  DoubleTapped="OnChorusSliderDoubleTapped" />
+            </StackPanel>
+          </StackPanel>
+
           <Button
               Classes="iconBtn"
               Width="40"

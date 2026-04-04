@@ -174,6 +174,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public string CurrentBpmText => FormatBpm(_player.GetCurrentBpm());
 
+    public double ReverbScalePercent
+    {
+        get => _player.ReverbScalePercent;
+        set
+        {
+            var intValue = (int)Math.Round(value);
+            if (_player.ReverbScalePercent != intValue)
+            {
+                _player.ReverbScalePercent = intValue;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public double ChorusScalePercent
+    {
+        get => _player.ChorusScalePercent;
+        set
+        {
+            var intValue = (int)Math.Round(value);
+            if (_player.ChorusScalePercent != intValue)
+            {
+                _player.ChorusScalePercent = intValue;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public IBrush LoopButtonBackground => _player.IsLooping ? LoopEnabledBackgroundBrush : LoopDisabledBackgroundBrush;
 
     public IBrush LoopButtonBorderBrush => _player.IsLooping ? LoopEnabledBorderBrush : LoopDisabledBorderBrush;
@@ -312,6 +340,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(LoopButtonBackground));
         OnPropertyChanged(nameof(LoopButtonBorderBrush));
         OnPropertyChanged(nameof(LoopButtonForeground));
+    }
+
+    private void OnReverbSliderDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        ReverbScalePercent = BassMidiPlayer.DefaultEffectScalePercent;
+        e.Handled = true;
+    }
+
+    private void OnChorusSliderDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        ChorusScalePercent = BassMidiPlayer.DefaultEffectScalePercent;
+        e.Handled = true;
     }
 
     private void OnSeekPointerPressed(object? sender, PointerPressedEventArgs e)
