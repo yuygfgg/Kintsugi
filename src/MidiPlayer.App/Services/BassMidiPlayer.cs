@@ -17,6 +17,8 @@ public sealed class BassMidiPlayer : IDisposable
     private MidiSystem _systemMode = MidiSystem.Default;
     private int _sampleRate = 44100;
     private TempoPoint[] _tempoMap = [new(0, 60_000_000d / DefaultTempoMicrosecondsPerQuarterNote)];
+    private static readonly MidiFilterProcedure SystemModeFilter =
+        static (_, _, midiEvent, _, _) => midiEvent.EventType is not MidiEventType.System and not MidiEventType.SystemEx;
 
     public int SampleRate
     {
@@ -92,10 +94,16 @@ public sealed class BassMidiPlayer : IDisposable
         get => _systemMode;
         set
         {
-            _systemMode = value;
-            if (_streamHandle != 0 && value != MidiSystem.Default)
+            if (_systemMode == value)
             {
-                BassMidi.StreamEvent(_streamHandle, 0, MidiEventType.System, (int)value);
+                return;
+            }
+
+            _systemMode = value;
+
+            if (_streamHandle != 0)
+            {
+                Reinitialize();
             }
         }
     }
@@ -121,10 +129,7 @@ public sealed class BassMidiPlayer : IDisposable
             ApplyLoadedSoundFont();
         }
 
-        if (_systemMode != MidiSystem.Default)
-        {
-            BassMidi.StreamEvent(_streamHandle, 0, MidiEventType.System, (int)_systemMode);
-        }
+        ConfigureSystemModeBehavior();
 
         RegisterMidiSyncs();
         BuildTempoMap();
@@ -158,6 +163,7 @@ public sealed class BassMidiPlayer : IDisposable
             }
 
             Bass.ChannelSetPosition(_streamHandle, 0, PositionFlags.Bytes);
+            ReapplySystemModeOverride();
             ClearNotes();
         };
 
@@ -320,6 +326,8 @@ public sealed class BassMidiPlayer : IDisposable
         {
             throw CreateBassException("Failed to seek");
         }
+
+        ReapplySystemModeOverride();
         ClearNotes();
     }
 
@@ -439,6 +447,39 @@ public sealed class BassMidiPlayer : IDisposable
     private void ApplyLoadedSoundFont()
         => ApplySoundFont(_streamHandle, _soundFontHandle);
 
+    private void ConfigureSystemModeBehavior()
+    {
+        if (_streamHandle == 0 || _systemMode == MidiSystem.Default)
+        {
+            return;
+        }
+
+        if (!BassMidi.StreamSetFilter(_streamHandle, true, SystemModeFilter, IntPtr.Zero))
+        {
+            throw CreateBassException("Failed to install system mode filter");
+        }
+
+        ApplySystemMode(_streamHandle, _systemMode);
+    }
+
+    private void ReapplySystemModeOverride()
+    {
+        if (_streamHandle == 0 || _systemMode == MidiSystem.Default)
+        {
+            return;
+        }
+
+        ApplySystemMode(_streamHandle, _systemMode);
+    }
+
+    private static void ApplySystemMode(int streamHandle, MidiSystem systemMode)
+    {
+        if (!BassMidi.StreamEvent(streamHandle, 0, MidiEventType.SystemEx, (int)systemMode))
+        {
+            throw CreateBassException("Failed to apply system mode");
+        }
+    }
+
     private static void ApplySoundFont(int streamHandle, int fontHandle)
     {
         var fonts = new[]
@@ -455,6 +496,25 @@ public sealed class BassMidiPlayer : IDisposable
         {
             throw CreateBassException("Failed to apply SoundFont");
         }
+    }
+
+    private static void ConfigureSystemModeBehavior(int streamHandle, MidiSystem systemMode)
+    {
+        if (systemMode == MidiSystem.Default)
+        {
+            return;
+        }
+
+        if (!BassMidi.StreamSetFilter(
+                streamHandle,
+                true,
+                SystemModeFilter,
+                IntPtr.Zero))
+        {
+            throw CreateBassException("Failed to install export system mode filter");
+        }
+
+        ApplySystemMode(streamHandle, systemMode);
     }
 
     private void EnsureStreamLoaded()
@@ -525,10 +585,7 @@ public sealed class BassMidiPlayer : IDisposable
 
             ApplySoundFont(exportStreamHandle, exportFontHandle);
 
-            if (systemMode != MidiSystem.Default)
-            {
-                BassMidi.StreamEvent(exportStreamHandle, 0, MidiEventType.System, (int)systemMode);
-            }
+            ConfigureSystemModeBehavior(exportStreamHandle, systemMode);
 
             WriteWaveFile(exportStreamHandle, options);
         }

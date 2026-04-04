@@ -34,7 +34,7 @@
       <StackPanel Spacing="8">
         <TextBlock Text="MIDI System Mode" FontWeight="SemiBold" />
         <ComboBox x:Name="SystemModeComboBox" SelectionChanged="OnSystemModeChanged" HorizontalAlignment="Stretch" Background="#303030" BorderThickness="0" Foreground="#E0E0E0">
-          <ComboBoxItem Content="Default (File Default)" />
+          <ComboBoxItem Content="Auto (Use MIDI File Default)" />
           <ComboBoxItem Content="GM1 (General MIDI 1)" />
           <ComboBoxItem Content="GM2 (General MIDI 2)" />
           <ComboBoxItem Content="XG (Yamaha XG)" />
