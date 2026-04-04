@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using MidiPlayer.App.Services;
 
@@ -30,11 +31,16 @@ public class ChannelMonitorControl : Control
     private static readonly IBrush InactiveBrush = new SolidColorBrush(Color.Parse("#303030"));
     private static readonly IBrush MutedBrush = new SolidColorBrush(Color.Parse("#1A1A1A"));
     private static readonly IPen OutlinePen = new Pen(new SolidColorBrush(Color.Parse("#111")), 1);
+    private readonly DispatcherTimer _pendingMuteTimer;
+    private int _pendingMuteChannel = -1;
 
     public ChannelMonitorControl()
     {
         ClipToBounds = true;
         Cursor = new Cursor(StandardCursorType.Hand);
+
+        _pendingMuteTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _pendingMuteTimer.Tick += OnPendingMuteTimerTick;
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -44,15 +50,31 @@ public class ChannelMonitorControl : Control
         var player = Player;
         if (player == null) return;
 
-        var point = e.GetCurrentPoint(this).Position;
-        var bounds = Bounds;
-        double itemWidth = bounds.Width / 16.0;
-
-        int ch = (int)(point.X / itemWidth);
-        if (ch >= 0 && ch < 16)
+        var currentPoint = e.GetCurrentPoint(this);
+        if (!currentPoint.Properties.IsLeftButtonPressed)
         {
-            player.ToggleChannelMute(ch);
+            return;
+        }
+
+        int? channel = GetChannelAt(currentPoint.Position);
+        if (channel is null)
+        {
+            return;
+        }
+
+        if (e.ClickCount == 1)
+        {
+            QueuePendingMute(channel.Value, currentPoint.Pointer.Type);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.ClickCount == 2)
+        {
+            CancelPendingMute(channel.Value);
+            player.ToggleChannelSolo(channel.Value);
             InvalidateVisual();
+            e.Handled = true;
         }
     }
 
@@ -77,6 +99,64 @@ public class ChannelMonitorControl : Control
     private void OnNotesChanged()
     {
         Dispatcher.UIThread.Post(InvalidateVisual);
+    }
+
+    private int? GetChannelAt(Point point)
+    {
+        if (Bounds.Width <= 0)
+        {
+            return null;
+        }
+
+        double itemWidth = Bounds.Width / 16.0;
+        int channel = (int)(point.X / itemWidth);
+        return channel is >= 0 and < 16 ? channel : null;
+    }
+
+    private void QueuePendingMute(int channel, PointerType pointerType)
+    {
+        if (_pendingMuteChannel >= 0 && _pendingMuteChannel != channel)
+        {
+            CommitPendingMute();
+        }
+
+        _pendingMuteChannel = channel;
+        _pendingMuteTimer.Stop();
+        _pendingMuteTimer.Interval = TopLevel.GetTopLevel(this)?.PlatformSettings?.GetDoubleTapTime(pointerType)
+            ?? TimeSpan.FromMilliseconds(250);
+        _pendingMuteTimer.Start();
+    }
+
+    private void CancelPendingMute(int channel)
+    {
+        if (_pendingMuteChannel != channel)
+        {
+            return;
+        }
+
+        _pendingMuteTimer.Stop();
+        _pendingMuteChannel = -1;
+    }
+
+    private void OnPendingMuteTimerTick(object? sender, EventArgs e)
+    {
+        _pendingMuteTimer.Stop();
+        CommitPendingMute();
+    }
+
+    private void CommitPendingMute()
+    {
+        var player = Player;
+        if (player == null || _pendingMuteChannel < 0)
+        {
+            _pendingMuteChannel = -1;
+            return;
+        }
+
+        int channel = _pendingMuteChannel;
+        _pendingMuteChannel = -1;
+        player.ToggleChannelMute(channel);
+        InvalidateVisual();
     }
 
     public override void Render(DrawingContext context)

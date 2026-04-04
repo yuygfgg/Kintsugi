@@ -19,7 +19,10 @@ public sealed class BassMidiPlayer : IDisposable
     private TempoPoint[] _tempoMap = [new(0, 60_000_000d / DefaultTempoMicrosecondsPerQuarterNote)];
     private MidiFilterProcedure? _midiFilter;
     private readonly bool[] _channelMuted = new bool[16];
+    private readonly bool[] _soloRestoreMuted = new bool[16];
     private readonly EffectScalingState _effectScaling = new();
+    private int _soloChannel = -1;
+    private bool _hasSoloState;
 
     public bool IsChannelMuted(int channel)
     {
@@ -31,17 +34,40 @@ public sealed class BassMidiPlayer : IDisposable
     {
         if ((uint)channel >= 16) return;
 
-        _channelMuted[channel] = !_channelMuted[channel];
-        if (_channelMuted[channel] && _streamHandle != 0)
+        ClearSoloState();
+        SetChannelMuted(channel, !_channelMuted[channel]);
+        NotesChanged?.Invoke();
+    }
+
+    public void ToggleChannelSolo(int channel)
+    {
+        if ((uint)channel >= 16) return;
+
+        if (_hasSoloState && _soloChannel == channel)
         {
-            BassMidi.StreamEvent(_streamHandle, channel, MidiEventType.NotesOff, 0);
-            BassMidi.StreamEvent(_streamHandle, channel, MidiEventType.SoundOff, 0);
-            ClearChannelNotes(channel);
+            for (int i = 0; i < _channelMuted.Length; i++)
+            {
+                SetChannelMuted(i, _soloRestoreMuted[i]);
+            }
+
+            ClearSoloState();
+            NotesChanged?.Invoke();
+            return;
         }
-        else if (_channelMuted[channel])
+
+        if (!_hasSoloState)
         {
-            ClearChannelNotes(channel);
+            Array.Copy(_channelMuted, _soloRestoreMuted, _channelMuted.Length);
+            _hasSoloState = true;
         }
+
+        _soloChannel = channel;
+
+        for (int i = 0; i < _channelMuted.Length; i++)
+        {
+            SetChannelMuted(i, i != channel);
+        }
+
         NotesChanged?.Invoke();
     }
 
@@ -370,6 +396,34 @@ public sealed class BassMidiPlayer : IDisposable
 
     private static int GetMidiSyncChannel(int data)
         => (data >> 16) & 0xFFFF;
+
+    private void ClearSoloState()
+    {
+        _soloChannel = -1;
+        _hasSoloState = false;
+    }
+
+    private void SetChannelMuted(int channel, bool muted)
+    {
+        if ((uint)channel >= 16 || _channelMuted[channel] == muted)
+        {
+            return;
+        }
+
+        _channelMuted[channel] = muted;
+        if (!muted)
+        {
+            return;
+        }
+
+        if (_streamHandle != 0)
+        {
+            BassMidi.StreamEvent(_streamHandle, channel, MidiEventType.NotesOff, 0);
+            BassMidi.StreamEvent(_streamHandle, channel, MidiEventType.SoundOff, 0);
+        }
+
+        ClearChannelNotes(channel);
+    }
 
     public void LoadSoundFont(string path)
     {
