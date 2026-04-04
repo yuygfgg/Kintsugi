@@ -1,0 +1,21 @@
+# .NET
+**/bin/
+**/obj/
+
+# Build artifacts
+artifacts/
+publish/
+
+# Native dependency cache
+.native-assets/
+
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,161 @@
+<Window
+    x:Class="MidiPlayer.App.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:MidiPlayer.App.Controls"
+    Title="Kintsugi Midi Player"
+    Width="800"
+    Height="500"
+    MinWidth="600"
+    MinHeight="400"
+    WindowStartupLocation="CenterScreen"
+    Background="#101010">
+  <Window.Styles>
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="#E0E0E0" />
+    </Style>
+    <Style Selector="Button.iconBtn">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="#333" />
+      <Setter Property="Padding" Value="8" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#303030" />
+    </Style>
+    <Style Selector="Button.actionBtn">
+      <Setter Property="Background" Value="#163553" />
+      <Setter Property="BorderBrush" Value="#3A74B0" />
+      <Setter Property="Foreground" Value="#DCEEFF" />
+    </Style>
+    <Style Selector="Button.actionBtn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#214B75" />
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
+    <!-- Header -->
+    <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,16">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalAlignment="Center" ClipToBounds="True" Margin="0,0,12,0">
+        <TextBlock Text="KINTSUGI MIDI PLAYER" FontSize="16" FontWeight="Bold" Foreground="#4A90E2" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1"
+                   Text="{Binding MidiDisplayName}"
+                   FontSize="14"
+                   FontWeight="Normal"
+                   Foreground="#A0A0A0"
+                   VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" />
+        <Border Grid.Column="2"
+                Background="#171717"
+                BorderBrush="#2F2F2F"
+                BorderThickness="1"
+                CornerRadius="999"
+                Padding="8,3"
+                VerticalAlignment="Center">
+          <TextBlock Text="{Binding StatusText}"
+                     FontSize="11"
+                     Foreground="#888"
+                     VerticalAlignment="Center"
+                     MaxWidth="180"
+                     TextTrimming="CharacterEllipsis"
+                     ToolTip.Tip="{Binding StatusText}" />
+        </Border>
+      </Grid>
+      <Button Grid.Column="1" Content="OPEN FILE" Click="OnOpenMidiClicked" Classes="iconBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0" IsEnabled="{Binding CanOpenMidi}" />
+      <Button Grid.Column="2" Content="{Binding ExportButtonText}" Click="OnExportWavClicked" Classes="iconBtn actionBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0" IsEnabled="{Binding CanExport}" />
+      <Button Grid.Column="3" Classes="iconBtn" Click="OnSettingsClicked" ToolTip.Tip="Settings" IsEnabled="{Binding CanOpenSettings}">
+        <TextBlock Text="⚙" FontSize="14" />
+      </Button>
+    </Grid>
+
+    <!-- Channel Monitor -->
+    <Border Grid.Row="1" Background="#181818" BorderBrush="#333" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,0,16">
+      <StackPanel Spacing="8">
+        <TextBlock Text="CHANNEL ACTIVITY" FontSize="10" FontWeight="Bold" Foreground="#666" />
+        <controls:ChannelMonitorControl Height="24" Player="{Binding Player}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Piano Roll / Visualizer -->
+    <Border Grid.Row="2" Background="#181818" BorderBrush="#333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,16" ClipToBounds="True">
+      <Grid RowDefinitions="*,Auto">
+        <!-- Spectrum Analyzer -->
+        <controls:SpectrumControl Player="{Binding Player}" Margin="8" />
+        
+        <!-- Piano Keyboard -->
+        <controls:PianoControl Grid.Row="1" Height="80" Player="{Binding Player}" />
+      </Grid>
+    </Border>
+
+    <!-- Transport Controls -->
+    <Border Grid.Row="3" Background="#181818" BorderBrush="#333" BorderThickness="1" CornerRadius="4" Padding="16">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <Button Grid.Column="0"
+            Width="48"
+            Height="48"
+            CornerRadius="24"
+            Background="#4A90E2"
+            BorderThickness="0"
+            Click="OnPlayPauseClicked"
+            IsEnabled="{Binding CanTogglePlayback}"
+            Margin="0,0,16,0">
+          <TextBlock Text="{Binding PlayPauseIcon}" FontSize="20" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{Binding PlayPauseIconMargin}"/>
+        </Button>
+        
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <TextBlock Text="{Binding PositionText}" FontSize="12" Foreground="#888" FontFamily="Courier New" />
+            <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="12" Foreground="#888" FontFamily="Courier New" />
+          </Grid>
+          <Slider
+              x:Name="SeekSlider"
+              Minimum="0"
+              Maximum="{Binding DurationSeconds}"
+              Value="{Binding PositionSeconds, Mode=TwoWay}"
+              IsEnabled="{Binding CanSeek}"
+              Foreground="#4A90E2" />
+        </StackPanel>
+        
+        <StackPanel Grid.Column="2" Margin="16,0,0,0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <Button
+              Classes="iconBtn"
+              Width="40"
+              Height="40"
+              Padding="0"
+              CornerRadius="20"
+              Click="OnLoopClicked"
+              ToolTip.Tip="Loop playback"
+              Background="{Binding LoopButtonBackground}"
+              BorderBrush="{Binding LoopButtonBorderBrush}">
+            <Viewbox Width="18" Height="18" Stretch="Uniform">
+              <Path Data="M 2 9 A 4 4 0 0 1 6 5 L 16 5 M 13 2 L 16 5 L 13 8 M 16 9 A 4 4 0 0 1 12 13 L 2 13 M 5 10 L 2 13 L 5 16"
+                    Stroke="{Binding LoopButtonForeground}"
+                    StrokeThickness="1.8"
+                    StrokeLineCap="Round"
+                    StrokeJoin="Round"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+            </Viewbox>
+          </Button>
+
+          <Border Background="#171717"
+                  BorderBrush="#2F2F2F"
+                  BorderThickness="1"
+                  CornerRadius="999"
+                  Padding="12,6"
+                  VerticalAlignment="Center">
+            <StackPanel Spacing="1">
+              <TextBlock Text="BPM" FontSize="10" FontWeight="Bold" Foreground="#666" HorizontalAlignment="Right" />
+              <TextBlock Text="{Binding CurrentBpmText}" FontSize="14" Foreground="#A0A0A0" HorizontalAlignment="Right" FontFamily="Courier New" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

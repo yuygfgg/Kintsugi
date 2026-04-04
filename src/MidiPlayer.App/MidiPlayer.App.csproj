@@ -1,0 +1,107 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework Condition="!$([MSBuild]::IsOSPlatform('Windows'))">net10.0</TargetFramework>
+    <TargetFramework Condition="$([MSBuild]::IsOSPlatform('Windows'))">net10.0-windows10.0.19041.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Kintsugi.MidiPlayer</AssemblyName>
+    <Version>1.0.0</Version>
+    <Company>Kintsugi</Company>
+    <Product>Kintsugi Midi Player</Product>
+    <AssemblyTitle>Kintsugi Midi Player</AssemblyTitle>
+    <Description>A desktop MIDI player with SoundFont playback, visualization, and WAV export.</Description>
+    <PackageId>Kintsugi.MidiPlayer</PackageId>
+    <UseAppHost>true</UseAppHost>
+    <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(DefineConstants);WINDOWS</DefineConstants>
+    <NativeAssetsRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</NativeAssetsRid>
+    <NativeAssetsRid Condition="'$(NativeAssetsRid)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</NativeAssetsRid>
+    <NativeAssetsDir>$(MSBuildThisFileDirectory)../../.native-assets/$(NativeAssetsRid)</NativeAssetsDir>
+    <CreateMacAppBundle Condition="'$(CreateMacAppBundle)' == ''">false</CreateMacAppBundle>
+    <MacAppBundleName>Kintsugi Midi Player.app</MacAppBundleName>
+    <MacAppBundleDir>$(MSBuildThisFileDirectory)../../artifacts/macos/$(Configuration)/$(NativeAssetsRid)/$(MacAppBundleName)</MacAppBundleDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.13" />
+    <PackageReference Include="ManagedBass" Version="4.0.2" />
+    <PackageReference Include="ManagedBass.Midi" Version="4.0.2" />
+  </ItemGroup>
+
+  <Target Name="PrepareNativeDependencies" BeforeTargets="Build;Publish" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MakeDir Directories="$(NativeAssetsDir)" />
+    <Exec Command="dotnet run --project &quot;$(MSBuildThisFileDirectory)../../tools/NativeAssetDownloader/NativeAssetDownloader.csproj&quot; -- --rid &quot;$(NativeAssetsRid)&quot; --output &quot;$(NativeAssetsDir)&quot;" />
+  </Target>
+
+  <Target Name="CompileMacMediaControls" BeforeTargets="Build;Publish" Condition="'$(DesignTimeBuild)' != 'true' and '$([MSBuild]::IsOSPlatform(`OSX`))' == 'true' and $([System.String]::Copy('$(NativeAssetsRid)').StartsWith('osx'))">
+    <Message Importance="High" Text="Compiling native Mac media controls..." />
+    <MakeDir Directories="$(NativeAssetsDir)" />
+    <Exec Command="clang -dynamiclib -fobjc-arc -framework Foundation -framework MediaPlayer &quot;$(MSBuildThisFileDirectory)../native/macos/MediaControls.m&quot; -o &quot;$(NativeAssetsDir)/libMediaControls.dylib&quot;" />
+  </Target>
+
+  <Target Name="CopyNativeDependenciesToOutput" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <NativeDependencyFiles Include="$(NativeAssetsDir)/*.*" Exclude="$(NativeAssetsDir)/.cache/**/*;$(NativeAssetsDir)/.asset-manifest" />
+    </ItemGroup>
+    <Copy SourceFiles="@(NativeDependencyFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyNativeDependenciesToPublishDir" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <NativeDependencyFiles Include="$(NativeAssetsDir)/*.*" Exclude="$(NativeAssetsDir)/.cache/**/*;$(NativeAssetsDir)/.asset-manifest" />
+    </ItemGroup>
+    <Copy SourceFiles="@(NativeDependencyFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CreateMacAppBundle" AfterTargets="CopyNativeDependenciesToPublishDir" Condition="'$(DesignTimeBuild)' != 'true' and '$(CreateMacAppBundle)' == 'true' and $([System.String]::Copy('$(NativeAssetsRid)').StartsWith('osx'))">
+    <PropertyGroup>
+      <MacBundleContentsDir>$(MacAppBundleDir)/Contents</MacBundleContentsDir>
+      <MacBundleMacOSDir>$(MacBundleContentsDir)/MacOS</MacBundleMacOSDir>
+      <MacBundleResourcesDir>$(MacBundleContentsDir)/Resources</MacBundleResourcesDir>
+      <MacInfoPlistPath>$(MacBundleContentsDir)/Info.plist</MacInfoPlistPath>
+    </PropertyGroup>
+
+    <RemoveDir Directories="$(MacAppBundleDir)" Condition="Exists('$(MacAppBundleDir)')" />
+    <MakeDir Directories="$(MacBundleMacOSDir);$(MacBundleResourcesDir)" />
+
+    <ItemGroup>
+      <PublishedBundleFiles Include="$(PublishDir)**/*" />
+      <MacInfoPlistLines Include="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;" />
+      <MacInfoPlistLines Include="&lt;!DOCTYPE plist PUBLIC &quot;-//Apple//DTD PLIST 1.0//EN&quot; &quot;http://www.apple.com/DTDs/PropertyList-1.0.dtd&quot;&gt;" />
+      <MacInfoPlistLines Include="&lt;plist version=&quot;1.0&quot;&gt;" />
+      <MacInfoPlistLines Include="&lt;dict&gt;" />
+      <MacInfoPlistLines Include="  &lt;key&gt;CFBundleDevelopmentRegion&lt;/key&gt;" />
+      <MacInfoPlistLines Include="  &lt;string&gt;en&lt;/string&gt;" />
+      <MacInfoPlistLines Include="  &lt;key&gt;CFBundleDisplayName&lt;/key&gt;" />
+      <MacInfoPlistLines Include="  &lt;string&gt;Kintsugi Midi Player&lt;/string&gt;" />
+      <MacInfoPlistLines Include="  &lt;key&gt;CFBundleExecutable&lt;/key&gt;" />
+      <MacInfoPlistLines Include="  &lt;string&gt;$(AssemblyName)&lt;/string&gt;" />
+      <MacInfoPlistLines Include="  &lt;key&gt;CFBundleIdentifier&lt;/key&gt;" />
+      <MacInfoPlistLines Include="  &lt;string&gt;com.kintsugi.midiplayer&lt;/string&gt;" />
+      <MacInfoPlistLines Include="  &lt;key&gt;CFBundleInfoDictionaryVersion&lt;/key&gt;" />
+      <MacInfoPlistLines Include="  &lt;string&gt;6.0&lt;/string&gt;" />
+      <MacInfoPlistLines Include="  &lt;key&gt;CFBundleName&lt;/key&gt;" />
+      <MacInfoPlistLines Include="  &lt;string&gt;Kintsugi Midi Player&lt;/string&gt;" />
+      <MacInfoPlistLines Include="  &lt;key&gt;CFBundlePackageType&lt;/key&gt;" />
+      <MacInfoPlistLines Include="  &lt;string&gt;APPL&lt;/string&gt;" />
+      <MacInfoPlistLines Include="  &lt;key&gt;CFBundleShortVersionString&lt;/key&gt;" />
+      <MacInfoPlistLines Include="  &lt;string&gt;$(Version)&lt;/string&gt;" />
+      <MacInfoPlistLines Include="  &lt;key&gt;CFBundleVersion&lt;/key&gt;" />
+      <MacInfoPlistLines Include="  &lt;string&gt;$(Version)&lt;/string&gt;" />
+      <MacInfoPlistLines Include="  &lt;key&gt;LSMinimumSystemVersion&lt;/key&gt;" />
+      <MacInfoPlistLines Include="  &lt;string&gt;12.0&lt;/string&gt;" />
+      <MacInfoPlistLines Include="  &lt;key&gt;NSHighResolutionCapable&lt;/key&gt;" />
+      <MacInfoPlistLines Include="  &lt;true/&gt;" />
+      <MacInfoPlistLines Include="&lt;/dict&gt;" />
+      <MacInfoPlistLines Include="&lt;/plist&gt;" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(PublishedBundleFiles)" DestinationFiles="@(PublishedBundleFiles -> '$(MacBundleMacOSDir)/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <WriteLinesToFile File="$(MacInfoPlistPath)" Lines="@(MacInfoPlistLines)" Overwrite="true" Encoding="UTF-8" />
+    <Message Importance="High" Text="Created macOS app bundle at $(MacAppBundleDir)" />
+  </Target>
+
+</Project>

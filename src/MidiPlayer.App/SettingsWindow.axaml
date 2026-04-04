@@ -1,0 +1,60 @@
+<Window
+    x:Class="MidiPlayer.App.SettingsWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Kintsugi Midi Player Settings"
+    Width="440"
+    Height="480"
+    WindowStartupLocation="CenterOwner"
+    CanResize="False"
+    Background="#202020">
+  <Window.Styles>
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="#E0E0E0" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Foreground" Value="#888888" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+  </Window.Styles>
+
+  <ScrollViewer>
+    <StackPanel Spacing="24" Margin="32">
+      <TextBlock FontSize="24" FontWeight="SemiBold" Text="Player Settings" />
+
+      <StackPanel Spacing="8">
+        <TextBlock Text="SoundFont" FontWeight="SemiBold" />
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBox Text="{Binding SoundFontDisplayName}" IsReadOnly="True" VerticalAlignment="Center" Background="#303030" BorderThickness="0" Foreground="#E0E0E0" />
+          <Button Grid.Column="1" Content="Browse..." Click="OnBrowseSoundFontClicked" Background="#404040" Foreground="#E0E0E0" BorderThickness="0" Padding="12,6" />
+        </Grid>
+        <TextBlock Classes="hint" Text="Load an SF2 or SFZ file for deterministic rendering." />
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Text="MIDI System Mode" FontWeight="SemiBold" />
+        <ComboBox x:Name="SystemModeComboBox" SelectionChanged="OnSystemModeChanged" HorizontalAlignment="Stretch" Background="#303030" BorderThickness="0" Foreground="#E0E0E0">
+          <ComboBoxItem Content="Default (File Default)" />
+          <ComboBoxItem Content="GM1 (General MIDI 1)" />
+          <ComboBoxItem Content="GM2 (General MIDI 2)" />
+          <ComboBoxItem Content="XG (Yamaha XG)" />
+          <ComboBoxItem Content="GS (Roland GS)" />
+        </ComboBox>
+        <TextBlock Classes="hint" Text="Force a specific synthesis mode for playback." />
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Text="Output Sample Rate" FontWeight="SemiBold" />
+        <ComboBox x:Name="SampleRateComboBox" SelectionChanged="OnSampleRateChanged" HorizontalAlignment="Stretch" Background="#303030" BorderThickness="0" Foreground="#E0E0E0">
+          <ComboBoxItem Content="44100 Hz" />
+          <ComboBoxItem Content="48000 Hz" />
+          <ComboBoxItem Content="88200 Hz" />
+          <ComboBoxItem Content="96000 Hz" />
+        </ComboBox>
+        <TextBlock Classes="hint" Text="Select the audio output sample rate. Changing this may briefly interrupt playback." />
+      </StackPanel>
+
+      <Button Content="Close" Click="OnCloseClicked" HorizontalAlignment="Right" Margin="0,16,0,0" Width="80" HorizontalContentAlignment="Center" Background="#4A90E2" Foreground="White" BorderThickness="0" />
+    </StackPanel>
+  </ScrollViewer>
+</Window>
