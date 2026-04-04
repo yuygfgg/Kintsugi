@@ -34,6 +34,8 @@ public class ChannelMonitorControl : Control
     private readonly DispatcherTimer _pendingMuteTimer;
     private int _pendingMuteChannel = -1;
 
+    public event EventHandler<ChannelMixerRequestedEventArgs>? ChannelMixerRequested;
+
     public ChannelMonitorControl()
     {
         ClipToBounds = true;
@@ -51,13 +53,21 @@ public class ChannelMonitorControl : Control
         if (player == null) return;
 
         var currentPoint = e.GetCurrentPoint(this);
-        if (!currentPoint.Properties.IsLeftButtonPressed)
+        int? channel = GetChannelAt(currentPoint.Position);
+        if (channel is null)
         {
             return;
         }
 
-        int? channel = GetChannelAt(currentPoint.Position);
-        if (channel is null)
+        if (currentPoint.Properties.IsRightButtonPressed)
+        {
+            CancelPendingMute(channel.Value);
+            ChannelMixerRequested?.Invoke(this, new ChannelMixerRequestedEventArgs(channel.Value));
+            e.Handled = true;
+            return;
+        }
+
+        if (!currentPoint.Properties.IsLeftButtonPressed)
         {
             return;
         }
@@ -199,4 +209,9 @@ public class ChannelMonitorControl : Control
             context.DrawText(text, new Point(rect.Center.X - text.Width / 2, rect.Center.Y - text.Height / 2));
         }
     }
+}
+
+public sealed class ChannelMixerRequestedEventArgs(int channel) : EventArgs
+{
+    public int Channel { get; } = channel;
 }

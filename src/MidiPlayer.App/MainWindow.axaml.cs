@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -10,6 +11,8 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using MidiPlayer.App.Controls;
 using MidiPlayer.App.Services;
 
 namespace MidiPlayer.App;
@@ -22,6 +25,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static readonly IBrush LoopDisabledBackgroundBrush = Brushes.Transparent;
     private static readonly IBrush LoopDisabledBorderBrush = new SolidColorBrush(Color.Parse("#333333"));
     private static readonly IBrush LoopDisabledForegroundBrush = new SolidColorBrush(Color.Parse("#A0A0A0"));
+    private static readonly IBrush MixerEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#214B75"));
+    private static readonly IBrush MixerEnabledBorderBrush = new SolidColorBrush(Color.Parse("#4A90E2"));
+    private static readonly IBrush MixerEnabledForegroundBrush = new SolidColorBrush(Color.Parse("#DCEEFF"));
+    private static readonly IBrush MixerDisabledBackgroundBrush = Brushes.Transparent;
+    private static readonly IBrush MixerDisabledBorderBrush = new SolidColorBrush(Color.Parse("#333333"));
+    private static readonly IBrush MixerDisabledForegroundBrush = new SolidColorBrush(Color.Parse("#A0A0A0"));
+    private const double ChannelMixerPopupWidth = 224;
+    private const double ChannelMixerPopupHeight = 206;
+    private const double ChannelMixerPopupPointerWidth = 20;
+    private const double ChannelMixerPopupPointerInset = 12;
+    private const double ChannelMixerPopupPointerHeight = 10;
+    private const double ChannelMixerPopupCornerRadius = 8;
 
     private readonly BassMidiPlayer _player = new();
     private readonly AppSettings _settings;
@@ -33,13 +48,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _wasPlayingLastRefresh;
     private double _durationSeconds;
     private double _positionSeconds;
+    private double _channelMixerPopupLeft;
+    private double _channelMixerPopupPointerLeft;
     private string _midiDisplayName = "No Track Loaded";
     private string _statusText = "Ready to play";
+    private string _channelMixerPopupOutlinePathData = string.Empty;
+    private ChannelMixStrip? _selectedChannelMixStrip;
+    private bool _isChannelMixerPopupOpen;
+    private bool _isGlobalMixerPopupOpen;
+    private int _selectedChannelIndex = -1;
 
     public MainWindow()
     {
         InitializeComponent();
+        ChannelMixRows = CreateChannelMixRows();
         DataContext = this;
+        ChannelMonitorView.SizeChanged += (_, _) => UpdateChannelMixerPopupPosition();
 
         _settings = AppSettings.Load();
 
@@ -79,6 +103,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         SeekSlider.AddHandler(PointerPressedEvent, OnSeekPointerPressed, RoutingStrategies.Tunnel);
         SeekSlider.AddHandler(PointerReleasedEvent, OnSeekPointerReleased, RoutingStrategies.Tunnel);
+        AddHandler(PointerPressedEvent, OnWindowPointerPressed, RoutingStrategies.Bubble, true);
         
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
 
@@ -100,6 +125,52 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public new event PropertyChangedEventHandler? PropertyChanged;
 
     public BassMidiPlayer Player => _player;
+
+    public ChannelMixStrip[] ChannelMixRows { get; }
+
+    public ChannelMixStrip? SelectedChannelMixStrip
+    {
+        get => _selectedChannelMixStrip;
+        private set => SetField(ref _selectedChannelMixStrip, value);
+    }
+
+    public bool IsChannelMixerPopupOpen
+    {
+        get => _isChannelMixerPopupOpen;
+        private set => SetField(ref _isChannelMixerPopupOpen, value);
+    }
+
+    public double ChannelMixerPopupLeft
+    {
+        get => _channelMixerPopupLeft;
+        private set => SetField(ref _channelMixerPopupLeft, value);
+    }
+
+    public double ChannelMixerPopupPointerLeft
+    {
+        get => _channelMixerPopupPointerLeft;
+        private set => SetField(ref _channelMixerPopupPointerLeft, value);
+    }
+
+    public string ChannelMixerPopupOutlinePathData
+    {
+        get => _channelMixerPopupOutlinePathData;
+        private set => SetField(ref _channelMixerPopupOutlinePathData, value);
+    }
+
+    public bool IsGlobalMixerPopupOpen
+    {
+        get => _isGlobalMixerPopupOpen;
+        private set
+        {
+            if (SetField(ref _isGlobalMixerPopupOpen, value))
+            {
+                OnPropertyChanged(nameof(GlobalMixerButtonBackground));
+                OnPropertyChanged(nameof(GlobalMixerButtonBorderBrush));
+                OnPropertyChanged(nameof(GlobalMixerButtonForeground));
+            }
+        }
+    }
 
     public string MidiDisplayName
     {
@@ -174,39 +245,68 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public string CurrentBpmText => FormatBpm(_player.GetCurrentBpm());
 
-    public double ReverbScalePercent
+    public double MasterVolumePercent
     {
-        get => _player.ReverbScalePercent;
+        get => _player.MasterVolumePercent;
         set
         {
             var intValue = (int)Math.Round(value);
-            if (_player.ReverbScalePercent != intValue)
+            if (_player.MasterVolumePercent != intValue)
             {
-                _player.ReverbScalePercent = intValue;
+                _player.MasterVolumePercent = intValue;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(MasterVolumePercentText));
             }
         }
     }
 
-    public double ChorusScalePercent
+    public string MasterVolumePercentText => FormatPercent(_player.MasterVolumePercent);
+
+    public double ReverbReturnPercent
     {
-        get => _player.ChorusScalePercent;
+        get => _player.ReverbReturnPercent;
         set
         {
             var intValue = (int)Math.Round(value);
-            if (_player.ChorusScalePercent != intValue)
+            if (_player.ReverbReturnPercent != intValue)
             {
-                _player.ChorusScalePercent = intValue;
+                _player.ReverbReturnPercent = intValue;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(ReverbReturnPercentText));
             }
         }
     }
+
+    public string ReverbReturnPercentText => FormatPercent(_player.ReverbReturnPercent);
+
+    public double ChorusReturnPercent
+    {
+        get => _player.ChorusReturnPercent;
+        set
+        {
+            var intValue = (int)Math.Round(value);
+            if (_player.ChorusReturnPercent != intValue)
+            {
+                _player.ChorusReturnPercent = intValue;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ChorusReturnPercentText));
+            }
+        }
+    }
+
+    public string ChorusReturnPercentText => FormatPercent(_player.ChorusReturnPercent);
 
     public IBrush LoopButtonBackground => _player.IsLooping ? LoopEnabledBackgroundBrush : LoopDisabledBackgroundBrush;
 
     public IBrush LoopButtonBorderBrush => _player.IsLooping ? LoopEnabledBorderBrush : LoopDisabledBorderBrush;
 
     public IBrush LoopButtonForeground => _player.IsLooping ? LoopEnabledForegroundBrush : LoopDisabledForegroundBrush;
+
+    public IBrush GlobalMixerButtonBackground => IsGlobalMixerPopupOpen ? MixerEnabledBackgroundBrush : MixerDisabledBackgroundBrush;
+
+    public IBrush GlobalMixerButtonBorderBrush => IsGlobalMixerPopupOpen ? MixerEnabledBorderBrush : MixerDisabledBorderBrush;
+
+    public IBrush GlobalMixerButtonForeground => IsGlobalMixerPopupOpen ? MixerEnabledForegroundBrush : MixerDisabledForegroundBrush;
 
     private async void OnOpenMidiClicked(object? sender, RoutedEventArgs e)
     {
@@ -336,26 +436,85 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void OnLoopClicked(object? sender, RoutedEventArgs e)
     {
+        CloseChannelMixerPopup();
         _player.IsLooping = !_player.IsLooping;
         OnPropertyChanged(nameof(LoopButtonBackground));
         OnPropertyChanged(nameof(LoopButtonBorderBrush));
         OnPropertyChanged(nameof(LoopButtonForeground));
     }
 
+    private void OnGlobalMixerClicked(object? sender, RoutedEventArgs e)
+    {
+        CloseChannelMixerPopup();
+        IsGlobalMixerPopupOpen = !IsGlobalMixerPopupOpen;
+    }
+
+    private void OnChannelMixerRequested(object? sender, ChannelMixerRequestedEventArgs e)
+    {
+        if (e.Channel == _selectedChannelIndex && IsChannelMixerPopupOpen)
+        {
+            CloseChannelMixerPopup();
+            return;
+        }
+
+        _selectedChannelIndex = e.Channel;
+        SelectedChannelMixStrip = ChannelMixRows[e.Channel];
+        IsChannelMixerPopupOpen = true;
+        IsGlobalMixerPopupOpen = false;
+        UpdateChannelMixerPopupPosition();
+    }
+
+    private void OnMasterVolumeSliderDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        MasterVolumePercent = BassMidiPlayer.DefaultMixPercent;
+        e.Handled = true;
+    }
+
+    private void OnChannelVolumeSliderDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is Control { DataContext: ChannelMixStrip strip })
+        {
+            strip.ResetVolume();
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnChannelReverbSliderDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is Control { DataContext: ChannelMixStrip strip })
+        {
+            strip.ResetReverbSend();
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnChannelChorusSliderDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is Control { DataContext: ChannelMixStrip strip })
+        {
+            strip.ResetChorusSend();
+        }
+
+        e.Handled = true;
+    }
+
     private void OnReverbSliderDoubleTapped(object? sender, TappedEventArgs e)
     {
-        ReverbScalePercent = BassMidiPlayer.DefaultEffectScalePercent;
+        ReverbReturnPercent = BassMidiPlayer.DefaultMixPercent;
         e.Handled = true;
     }
 
     private void OnChorusSliderDoubleTapped(object? sender, TappedEventArgs e)
     {
-        ChorusScalePercent = BassMidiPlayer.DefaultEffectScalePercent;
+        ChorusReturnPercent = BassMidiPlayer.DefaultMixPercent;
         e.Handled = true;
     }
 
     private void OnSeekPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        CloseChannelMixerPopup();
         if (!CanSeek)
         {
             return;
@@ -379,6 +538,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         catch (Exception ex)
         {
             StatusText = "Error: " + ex.Message;
+        }
+    }
+
+    private void OnWindowPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var sourceVisual = e.Source as Visual;
+        bool clickedChannelMixer = IsWithinVisual(sourceVisual, ChannelMonitorView) || IsWithinVisual(sourceVisual, ChannelMixerPopupHost);
+        bool clickedGlobalMixer = IsWithinVisual(sourceVisual, GlobalMixerButtonHost);
+
+        if (!clickedChannelMixer)
+        {
+            CloseChannelMixerPopup();
+        }
+
+        if (!clickedGlobalMixer)
+        {
+            IsGlobalMixerPopupOpen = false;
         }
     }
 
@@ -425,6 +601,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task<string?> PickSingleFileAsync(FilePickerFileType fileType)
     {
+        CloseChannelMixerPopup();
+        IsGlobalMixerPopupOpen = false;
         if (StorageProvider is null || !StorageProvider.CanOpen)
         {
             StatusText = "File picker not supported.";
@@ -492,8 +670,97 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : bpm.ToString("0.0");
     }
 
+    private static string FormatPercent(double percent)
+        => $"{Math.Round(percent):0}%";
+
     private bool IsPlaybackAtEnd()
         => DurationSeconds > 0 && PositionSeconds >= Math.Max(0, DurationSeconds - 0.05);
+
+    private void CloseChannelMixerPopup()
+    {
+        _selectedChannelIndex = -1;
+        SelectedChannelMixStrip = null;
+        IsChannelMixerPopupOpen = false;
+    }
+
+    private void UpdateChannelMixerPopupPosition()
+    {
+        if (!IsChannelMixerPopupOpen || _selectedChannelIndex < 0)
+        {
+            return;
+        }
+
+        double width = ChannelMonitorView.Bounds.Width;
+        if (width <= 0)
+        {
+            ChannelMixerPopupLeft = 0;
+            ChannelMixerPopupPointerLeft = ChannelMixerPopupPointerInset;
+            ChannelMixerPopupOutlinePathData = CreateChannelMixerPopupOutlinePath(ChannelMixerPopupPointerLeft);
+            return;
+        }
+
+        double itemWidth = width / 16d;
+        double channelCenter = (_selectedChannelIndex * itemWidth) + (itemWidth / 2d);
+        double centeredLeft = channelCenter - (ChannelMixerPopupWidth / 2d);
+        double maxLeft = Math.Max(0, width - ChannelMixerPopupWidth);
+        ChannelMixerPopupLeft = Math.Clamp(centeredLeft, 0, maxLeft);
+        double pointerLeft = channelCenter - ChannelMixerPopupLeft - (ChannelMixerPopupPointerWidth / 2d);
+        double maxPointerLeft = Math.Max(ChannelMixerPopupPointerInset, ChannelMixerPopupWidth - ChannelMixerPopupPointerWidth - ChannelMixerPopupPointerInset);
+        ChannelMixerPopupPointerLeft = Math.Clamp(pointerLeft, ChannelMixerPopupPointerInset, maxPointerLeft);
+        ChannelMixerPopupOutlinePathData = CreateChannelMixerPopupOutlinePath(ChannelMixerPopupPointerLeft);
+    }
+
+    private ChannelMixStrip[] CreateChannelMixRows()
+    {
+        var rows = new ChannelMixStrip[16];
+        for (int i = 0; i < rows.Length; i++)
+        {
+            rows[i] = new ChannelMixStrip(_player, i);
+        }
+
+        return rows;
+    }
+
+    private static bool IsWithinVisual(Visual? source, Visual? target)
+    {
+        for (var current = source; current != null; current = current.GetVisualParent())
+        {
+            if (ReferenceEquals(current, target))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string CreateChannelMixerPopupOutlinePath(double pointerLeft)
+    {
+        double width = ChannelMixerPopupWidth;
+        double height = ChannelMixerPopupHeight;
+        double radius = ChannelMixerPopupCornerRadius;
+        double bodyTop = ChannelMixerPopupPointerHeight;
+        double right = width;
+        double bottom = height;
+        double pointerCenter = pointerLeft + (ChannelMixerPopupPointerWidth / 2d);
+        double pointerRight = pointerLeft + ChannelMixerPopupPointerWidth;
+
+        return string.Create(CultureInfo.InvariantCulture, $"M {FormatCoord(radius)} {FormatCoord(bodyTop)} " +
+            $"L {FormatCoord(pointerLeft)} {FormatCoord(bodyTop)} " +
+            $"L {FormatCoord(pointerCenter)} 0 " +
+            $"L {FormatCoord(pointerRight)} {FormatCoord(bodyTop)} " +
+            $"L {FormatCoord(right - radius)} {FormatCoord(bodyTop)} " +
+            $"A {FormatCoord(radius)} {FormatCoord(radius)} 0 0 1 {FormatCoord(right)} {FormatCoord(bodyTop + radius)} " +
+            $"L {FormatCoord(right)} {FormatCoord(bottom - radius)} " +
+            $"A {FormatCoord(radius)} {FormatCoord(radius)} 0 0 1 {FormatCoord(right - radius)} {FormatCoord(bottom)} " +
+            $"L {FormatCoord(radius)} {FormatCoord(bottom)} " +
+            $"A {FormatCoord(radius)} {FormatCoord(radius)} 0 0 1 0 {FormatCoord(bottom - radius)} " +
+            $"L 0 {FormatCoord(bodyTop + radius)} " +
+            $"A {FormatCoord(radius)} {FormatCoord(radius)} 0 0 1 {FormatCoord(radius)} {FormatCoord(bodyTop)} Z");
+    }
+
+    private static string FormatCoord(double value)
+        => value.ToString("0.###", CultureInfo.InvariantCulture);
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
