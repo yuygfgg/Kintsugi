@@ -1,6 +1,7 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using MidiPlayer.App.Services;
@@ -27,11 +28,32 @@ public class ChannelMonitorControl : Control
     };
 
     private static readonly IBrush InactiveBrush = new SolidColorBrush(Color.Parse("#303030"));
+    private static readonly IBrush MutedBrush = new SolidColorBrush(Color.Parse("#1A1A1A"));
     private static readonly IPen OutlinePen = new Pen(new SolidColorBrush(Color.Parse("#111")), 1);
 
     public ChannelMonitorControl()
     {
         ClipToBounds = true;
+        Cursor = new Cursor(StandardCursorType.Hand);
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+
+        var player = Player;
+        if (player == null) return;
+
+        var point = e.GetCurrentPoint(this).Position;
+        var bounds = Bounds;
+        double itemWidth = bounds.Width / 16.0;
+
+        int ch = (int)(point.X / itemWidth);
+        if (ch >= 0 && ch < 16)
+        {
+            player.ToggleChannelMute(ch);
+            InvalidateVisual();
+        }
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -67,18 +89,23 @@ public class ChannelMonitorControl : Control
 
         for (int ch = 0; ch < 16; ch++)
         {
+            bool isMuted = player.IsChannelMuted(ch);
             bool isActive = false;
-            for (int i = 0; i < 128; i++)
+            if (!isMuted)
             {
-                if (player.ActiveNotes[ch, i])
+                for (int i = 0; i < 128; i++)
                 {
-                    isActive = true;
-                    break;
+                    if (player.ActiveNotes[ch, i])
+                    {
+                        isActive = true;
+                        break;
+                    }
                 }
             }
 
             var rect = new Rect(ch * itemWidth + 2, 2, itemWidth - 4, bounds.Height - 4);
-            context.DrawRectangle(isActive ? ChannelBrushes[ch] : InactiveBrush, OutlinePen, rect);
+            IBrush fill = isMuted ? MutedBrush : (isActive ? ChannelBrushes[ch] : InactiveBrush);
+            context.DrawRectangle(fill, OutlinePen, rect);
 
             // Draw channel number
             var text = new FormattedText(
@@ -87,7 +114,7 @@ public class ChannelMonitorControl : Control
                 FlowDirection.LeftToRight,
                 new Typeface("Arial"),
                 10,
-                Brushes.White);
+                isMuted ? Brushes.DimGray : Brushes.White);
             
             context.DrawText(text, new Point(rect.Center.X - text.Width / 2, rect.Center.Y - text.Height / 2));
         }

@@ -17,8 +17,54 @@ public sealed class BassMidiPlayer : IDisposable
     private MidiSystem _systemMode = MidiSystem.Default;
     private int _sampleRate = 44100;
     private TempoPoint[] _tempoMap = [new(0, 60_000_000d / DefaultTempoMicrosecondsPerQuarterNote)];
-    private static readonly MidiFilterProcedure SystemModeFilter =
-        static (_, _, midiEvent, _, _) => midiEvent.EventType is not MidiEventType.System and not MidiEventType.SystemEx;
+    private MidiFilterProcedure? _midiFilter;
+    private readonly bool[] _channelMuted = new bool[16];
+
+    public bool IsChannelMuted(int channel)
+    {
+        if ((uint)channel >= 16) return false;
+        return _channelMuted[channel];
+    }
+
+    public void ToggleChannelMute(int channel)
+    {
+        if ((uint)channel >= 16) return;
+
+        _channelMuted[channel] = !_channelMuted[channel];
+        if (_channelMuted[channel] && _streamHandle != 0)
+        {
+            BassMidi.StreamEvent(_streamHandle, channel, MidiEventType.NotesOff, 0);
+            BassMidi.StreamEvent(_streamHandle, channel, MidiEventType.SoundOff, 0);
+            ClearChannelNotes(channel);
+        }
+        else if (_channelMuted[channel])
+        {
+            ClearChannelNotes(channel);
+        }
+        NotesChanged?.Invoke();
+    }
+
+    private bool FilterMidiEvent(int handle, int track, MidiEvent midiEvent, bool hirhythm, IntPtr user)
+    {
+        if (_systemMode != MidiSystem.Default && midiEvent.EventType is MidiEventType.System or MidiEventType.SystemEx)
+        {
+            return false;
+        }
+
+        if (midiEvent.Channel >= 0 && midiEvent.Channel < 16 && _channelMuted[midiEvent.Channel])
+        {
+            if (midiEvent.EventType == MidiEventType.Note)
+            {
+                int velocity = (midiEvent.Parameter >> 8) & 0xFF;
+                if (velocity > 0)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
 
     public int SampleRate
     {
@@ -137,23 +183,30 @@ public sealed class BassMidiPlayer : IDisposable
 
     private void RegisterMidiSyncs()
     {
-        _syncProcs = new SyncProcedure[16];
-        for (int ch = 0; ch < 16; ch++)
+        _syncProcs = new SyncProcedure[4];
+        _syncProcs[0] = (_, _, data, _) =>
         {
-            int chIndex = ch;
-            int param = (int)MidiEventType.Note | (chIndex << 16);
-            _syncProcs[chIndex] = (handle, channel, data, user) =>
+            int note = data & 0xFF;
+            int velocity = (data >> 8) & 0xFF;
+            int midiChannel = GetMidiSyncChannel(data);
+            if ((uint)midiChannel >= ActiveNotes.GetLength(0) || note >= ActiveNotes.GetLength(1))
             {
-                int note = data & 0xFF;
-                int velocity = (data >> 8) & 0xFF;
-                if (note < 128)
-                {
-                    ActiveNotes[chIndex, note] = velocity > 0;
-                    NotesChanged?.Invoke();
-                }
-            };
-            Bass.ChannelSetSync(_streamHandle, SyncFlags.MidiEvent, param, _syncProcs[chIndex]);
-        }
+                return;
+            }
+
+            ActiveNotes[midiChannel, note] = velocity > 0;
+            NotesChanged?.Invoke();
+        };
+        RegisterMidiEventSync(MidiEventType.Note, _syncProcs[0]);
+
+        _syncProcs[1] = (_, _, data, _) => ClearChannelNotes(GetMidiSyncChannel(data));
+        RegisterMidiEventSync(MidiEventType.NotesOff, _syncProcs[1]);
+
+        _syncProcs[2] = (_, _, data, _) => ClearChannelNotes(GetMidiSyncChannel(data));
+        RegisterMidiEventSync(MidiEventType.SoundOff, _syncProcs[2]);
+
+        _syncProcs[3] = (_, _, data, _) => ClearChannelNotes(GetMidiSyncChannel(data));
+        RegisterMidiEventSync(MidiEventType.Reset, _syncProcs[3]);
 
         _loopSyncProc = (_, _, _, _) =>
         {
@@ -170,6 +223,14 @@ public sealed class BassMidiPlayer : IDisposable
         if (Bass.ChannelSetSync(_streamHandle, SyncFlags.End | SyncFlags.Mixtime, 0, _loopSyncProc) == 0)
         {
             throw CreateBassException("Failed to register playback loop");
+        }
+    }
+
+    private void RegisterMidiEventSync(MidiEventType eventType, SyncProcedure syncProc)
+    {
+        if (Bass.ChannelSetSync(_streamHandle, SyncFlags.MidiEvent, (long)eventType, syncProc) == 0)
+        {
+            throw CreateBassException($"Failed to register {eventType} sync");
         }
     }
 
@@ -228,6 +289,34 @@ public sealed class BassMidiPlayer : IDisposable
         NotesChanged?.Invoke();
     }
 
+    private void ClearChannelNotes(int channel)
+    {
+        if ((uint)channel >= ActiveNotes.GetLength(0))
+        {
+            return;
+        }
+
+        bool changed = false;
+        for (int note = 0; note < ActiveNotes.GetLength(1); note++)
+        {
+            if (!ActiveNotes[channel, note])
+            {
+                continue;
+            }
+
+            ActiveNotes[channel, note] = false;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            NotesChanged?.Invoke();
+        }
+    }
+
+    private static int GetMidiSyncChannel(int data)
+        => (data >> 16) & 0xFFFF;
+
     public void LoadSoundFont(string path)
     {
         EnsureInitialized();
@@ -280,7 +369,7 @@ public sealed class BassMidiPlayer : IDisposable
             throw new ArgumentException("An output path is required.", nameof(options));
         }
 
-        ExportMidiToWav(MidiPath, SoundFontPath, options, _systemMode);
+        ExportMidiToWav(MidiPath, SoundFontPath, options, _systemMode, _channelMuted);
     }
 
     public void Play()
@@ -449,17 +538,22 @@ public sealed class BassMidiPlayer : IDisposable
 
     private void ConfigureSystemModeBehavior()
     {
-        if (_streamHandle == 0 || _systemMode == MidiSystem.Default)
+        if (_streamHandle == 0)
         {
             return;
         }
 
-        if (!BassMidi.StreamSetFilter(_streamHandle, true, SystemModeFilter, IntPtr.Zero))
+        _midiFilter ??= FilterMidiEvent;
+
+        if (!BassMidi.StreamSetFilter(_streamHandle, true, _midiFilter, IntPtr.Zero))
         {
-            throw CreateBassException("Failed to install system mode filter");
+            throw CreateBassException("Failed to install MIDI filter");
         }
 
-        ApplySystemMode(_streamHandle, _systemMode);
+        if (_systemMode != MidiSystem.Default)
+        {
+            ApplySystemMode(_streamHandle, _systemMode);
+        }
     }
 
     private void ReapplySystemModeOverride()
@@ -498,23 +592,39 @@ public sealed class BassMidiPlayer : IDisposable
         }
     }
 
-    private static void ConfigureSystemModeBehavior(int streamHandle, MidiSystem systemMode)
+    private static void ConfigureExportFilter(int streamHandle, MidiSystem systemMode, bool[]? channelMuted, out MidiFilterProcedure filter)
     {
-        if (systemMode == MidiSystem.Default)
+        filter = (handle, track, midiEvent, hirhythm, user) =>
         {
-            return;
+            if (systemMode != MidiSystem.Default && midiEvent.EventType is MidiEventType.System or MidiEventType.SystemEx)
+            {
+                return false;
+            }
+
+            if (channelMuted != null && midiEvent.Channel >= 0 && midiEvent.Channel < 16 && channelMuted[midiEvent.Channel])
+            {
+                if (midiEvent.EventType == MidiEventType.Note)
+                {
+                    int velocity = (midiEvent.Parameter >> 8) & 0xFF;
+                    if (velocity > 0)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        };
+
+        if (!BassMidi.StreamSetFilter(streamHandle, true, filter, IntPtr.Zero))
+        {
+            throw CreateBassException("Failed to install export MIDI filter");
         }
 
-        if (!BassMidi.StreamSetFilter(
-                streamHandle,
-                true,
-                SystemModeFilter,
-                IntPtr.Zero))
+        if (systemMode != MidiSystem.Default)
         {
-            throw CreateBassException("Failed to install export system mode filter");
+            ApplySystemMode(streamHandle, systemMode);
         }
-
-        ApplySystemMode(streamHandle, systemMode);
     }
 
     private void EnsureStreamLoaded()
@@ -558,7 +668,8 @@ public sealed class BassMidiPlayer : IDisposable
         string midiPath,
         string soundFontPath,
         WavExportOptions options,
-        MidiSystem systemMode)
+        MidiSystem systemMode,
+        bool[]? channelMuted)
     {
         int exportStreamHandle = 0;
         int exportFontHandle = 0;
@@ -585,9 +696,10 @@ public sealed class BassMidiPlayer : IDisposable
 
             ApplySoundFont(exportStreamHandle, exportFontHandle);
 
-            ConfigureSystemModeBehavior(exportStreamHandle, systemMode);
+            ConfigureExportFilter(exportStreamHandle, systemMode, channelMuted, out MidiFilterProcedure filter);
 
             WriteWaveFile(exportStreamHandle, options);
+            GC.KeepAlive(filter);
         }
         finally
         {
