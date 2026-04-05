@@ -1,6 +1,6 @@
 # Kintsugi Midi Player
 
-Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI loading, live visualizers, an interactive EQ, transport controls, tempo override, global transpose, per-channel mixing, and offline audio export.
+Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI loading, live visualizers, an interactive EQ, transport controls, tempo override, global transpose, per-channel mixing, a live MIDI event browser, and offline audio export.
 
 ## Build
 
@@ -24,8 +24,6 @@ This bundle includes the native BASS/BASSMIDI/BASSenc libraries needed for playb
 
 ## User Manual
 
-Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, drag-and-drop MIDI loading, live note and spectrum visualization, an interactive EQ, per-channel mixing, tempo override, global transpose, and offline audio export.
-
 ### 1. Supported Files
 
 - MIDI input: `.mid`, `.midi`, `.kar`, `.rmi`
@@ -38,7 +36,8 @@ Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, dra
 2. Open a MIDI file. The bundled `GeneralUser-GS.sf2` default SoundFont loads automatically in packaged builds. All other MIDI files in the same directory will automatically be imported into the Playlist.
 3. Optional: click the gear button and replace it with your own SoundFont (`.sf2` or `.sfz`).
 4. Use the transport controls at the bottom to play, pause, seek, or loop the track.
-5. Click `EXPORT AUDIO` if you want to render the current track to an audio file.
+5. Click `EVENTS` if you want to inspect the current MIDI file's raw event stream while it plays.
+6. Click `EXPORT AUDIO` if you want to render the current track to an audio file.
 
 ### 3. Main Window Overview
 
@@ -55,7 +54,31 @@ The header shows:
 - A status badge such as `Ready to play`, `Playing`, `Paused`, `Finished`, or an error message
 - `OPEN FILE`
 - `EXPORT AUDIO`
+- `EVENTS`
 - The settings button
+
+#### Event Browser
+
+Click `EVENTS` in the header to open the MIDI Event Browser for the currently loaded file.
+
+The Event Browser opens as a separate window, so it can stay visible while you continue using the main player window.
+
+It shows:
+
+- Track number
+- Musical position
+- Absolute time
+- Event type
+- MIDI channel
+- Event number or controller/program identifier
+- Event value
+- A readable summary
+
+While playback is running, the Event Browser follows the current playback position automatically:
+
+- It scrolls to the most recent event at or before the current playback tick
+- It highlights currently effective rows
+- Channel-colored rows use the same per-channel color palette as the `CHANNEL ACTIVITY` strip
 
 #### Channel Activity
 
@@ -409,6 +432,7 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 | Action                         | Result                                             |
 | ------------------------------ | -------------------------------------------------- |
 | `OPEN FILE`                    | Load a MIDI file                                   |
+| `EVENTS`                       | Open the MIDI Event Browser                        |
 | `◀` tab (Right Edge)           | Slide out the Playlist drawer                      |
 | `EXPORT AUDIO`                 | Render the current track to WAV, FLAC, or Opus     |
 | `Space`                        | Play or pause                                      |

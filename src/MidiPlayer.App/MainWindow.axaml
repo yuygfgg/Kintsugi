@@ -58,7 +58,7 @@
   <Panel>
     <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
       <!-- Header -->
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,16">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,16">
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalAlignment="Center" ClipToBounds="True" Margin="0,0,12,0">
         <TextBlock Text="KINTSUGI MIDI PLAYER" FontSize="16" FontWeight="Bold" Foreground="#4A90E2" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1"
@@ -90,7 +90,17 @@
         <Button Grid.Column="2" Click="OnExportWavClicked" Classes="iconBtn actionBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0" IsEnabled="{Binding CanExport}">
           <TextBlock Text="{Binding ExportButtonText}" Foreground="#DCEEFF" />
         </Button>
-        <Button Grid.Column="3" Classes="iconBtn" Click="OnSettingsClicked" ToolTip.Tip="Settings" IsEnabled="{Binding CanOpenSettings}">
+        <Button Grid.Column="3"
+                Click="OnBrowseMidiEventsClicked"
+                Classes="iconBtn"
+                FontSize="11"
+                FontWeight="Bold"
+                Margin="0,0,8,0"
+                IsEnabled="{Binding CanBrowseMidiEvents}"
+                ToolTip.Tip="Browse the current MIDI file's raw events">
+          <TextBlock Text="EVENTS" Foreground="#C8D7E6" />
+        </Button>
+        <Button Grid.Column="4" Classes="iconBtn" Click="OnSettingsClicked" ToolTip.Tip="Settings" IsEnabled="{Binding CanOpenSettings}">
           <TextBlock Text="⚙" FontSize="14" />
         </Button>
       </Grid>

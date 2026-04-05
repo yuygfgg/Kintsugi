@@ -1,0 +1,135 @@
+<Window
+    x:Class="MidiPlayer.App.MidiEventsWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:MidiPlayer.App.Models"
+    mc:Ignorable="d"
+    Width="1120"
+    Height="720"
+    MinWidth="920"
+    MinHeight="520"
+    Title="MIDI Event Browser"
+    WindowStartupLocation="CenterScreen"
+    Background="#101010">
+  <Window.Styles>
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="#E0E0E0" />
+    </Style>
+    <Style Selector="ListBox">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#1F2430" />
+    </Style>
+    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="#203A57" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*" Margin="16">
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+      <StackPanel Spacing="4">
+        <TextBlock Text="MIDI EVENT BROWSER" FontSize="16" FontWeight="Bold" Foreground="#4A90E2" />
+        <TextBlock Text="{Binding FileName}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+        <TextBlock Text="{Binding FilePath}" FontSize="11" Foreground="#7F8B99" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+
+      <Border
+          Grid.Column="1"
+          Background="#171717"
+          BorderBrush="#2F2F2F"
+          BorderThickness="1"
+          CornerRadius="999"
+          Padding="10,4"
+          VerticalAlignment="Top">
+        <TextBlock Text="{Binding SummaryText}"
+                   FontSize="11"
+                   FontWeight="SemiBold"
+                   Foreground="#B6D6F8" />
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="1"
+            Margin="0,0,0,12"
+            Background="#151515"
+            BorderBrush="#2C2C2C"
+            BorderThickness="1"
+            CornerRadius="6"
+            Padding="0">
+      <Grid ColumnDefinitions="68,118,118,84,72,78,78,*" Margin="12,8">
+        <TextBlock Text="Track" FontSize="11" FontWeight="Bold" Foreground="#6E87A0" />
+        <TextBlock Grid.Column="1" Text="Position" FontSize="11" FontWeight="Bold" Foreground="#6E87A0" />
+        <TextBlock Grid.Column="2" Text="Time" FontSize="11" FontWeight="Bold" Foreground="#6E87A0" />
+        <TextBlock Grid.Column="3" Text="Status" FontSize="11" FontWeight="Bold" Foreground="#6E87A0" />
+        <TextBlock Grid.Column="4" Text="Channel" FontSize="11" FontWeight="Bold" Foreground="#6E87A0" />
+        <TextBlock Grid.Column="5" Text="Number" FontSize="11" FontWeight="Bold" Foreground="#6E87A0" />
+        <TextBlock Grid.Column="6" Text="Value" FontSize="11" FontWeight="Bold" Foreground="#6E87A0" />
+        <TextBlock Grid.Column="7" Text="Length / Summary" FontSize="11" FontWeight="Bold" Foreground="#6E87A0" />
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2"
+            Background="#181818"
+            BorderBrush="#333333"
+            BorderThickness="1"
+            CornerRadius="6"
+            ClipToBounds="True">
+      <Grid>
+        <ListBox x:Name="RowsListBox" ItemsSource="{Binding Rows}" IsVisible="{Binding !IsEmpty}">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="models:MidiEventBrowserRow">
+              <Border ToolTip.Tip="{Binding ToolTipText}"
+                      Background="{Binding BackgroundBrush}">
+                <Grid ColumnDefinitions="68,118,118,84,72,78,78,*" Margin="12,0" Height="32">
+                  <TextBlock Text="{Binding TrackText}" VerticalAlignment="Center" FontFamily="Courier New" Foreground="{Binding ForegroundBrush}" FontWeight="{Binding FontWeight}" />
+                  <TextBlock Grid.Column="1" Text="{Binding LocationText}" VerticalAlignment="Center" FontFamily="Courier New" Foreground="{Binding ForegroundBrush}" FontWeight="{Binding FontWeight}" />
+                  <TextBlock Grid.Column="2" Text="{Binding TimeText}" VerticalAlignment="Center" FontFamily="Courier New" Foreground="{Binding ForegroundBrush}" FontWeight="{Binding FontWeight}" />
+                  <TextBlock Grid.Column="3" Text="{Binding StatusText}" VerticalAlignment="Center" Foreground="{Binding ForegroundBrush}" FontWeight="{Binding FontWeight}" />
+                  <TextBlock Grid.Column="4" Text="{Binding ChannelText}" VerticalAlignment="Center" FontFamily="Courier New" Foreground="{Binding ForegroundBrush}" FontWeight="{Binding FontWeight}" />
+                  <TextBlock Grid.Column="5" Text="{Binding NumberText}" VerticalAlignment="Center" FontFamily="Courier New" Foreground="{Binding ForegroundBrush}" FontWeight="{Binding FontWeight}" />
+                  <TextBlock Grid.Column="6" Text="{Binding ValueText}" VerticalAlignment="Center" FontFamily="Courier New" Foreground="{Binding ForegroundBrush}" FontWeight="{Binding FontWeight}" />
+                  <TextBlock Grid.Column="7"
+                             Text="{Binding SummaryText}"
+                             VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis"
+                             Foreground="{Binding ForegroundBrush}"
+                             FontWeight="{Binding FontWeight}" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel IsVisible="{Binding IsEmpty}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="8">
+          <TextBlock Text="{Binding EmptyStateTitle}"
+                     FontSize="14"
+                     FontWeight="Bold"
+                     Foreground="#A7B7C8"
+                     HorizontalAlignment="Center" />
+          <TextBlock Text="{Binding EmptyStateText}"
+                     FontSize="12"
+                     Foreground="#788696"
+                     HorizontalAlignment="Center"
+                     TextAlignment="Center" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

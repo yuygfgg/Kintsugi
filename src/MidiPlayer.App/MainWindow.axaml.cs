@@ -62,6 +62,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly AppSettings _settings;
     private readonly SystemMediaControls _mediaControls;
     private readonly DispatcherTimer _positionTimer;
+    private MidiEventsWindow? _midiEventsWindow;
     private bool _isScrubbing;
     private bool _isUpdatingPosition;
     private bool _isExporting;
@@ -303,6 +304,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool CanOpenSettings => !_isExporting;
 
     public bool CanExport => _player.HasStream && !_isExporting;
+
+    public bool CanBrowseMidiEvents => _player.HasStream && !_isExporting && !string.IsNullOrWhiteSpace(_player.MidiPath);
 
     public string ExportButtonText => _isExporting ? "EXPORTING..." : "EXPORT AUDIO";
 
@@ -625,6 +628,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var settingsWindow = new SettingsWindow(_player);
         settingsWindow.ShowDialog(this);
+    }
+
+    private async void OnBrowseMidiEventsClicked(object? sender, RoutedEventArgs e)
+    {
+        if (!CanBrowseMidiEvents || string.IsNullOrWhiteSpace(_player.MidiPath))
+        {
+            return;
+        }
+
+        if (_midiEventsWindow is null)
+        {
+            _midiEventsWindow = new MidiEventsWindow(_player);
+            _midiEventsWindow.Closed += OnMidiEventsWindowClosed;
+            _midiEventsWindow.Show();
+        }
+        else if (!_midiEventsWindow.IsVisible)
+        {
+            _midiEventsWindow.Show();
+        }
+
+        await _midiEventsWindow.LoadMidiAsync(_player.MidiPath);
+        _midiEventsWindow.Activate();
     }
 
     private async void OnExportWavClicked(object? sender, RoutedEventArgs e)
@@ -1120,6 +1145,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(CanOpenMidi));
         OnPropertyChanged(nameof(CanOpenSettings));
         OnPropertyChanged(nameof(CanExport));
+        OnPropertyChanged(nameof(CanBrowseMidiEvents));
         OnPropertyChanged(nameof(ExportButtonText));
         OnPropertyChanged(nameof(CanAdjustPlaybackModifiers));
         OnPropertyChanged(nameof(PlayPauseIcon));
@@ -1171,6 +1197,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _positionTimer.Stop();
+        if (_midiEventsWindow is not null)
+        {
+            _midiEventsWindow.Closed -= OnMidiEventsWindowClosed;
+            _midiEventsWindow.Close();
+            _midiEventsWindow = null;
+        }
+
         _mediaControls.Dispose();
         _player.Dispose();
     }
@@ -1434,6 +1467,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             RefreshTransport(resetPosition: true);
             _mediaControls.UpdateNowPlaying(title, "Kintsugi Midi Player", DurationSeconds, PositionSeconds);
             _mediaControls.UpdatePlaybackState(true, PositionSeconds);
+            if (_midiEventsWindow is not null)
+            {
+                _ = _midiEventsWindow.LoadMidiAsync(path);
+            }
 
             if (!isFromPlaylist)
             {
@@ -1611,6 +1648,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(CanOpenMidi));
         OnPropertyChanged(nameof(CanOpenSettings));
         OnPropertyChanged(nameof(CanExport));
+        OnPropertyChanged(nameof(CanBrowseMidiEvents));
         OnPropertyChanged(nameof(ExportButtonText));
     }
 
@@ -1636,5 +1674,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    private void OnMidiEventsWindowClosed(object? sender, EventArgs e)
+    {
+        if (_midiEventsWindow is null)
+        {
+            return;
+        }
+
+        _midiEventsWindow.Closed -= OnMidiEventsWindowClosed;
+        _midiEventsWindow = null;
     }
 }

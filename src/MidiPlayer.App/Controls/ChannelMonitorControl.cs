@@ -20,16 +20,6 @@ public class ChannelMonitorControl : Control
         set => SetValue(PlayerProperty, value);
     }
 
-    private static readonly IBrush[] ChannelBrushes =
-    {
-        Brushes.Red, Brushes.Orange, Brushes.Yellow, Brushes.LimeGreen,
-        Brushes.Cyan, Brushes.DodgerBlue, Brushes.Indigo, Brushes.Violet,
-        Brushes.Magenta, Brushes.Purple, Brushes.DeepPink, Brushes.Goldenrod,
-        Brushes.Teal, Brushes.Navy, Brushes.Maroon, Brushes.Olive
-    };
-
-    private static readonly IBrush InactiveBrush = new SolidColorBrush(Color.Parse("#303030"));
-    private static readonly IBrush MutedBrush = new SolidColorBrush(Color.Parse("#1A1A1A"));
     private static readonly IPen OutlinePen = new Pen(new SolidColorBrush(Color.Parse("#111")), 1);
     private readonly DispatcherTimer _pendingMuteTimer;
     private int _pendingMuteChannel = -1;
@@ -268,7 +258,7 @@ public class ChannelMonitorControl : Control
             }
 
             var rect = new Rect(ch * itemWidth + 2, 2, itemWidth - 4, bounds.Height - 4);
-            IBrush fill = isMuted ? MutedBrush : (isActive ? ChannelBrushes[ch] : InactiveBrush);
+            IBrush fill = isMuted ? ChannelVisualPalette.MutedBrush : (isActive ? ChannelVisualPalette.ChannelBrushes[ch] : ChannelVisualPalette.InactiveBrush);
             context.DrawRectangle(fill, OutlinePen, rect);
 
             // Draw channel number
