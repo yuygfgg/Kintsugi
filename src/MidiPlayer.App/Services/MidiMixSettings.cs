@@ -6,6 +6,10 @@ public sealed class MidiMixSettings
 {
     public const int DefaultBiasValue = 0;
 
+    public int PlaybackSpeedPercent { get; set; } = BassMidiPlayer.DefaultPlaybackSpeedPercent;
+
+    public int PlaybackTransposeSemitones { get; set; } = BassMidiPlayer.DefaultTransposeSemitones;
+
     public int MasterVolumePercent { get; set; } = BassMidiPlayer.DefaultMixPercent;
 
     public int ReverbReturnPercent { get; set; } = BassMidiPlayer.DefaultMixPercent;
@@ -44,6 +48,8 @@ public sealed class MidiMixSettings
 
     public void Normalize()
     {
+        PlaybackSpeedPercent = NormalizeValue(PlaybackSpeedPercent, BassMidiPlayer.DefaultPlaybackSpeedPercent);
+        PlaybackTransposeSemitones = NormalizeValue(PlaybackTransposeSemitones, BassMidiPlayer.DefaultTransposeSemitones);
         ReverbReturnScalePercent = NormalizeValue(ReverbReturnScalePercent, BassMidiPlayer.DefaultMixPercent);
         ChorusReturnScalePercent = NormalizeValue(ChorusReturnScalePercent, BassMidiPlayer.DefaultMixPercent);
         ReverbReturnBiasValue = NormalizeValue(ReverbReturnBiasValue, DefaultBiasValue);
@@ -64,6 +70,8 @@ public sealed class MidiMixSettings
     public MidiMixSettings Clone()
         => new()
         {
+            PlaybackSpeedPercent = PlaybackSpeedPercent,
+            PlaybackTransposeSemitones = PlaybackTransposeSemitones,
             MasterVolumePercent = MasterVolumePercent,
             ReverbReturnPercent = ReverbReturnPercent,
             ChorusReturnPercent = ChorusReturnPercent,

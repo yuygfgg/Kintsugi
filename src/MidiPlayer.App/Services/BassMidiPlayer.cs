@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using ManagedBass;
@@ -108,6 +109,12 @@ public sealed class BassMidiPlayer : IDisposable
     public const int DefaultEffectScalePercent = DefaultMixPercent;
     public const int MinEffectScalePercent = MinMixPercent;
     public const int MaxEffectScalePercent = MaxMixPercent;
+    public const int DefaultPlaybackSpeedPercent = 100;
+    public const int MinPlaybackSpeedPercent = 25;
+    public const int MaxPlaybackSpeedPercent = 400;
+    public const int DefaultTransposeSemitones = 0;
+    public const int MinTransposeSemitones = -24;
+    public const int MaxTransposeSemitones = 24;
 
     private int _masterVolumePercent = DefaultMixPercent;
     private int _reverbReturnPercent = DefaultMixPercent;
@@ -118,6 +125,42 @@ public sealed class BassMidiPlayer : IDisposable
     private int _chorusReturnBiasValue = MidiMixSettings.DefaultBiasValue;
     private ChannelSendMode _reverbReturnMode = ChannelSendMode.Absolute;
     private ChannelSendMode _chorusReturnMode = ChannelSendMode.Absolute;
+    private int _playbackSpeedPercent = DefaultPlaybackSpeedPercent;
+    private int _transposeSemitones = DefaultTransposeSemitones;
+    private MidiTimeBase _timeBase = MidiTimeBase.Default;
+    private long _streamLengthTicks;
+
+    public int PlaybackSpeedPercent
+    {
+        get => _playbackSpeedPercent;
+        set
+        {
+            var clampedValue = Math.Clamp(value, MinPlaybackSpeedPercent, MaxPlaybackSpeedPercent);
+            if (_playbackSpeedPercent == clampedValue)
+            {
+                return;
+            }
+
+            _playbackSpeedPercent = clampedValue;
+            ApplyPlaybackSpeed();
+        }
+    }
+
+    public int TransposeSemitones
+    {
+        get => _transposeSemitones;
+        set
+        {
+            var clampedValue = Math.Clamp(value, MinTransposeSemitones, MaxTransposeSemitones);
+            if (_transposeSemitones == clampedValue)
+            {
+                return;
+            }
+
+            _transposeSemitones = clampedValue;
+            ApplyTranspose();
+        }
+    }
 
     public int MasterVolumePercent
     {
@@ -355,6 +398,8 @@ public sealed class BassMidiPlayer : IDisposable
 
     public MidiMixSettings CaptureMixSettings()
         => _channelMixer.CreateMixSettings(
+            _playbackSpeedPercent,
+            _transposeSemitones,
             _masterVolumePercent,
             _reverbReturnMode,
             _reverbReturnScalePercent,
@@ -370,6 +415,8 @@ public sealed class BassMidiPlayer : IDisposable
         var mixSettings = settings?.Clone() ?? new MidiMixSettings();
         mixSettings.Normalize();
 
+        _playbackSpeedPercent = Math.Clamp(mixSettings.PlaybackSpeedPercent, MinPlaybackSpeedPercent, MaxPlaybackSpeedPercent);
+        _transposeSemitones = Math.Clamp(mixSettings.PlaybackTransposeSemitones, MinTransposeSemitones, MaxTransposeSemitones);
         _masterVolumePercent = Math.Clamp(mixSettings.MasterVolumePercent, MinMixPercent, MaxMixPercent);
         _reverbReturnPercent = Math.Clamp(mixSettings.ReverbReturnPercent, MinMixPercent, MaxMixPercent);
         _chorusReturnPercent = Math.Clamp(mixSettings.ChorusReturnPercent, MinMixPercent, MaxMixPercent);
@@ -381,6 +428,7 @@ public sealed class BassMidiPlayer : IDisposable
         _chorusReturnMode = NormalizeMode(mixSettings.ChorusReturnMode, ChannelSendMode.Absolute);
 
         ApplyGlobalMixSettings();
+        ApplyPlaybackModifiers();
         _channelMixer.SetChannelMixSettings(
             mixSettings.ChannelVolumePercents,
             mixSettings.ChannelReverbSendPercents,
@@ -409,6 +457,170 @@ public sealed class BassMidiPlayer : IDisposable
             _chorusReturnScalePercent,
             _chorusReturnPercent,
             _chorusReturnBiasValue);
+
+    private void ApplyPlaybackModifiers()
+    {
+        ApplyPlaybackSpeed();
+        ApplyTranspose();
+    }
+
+    private void ApplyPlaybackSpeed()
+    {
+        if (_streamHandle == 0)
+        {
+            return;
+        }
+
+        if (!BassMidi.StreamEvent(_streamHandle, 0, MidiEventType.Speed, _playbackSpeedPercent * 100))
+        {
+            throw CreateBassException("Failed to apply playback speed");
+        }
+    }
+
+    private void ApplyTranspose()
+    {
+        if (_streamHandle == 0)
+        {
+            return;
+        }
+
+        ApplyTranspose(_streamHandle, _transposeSemitones);
+    }
+
+    private static void ApplyPlaybackModifiers(int streamHandle, int playbackSpeedPercent, int transposeSemitones)
+    {
+        if (!BassMidi.StreamEvent(
+            streamHandle,
+            0,
+            MidiEventType.Speed,
+            Math.Clamp(playbackSpeedPercent, MinPlaybackSpeedPercent, MaxPlaybackSpeedPercent) * 100))
+        {
+            throw CreateBassException("Failed to apply export playback speed");
+        }
+
+        ApplyTranspose(streamHandle, transposeSemitones);
+    }
+
+    private static void ApplyTranspose(int streamHandle, int transposeSemitones)
+    {
+        int transposeValue = Math.Clamp(transposeSemitones, MinTransposeSemitones, MaxTransposeSemitones) + 100;
+        for (int channel = 0; channel < 16; channel++)
+        {
+            if (!BassMidi.StreamEvent(streamHandle, channel, MidiEventType.Transpose, transposeValue))
+            {
+                throw CreateBassException("Failed to apply transpose");
+            }
+        }
+    }
+
+    private double GetPlaybackSpeedFactor()
+        => Math.Max(_playbackSpeedPercent, MinPlaybackSpeedPercent) / 100d;
+
+    private double TicksToSeconds(long ticks)
+    {
+        if (ticks <= 0)
+        {
+            return 0;
+        }
+
+        double speedFactor = GetPlaybackSpeedFactor();
+        return _timeBase.Kind switch
+        {
+            MidiTimeBaseKind.Ppq => ConvertPpqTicksToSeconds(ticks, speedFactor),
+            MidiTimeBaseKind.Smpte => ticks / (_timeBase.TicksPerSecond * speedFactor),
+            _ => 0
+        };
+    }
+
+    private long SecondsToTicks(double seconds)
+    {
+        if (seconds <= 0)
+        {
+            return 0;
+        }
+
+        double speedFactor = GetPlaybackSpeedFactor();
+        long ticks = _timeBase.Kind switch
+        {
+            MidiTimeBaseKind.Ppq => ConvertSecondsToPpqTicks(seconds, speedFactor),
+            MidiTimeBaseKind.Smpte => (long)Math.Round(seconds * _timeBase.TicksPerSecond * speedFactor),
+            _ => 0
+        };
+
+        return Math.Clamp(ticks, 0, _streamLengthTicks);
+    }
+
+    private double ConvertPpqTicksToSeconds(long ticks, double speedFactor)
+    {
+        if (_timeBase.TicksPerQuarterNote <= 0)
+        {
+            return 0;
+        }
+
+        long boundedTicks = Math.Clamp(ticks, 0, _streamLengthTicks);
+        double seconds = 0;
+        for (int i = 0; i < _tempoMap.Length; i++)
+        {
+            long segmentStart = _tempoMap[i].Tick;
+            if (boundedTicks <= segmentStart)
+            {
+                break;
+            }
+
+            long segmentEnd = i + 1 < _tempoMap.Length
+                ? _tempoMap[i + 1].Tick
+                : boundedTicks;
+            segmentEnd = Math.Min(segmentEnd, boundedTicks);
+
+            if (segmentEnd <= segmentStart)
+            {
+                continue;
+            }
+
+            seconds += GetTempoSegmentSeconds(segmentEnd - segmentStart, _tempoMap[i].Bpm, speedFactor);
+        }
+
+        return seconds;
+    }
+
+    private long ConvertSecondsToPpqTicks(double seconds, double speedFactor)
+    {
+        if (_timeBase.TicksPerQuarterNote <= 0 || seconds <= 0)
+        {
+            return 0;
+        }
+
+        double remainingSeconds = seconds;
+        for (int i = 0; i < _tempoMap.Length; i++)
+        {
+            long segmentStart = _tempoMap[i].Tick;
+            long segmentEnd = i + 1 < _tempoMap.Length
+                ? _tempoMap[i + 1].Tick
+                : _streamLengthTicks;
+
+            if (segmentEnd <= segmentStart)
+            {
+                continue;
+            }
+
+            long deltaTicks = segmentEnd - segmentStart;
+            double segmentSeconds = GetTempoSegmentSeconds(deltaTicks, _tempoMap[i].Bpm, speedFactor);
+            if (remainingSeconds <= segmentSeconds)
+            {
+                double ticksPerSecond = (_timeBase.TicksPerQuarterNote * _tempoMap[i].Bpm * speedFactor) / 60d;
+                return segmentStart + (long)Math.Round(remainingSeconds * ticksPerSecond);
+            }
+
+            remainingSeconds -= segmentSeconds;
+        }
+
+        return _streamLengthTicks;
+    }
+
+    private double GetTempoSegmentSeconds(long deltaTicks, double bpm, double speedFactor)
+        => deltaTicks <= 0 || bpm <= 0 || _timeBase.TicksPerQuarterNote <= 0
+            ? 0
+            : deltaTicks * 60d / (_timeBase.TicksPerQuarterNote * bpm * speedFactor);
 
     public int SampleRate
     {
@@ -522,9 +734,12 @@ public sealed class BassMidiPlayer : IDisposable
         ConfigureSystemModeBehavior();
 
         RegisterMidiSyncs();
+        _timeBase = MidiTimeBase.Load(path);
         BuildTempoMap();
+        _streamLengthTicks = Math.Max(0, Bass.ChannelGetLength(_streamHandle, PositionFlags.MIDITick));
 
         _channelMixer.ResetTrackedValues();
+        ApplyPlaybackModifiers();
         ReapplyMixerState();
     }
 
@@ -568,8 +783,9 @@ public sealed class BassMidiPlayer : IDisposable
             }
 
             _channelMixer.ResetTrackedValues();
-            Bass.ChannelSetPosition(_streamHandle, 0, PositionFlags.Bytes);
+            Bass.ChannelSetPosition(_streamHandle, 0, PositionFlags.MIDITick);
             ReapplySystemModeOverride();
+            ApplyPlaybackModifiers();
             ReapplyMixerState();
             ClearNotes();
         };
@@ -797,15 +1013,25 @@ public sealed class BassMidiPlayer : IDisposable
         }
 
         var boundedSeconds = Math.Clamp(seconds, 0, GetDurationSeconds());
-        var bytePosition = Bass.ChannelSeconds2Bytes(_streamHandle, boundedSeconds);
-
         _channelMixer.ResetTrackedValues();
-        if (!Bass.ChannelSetPosition(_streamHandle, bytePosition, PositionFlags.Bytes))
+        bool positioned = false;
+        if (_streamLengthTicks > 0)
         {
-            throw CreateBassException("Failed to seek");
+            var tickPosition = SecondsToTicks(boundedSeconds);
+            positioned = Bass.ChannelSetPosition(_streamHandle, tickPosition, PositionFlags.MIDITick);
+        }
+
+        if (!positioned)
+        {
+            var bytePosition = Bass.ChannelSeconds2Bytes(_streamHandle, boundedSeconds);
+            if (!Bass.ChannelSetPosition(_streamHandle, bytePosition, PositionFlags.Bytes))
+            {
+                throw CreateBassException("Failed to seek");
+            }
         }
 
         ReapplySystemModeOverride();
+        ApplyPlaybackModifiers();
         ReapplyMixerState();
         ClearNotes();
     }
@@ -815,6 +1041,11 @@ public sealed class BassMidiPlayer : IDisposable
         if (_streamHandle == 0)
         {
             return 0;
+        }
+
+        if (_streamLengthTicks > 0)
+        {
+            return TicksToSeconds(_streamLengthTicks);
         }
 
         var lengthInBytes = Bass.ChannelGetLength(_streamHandle, PositionFlags.Bytes);
@@ -830,6 +1061,12 @@ public sealed class BassMidiPlayer : IDisposable
             return 0;
         }
 
+        var positionInTicks = Bass.ChannelGetPosition(_streamHandle, PositionFlags.MIDITick);
+        if (positionInTicks > 0)
+        {
+            return TicksToSeconds(positionInTicks);
+        }
+
         var positionInBytes = Bass.ChannelGetPosition(_streamHandle, PositionFlags.Bytes);
         return positionInBytes <= 0
             ? 0
@@ -838,7 +1075,7 @@ public sealed class BassMidiPlayer : IDisposable
 
     public double GetCurrentBpm()
     {
-        if (_streamHandle == 0 || _tempoMap.Length == 0)
+        if (_streamHandle == 0 || _tempoMap.Length == 0 || _timeBase.Kind != MidiTimeBaseKind.Ppq)
         {
             return 0;
         }
@@ -846,7 +1083,7 @@ public sealed class BassMidiPlayer : IDisposable
         var tickPosition = Bass.ChannelGetPosition(_streamHandle, PositionFlags.MIDITick);
         if (tickPosition < 0)
         {
-            return _tempoMap[0].Bpm;
+            return _tempoMap[0].Bpm * GetPlaybackSpeedFactor();
         }
 
         int low = 0;
@@ -864,7 +1101,7 @@ public sealed class BassMidiPlayer : IDisposable
             }
         }
 
-        return _tempoMap[low].Bpm;
+        return _tempoMap[low].Bpm * GetPlaybackSpeedFactor();
     }
 
     public int GetFFTData(float[] buffer)
@@ -1052,6 +1289,8 @@ public sealed class BassMidiPlayer : IDisposable
         _syncProcs = null;
         _loopSyncProc = null;
         _tempoMap = [new(0, 60_000_000d / DefaultTempoMicrosecondsPerQuarterNote)];
+        _timeBase = MidiTimeBase.Default;
+        _streamLengthTicks = 0;
         _channelMixer.ResetTrackedValues();
         Bass.StreamFree(_streamHandle);
         _streamHandle = 0;
@@ -1137,6 +1376,7 @@ public sealed class BassMidiPlayer : IDisposable
                 mixSettings.ChannelReverbSendBiasValues,
                 mixSettings.ChannelChorusSendBiasValues);
             ConfigureExportFilter(exportStreamHandle, systemMode, channelMuted, mixerState, out MidiFilterProcedure filter, out SyncProcedure resetSync);
+            ApplyPlaybackModifiers(exportStreamHandle, mixSettings.PlaybackSpeedPercent, mixSettings.PlaybackTransposeSemitones);
             mixerState.ApplyAll(exportStreamHandle);
 
             WriteWaveFile(exportStreamHandle, options);
@@ -1666,6 +1906,8 @@ public sealed class BassMidiPlayer : IDisposable
         }
 
         public MidiMixSettings CreateMixSettings(
+            int playbackSpeedPercent,
+            int playbackTransposeSemitones,
             int masterVolumePercent,
             ChannelSendMode reverbReturnMode,
             int reverbReturnScalePercent,
@@ -1680,6 +1922,8 @@ public sealed class BassMidiPlayer : IDisposable
             {
                 return new MidiMixSettings
                 {
+                    PlaybackSpeedPercent = Math.Clamp(playbackSpeedPercent, MinPlaybackSpeedPercent, MaxPlaybackSpeedPercent),
+                    PlaybackTransposeSemitones = Math.Clamp(playbackTransposeSemitones, MinTransposeSemitones, MaxTransposeSemitones),
                     MasterVolumePercent = ClampMixPercent(masterVolumePercent),
                     ReverbReturnPercent = ClampMixPercent(reverbReturnAbsoluteValue),
                     ChorusReturnPercent = ClampMixPercent(chorusReturnAbsoluteValue),
@@ -2069,4 +2313,162 @@ public sealed class BassMidiPlayer : IDisposable
     }
 
     private readonly record struct TempoPoint(long Tick, double Bpm);
+
+    private enum MidiTimeBaseKind
+    {
+        Unknown,
+        Ppq,
+        Smpte
+    }
+
+    private readonly record struct MidiTimeBase(MidiTimeBaseKind Kind, int TicksPerQuarterNote, double TicksPerSecond)
+    {
+        public static MidiTimeBase Default => new(MidiTimeBaseKind.Ppq, 480, 0);
+
+        public static MidiTimeBase Load(string path)
+        {
+            try
+            {
+                return TryReadDivision(path, out ushort division)
+                    ? Create(division)
+                    : Default;
+            }
+            catch
+            {
+                return Default;
+            }
+        }
+
+        private static MidiTimeBase Create(ushort division)
+        {
+            if ((division & 0x8000) == 0)
+            {
+                int ticksPerQuarterNote = division == 0 ? Default.TicksPerQuarterNote : division;
+                return new MidiTimeBase(MidiTimeBaseKind.Ppq, ticksPerQuarterNote, 0);
+            }
+
+            int ticksPerFrame = division & 0xFF;
+            if (ticksPerFrame <= 0)
+            {
+                return Default;
+            }
+
+            sbyte frameCode = unchecked((sbyte)(division >> 8));
+            double framesPerSecond = frameCode switch
+            {
+                -24 => 24d,
+                -25 => 25d,
+                -29 => 29.97d,
+                -30 => 30d,
+                _ => 30d
+            };
+
+            return new MidiTimeBase(MidiTimeBaseKind.Smpte, 0, framesPerSecond * ticksPerFrame);
+        }
+
+        private static bool TryReadDivision(string path, out ushort division)
+        {
+            using var stream = File.OpenRead(path);
+            return TryReadDivision(stream, out division);
+        }
+
+        private static bool TryReadDivision(Stream stream, out ushort division)
+        {
+            division = 0;
+            Span<byte> header = stackalloc byte[4];
+            if (stream.Read(header) != header.Length)
+            {
+                return false;
+            }
+
+            if (header.SequenceEqual("MThd"u8))
+            {
+                stream.Seek(-header.Length, SeekOrigin.Current);
+                return TryReadMidiHeaderDivision(stream, out division);
+            }
+
+            if (!header.SequenceEqual("RIFF"u8))
+            {
+                return false;
+            }
+
+            Span<byte> riffHeader = stackalloc byte[8];
+            if (stream.Read(riffHeader) != riffHeader.Length)
+            {
+                return false;
+            }
+
+            if (!riffHeader[4..].SequenceEqual("RMID"u8))
+            {
+                return false;
+            }
+
+            Span<byte> chunkHeader = stackalloc byte[8];
+            while (stream.Position + chunkHeader.Length <= stream.Length)
+            {
+                if (stream.Read(chunkHeader) != chunkHeader.Length)
+                {
+                    return false;
+                }
+
+                uint chunkSize = BinaryPrimitives.ReadUInt32LittleEndian(chunkHeader[4..]);
+                if (chunkHeader[..4].SequenceEqual("data"u8))
+                {
+                    return TryReadMidiHeaderDivision(stream, out division);
+                }
+
+                long skip = chunkSize + (chunkSize & 1u);
+                if (stream.Position + skip > stream.Length)
+                {
+                    return false;
+                }
+
+                stream.Seek(skip, SeekOrigin.Current);
+            }
+
+            return false;
+        }
+
+        private static bool TryReadMidiHeaderDivision(Stream stream, out ushort division)
+        {
+            division = 0;
+            Span<byte> buffer = stackalloc byte[8];
+            if (stream.Read(buffer) != buffer.Length)
+            {
+                return false;
+            }
+
+            if (!buffer[..4].SequenceEqual("MThd"u8))
+            {
+                return false;
+            }
+
+            uint headerLength = BinaryPrimitives.ReadUInt32BigEndian(buffer[4..8]);
+            if (headerLength < 6)
+            {
+                return false;
+            }
+
+            Span<byte> headerData = stackalloc byte[6];
+            if (stream.Read(headerData) != headerData.Length)
+            {
+                return false;
+            }
+
+            division = BinaryPrimitives.ReadUInt16BigEndian(headerData[4..6]);
+
+            long remainingHeaderBytes = (long)headerLength - headerData.Length;
+            if (remainingHeaderBytes > 0)
+            {
+                if (stream.Position + remainingHeaderBytes > stream.Length)
+                {
+                    return false;
+                }
+
+                stream.Seek(remainingHeaderBytes, SeekOrigin.Current);
+            }
+
+            return true;
+        }
+    }
 }

@@ -51,6 +51,7 @@
         <TextBlock Text="CURRENT TRACK" FontSize="10" FontWeight="Bold" Foreground="#666666" />
         <TextBlock Text="{Binding TrackDisplayName}" FontSize="16" FontWeight="SemiBold" />
         <TextBlock Text="{Binding SoundFontDisplayName}" Classes="hint" />
+        <TextBlock Text="{Binding PlaybackModifiersSummary}" Classes="hint" />
         <TextBlock Text="{Binding FormatSummary}" FontSize="12" FontWeight="SemiBold" Foreground="#78B5FF" />
       </StackPanel>
     </Border>

@@ -11,6 +11,7 @@ namespace MidiPlayer.App;
 public partial class ExportWavWindow : Window, INotifyPropertyChanged
 {
     private string _formatSummary = string.Empty;
+    private string _playbackModifiersSummary = string.Empty;
     private string _outputPathDisplay;
 
     public ExportWavWindow()
@@ -20,18 +21,27 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
 
         TrackDisplayName = "No Track Loaded";
         SoundFontDisplayName = "SoundFont · Not loaded";
+        PlaybackModifiersSummary = FormatPlaybackModifiersSummary(
+            BassMidiPlayer.DefaultPlaybackSpeedPercent,
+            BassMidiPlayer.DefaultTransposeSemitones);
         _outputPathDisplay = Path.Combine(Directory.GetCurrentDirectory(), "export.wav");
         SampleRateComboBox.SelectedIndex = 0;
         BitDepthComboBox.SelectedIndex = 1;
         UpdateFormatSummary();
     }
 
-    public ExportWavWindow(string midiPath, string? soundFontPath, int defaultSampleRate) : this()
+    public ExportWavWindow(
+        string midiPath,
+        string? soundFontPath,
+        int defaultSampleRate,
+        int playbackSpeedPercent,
+        int transposeSemitones) : this()
     {
         TrackDisplayName = Path.GetFileNameWithoutExtension(midiPath);
         SoundFontDisplayName = string.IsNullOrWhiteSpace(soundFontPath)
             ? "SoundFont · Not loaded"
             : $"SoundFont · {Path.GetFileName(soundFontPath)}";
+        PlaybackModifiersSummary = FormatPlaybackModifiersSummary(playbackSpeedPercent, transposeSemitones);
         OutputPathDisplay = SuggestOutputPath(midiPath);
 
         SampleRateComboBox.SelectedIndex = defaultSampleRate switch
@@ -44,6 +54,7 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
 
         OnPropertyChanged(nameof(TrackDisplayName));
         OnPropertyChanged(nameof(SoundFontDisplayName));
+        OnPropertyChanged(nameof(PlaybackModifiersSummary));
         UpdateFormatSummary();
     }
 
@@ -84,6 +95,21 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
             }
 
             _formatSummary = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string PlaybackModifiersSummary
+    {
+        get => _playbackModifiersSummary;
+        private set
+        {
+            if (_playbackModifiersSummary == value)
+            {
+                return;
+            }
+
+            _playbackModifiersSummary = value;
             OnPropertyChanged();
         }
     }
@@ -169,6 +195,14 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
             WavBitDepth.Float32 => "32-bit Float",
             _ => "24-bit PCM"
         };
+
+    private static string FormatPlaybackModifiersSummary(int playbackSpeedPercent, int transposeSemitones)
+    {
+        var transposeText = transposeSemitones > 0
+            ? $"+{transposeSemitones}"
+            : transposeSemitones.ToString();
+        return $"Playback · {playbackSpeedPercent}% / {transposeText} st";
+    }
 
     private static string SuggestOutputPath(string midiPath)
     {

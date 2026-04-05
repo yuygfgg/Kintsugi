@@ -1,6 +1,6 @@
 # Kintsugi Midi Player
 
-Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, live visualizers, transport controls, and offline WAV export.
+Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, live visualizers, transport controls, tempo override, global transpose, and offline WAV export.
 
 ## Build
 
@@ -16,7 +16,7 @@ scripts/publish-macos-app.sh
 
 ## User Manual
 
-Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, live note and spectrum visualization, per-channel mixing, and offline WAV export.
+Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, live note and spectrum visualization, per-channel mixing, tempo override, global transpose, and offline WAV export.
 
 ### 1. Supported Files
 
@@ -64,9 +64,10 @@ This strip is also the fastest way to mute, solo, and edit channels.
 The center panel contains:
 
 - A real-time spectrum analyzer
-- A full-width piano keyboard that lights up with active notes
+- A piano keyboard that lights up with active notes
+- `KEY -` and `KEY +` buttons for global transpose in semitones
 
-Colors match MIDI channels, so you can see which channel is playing which notes.
+Colors match MIDI channels, so you can see which channel is playing which notes. When transpose is active, the piano display shifts with it.
 
 #### Transport Bar
 
@@ -78,6 +79,7 @@ The bottom bar contains:
 - `MIX` button for the global mixer
 - Loop button
 - Live BPM display
+- Clickable BPM popup for tempo override
 
 ### 4. Playback Basics
 
@@ -106,6 +108,24 @@ Drag the seek slider to move to a different point in the song. The time readout 
 Click the loop button to toggle loop playback on or off.
 
 When loop is off, the status changes to `Finished` when the song reaches the end.
+
+#### Tempo Override
+
+Click the `BPM` badge to open the tempo override popup.
+
+- Range: `25%` to `400%`
+- `100%` keeps the MIDI file's original tempo map
+- The live BPM display reflects the effective playback tempo after the override
+
+Double-click the popup slider to reset it to `100%`.
+
+#### Global Transpose
+
+Use the `KEY -` and `KEY +` buttons on the left and right sides of the piano keyboard to transpose playback in semitones.
+
+- Range: `-24` to `+24` semitones
+- The transpose readout is shown above the piano keyboard
+- The piano note display moves with the transpose setting
 
 ### 5. Channel Activity and Per-Channel Mixer
 
@@ -241,6 +261,8 @@ WAV export uses the current playback state for rendering:
 
 - Current SoundFont
 - Current MIDI system mode
+- Current tempo override
+- Current global transpose
 - Current master mix
 - Current reverb and chorus return settings
 - Current per-channel volume, reverb, and chorus settings
@@ -267,6 +289,8 @@ The app saves these settings automatically:
 
 Per-file mix recall includes:
 
+- Tempo override
+- Global transpose
 - Master volume
 - Global reverb and chorus return settings
 - Per-channel volume
@@ -308,5 +332,6 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 | Channel right-click  | Open per-channel mixer          |
 | `MIX`                | Open global mixer               |
 | Loop button          | Toggle looping                  |
+| `BPM`                | Open tempo override popup       |
+| `KEY -` / `KEY +`    | Transpose down or up            |
 | Slider double-click  | Reset that control              |
-

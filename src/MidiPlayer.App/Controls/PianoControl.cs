@@ -12,10 +12,19 @@ public class PianoControl : Control
     public static readonly StyledProperty<BassMidiPlayer?> PlayerProperty =
         AvaloniaProperty.Register<PianoControl, BassMidiPlayer?>(nameof(Player));
 
+    public static readonly StyledProperty<int> TransposeOffsetSemitonesProperty =
+        AvaloniaProperty.Register<PianoControl, int>(nameof(TransposeOffsetSemitones));
+
     public BassMidiPlayer? Player
     {
         get => GetValue(PlayerProperty);
         set => SetValue(PlayerProperty, value);
+    }
+
+    public int TransposeOffsetSemitones
+    {
+        get => GetValue(TransposeOffsetSemitonesProperty);
+        set => SetValue(TransposeOffsetSemitonesProperty, value);
     }
 
     private static readonly IBrush[] ChannelBrushes =
@@ -70,6 +79,10 @@ public class PianoControl : Control
             }
             Dispatcher.UIThread.Post(InvalidateVisual);
         }
+        else if (change.Property == TransposeOffsetSemitonesProperty)
+        {
+            Dispatcher.UIThread.Post(InvalidateVisual);
+        }
     }
 
     private void OnNotesChanged()
@@ -96,9 +109,10 @@ public class PianoControl : Control
                 var rect = new Rect(x, 0, whiteKeyWidth, bounds.Height);
                 
                 IBrush fill = WhiteKeyBrush;
+                int sourceNote = i - TransposeOffsetSemitones;
                 for (int ch = 0; ch < 16; ch++)
                 {
-                    if (player.ActiveNotes[ch, i])
+                    if ((uint)sourceNote < 128 && player.ActiveNotes[ch, sourceNote])
                     {
                         fill = ChannelBrushes[ch];
                         break;
@@ -118,9 +132,10 @@ public class PianoControl : Control
                 var rect = new Rect(x, 0, blackKeyWidth, blackKeyHeight);
                 
                 IBrush fill = BlackKeyBrush;
+                int sourceNote = i - TransposeOffsetSemitones;
                 for (int ch = 0; ch < 16; ch++)
                 {
-                    if (player.ActiveNotes[ch, i])
+                    if ((uint)sourceNote < 128 && player.ActiveNotes[ch, sourceNote])
                     {
                         fill = ChannelBrushes[ch];
                         break;

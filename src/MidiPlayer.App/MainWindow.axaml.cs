@@ -31,6 +31,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static readonly IBrush MixerDisabledBackgroundBrush = Brushes.Transparent;
     private static readonly IBrush MixerDisabledBorderBrush = new SolidColorBrush(Color.Parse("#333333"));
     private static readonly IBrush MixerDisabledForegroundBrush = new SolidColorBrush(Color.Parse("#A0A0A0"));
+    private static readonly IBrush SpeedEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#214B75"));
+    private static readonly IBrush SpeedEnabledBorderBrush = new SolidColorBrush(Color.Parse("#4A90E2"));
+    private static readonly IBrush SpeedEnabledForegroundBrush = new SolidColorBrush(Color.Parse("#DCEEFF"));
+    private static readonly IBrush SpeedDisabledBackgroundBrush = new SolidColorBrush(Color.Parse("#171717"));
+    private static readonly IBrush SpeedDisabledBorderBrush = new SolidColorBrush(Color.Parse("#2F2F2F"));
+    private static readonly IBrush SpeedDisabledForegroundBrush = new SolidColorBrush(Color.Parse("#A0A0A0"));
     private const double ChannelMixerPopupWidth = 244;
     private const double ChannelMixerPopupHeight = 206;
     private const double ChannelMixerPopupPointerWidth = 20;
@@ -56,6 +62,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private ChannelMixStrip? _selectedChannelMixStrip;
     private bool _isChannelMixerPopupOpen;
     private bool _isGlobalMixerPopupOpen;
+    private bool _isSpeedPopupOpen;
     private int _selectedChannelIndex = -1;
 
     public MainWindow()
@@ -172,6 +179,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public bool IsSpeedPopupOpen
+    {
+        get => _isSpeedPopupOpen;
+        private set
+        {
+            if (SetField(ref _isSpeedPopupOpen, value))
+            {
+                OnPropertyChanged(nameof(SpeedButtonBackground));
+                OnPropertyChanged(nameof(SpeedButtonBorderBrush));
+                OnPropertyChanged(nameof(SpeedButtonForeground));
+            }
+        }
+    }
+
     public string MidiDisplayName
     {
         get => _midiDisplayName;
@@ -244,6 +265,50 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string ExportButtonText => _isExporting ? "EXPORTING..." : "EXPORT WAV";
 
     public string CurrentBpmText => FormatBpm(_player.GetCurrentBpm());
+
+    public bool CanAdjustPlaybackModifiers => _player.HasStream;
+
+    public double PlaybackSpeedPercent
+    {
+        get => _player.PlaybackSpeedPercent;
+        set
+        {
+            var intValue = (int)Math.Round(value);
+            if (_player.PlaybackSpeedPercent == intValue)
+            {
+                return;
+            }
+
+            _player.PlaybackSpeedPercent = intValue;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PlaybackSpeedPercentText));
+            RefreshTransport();
+            PersistCurrentMidiMix();
+            UpdateNowPlayingTimeline();
+        }
+    }
+
+    public string PlaybackSpeedPercentText => FormatPercent(_player.PlaybackSpeedPercent);
+
+    public double TransposeSemitones
+    {
+        get => _player.TransposeSemitones;
+        set
+        {
+            var intValue = (int)Math.Round(value);
+            if (_player.TransposeSemitones == intValue)
+            {
+                return;
+            }
+
+            _player.TransposeSemitones = intValue;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TransposeSemitonesText));
+            PersistCurrentMidiMix();
+        }
+    }
+
+    public string TransposeSemitonesText => FormatSemitoneShift(_player.TransposeSemitones);
 
     public double MasterVolumePercent
     {
@@ -417,6 +482,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public IBrush GlobalMixerButtonForeground => IsGlobalMixerPopupOpen ? MixerEnabledForegroundBrush : MixerDisabledForegroundBrush;
 
+    public IBrush SpeedButtonBackground => IsSpeedPopupOpen ? SpeedEnabledBackgroundBrush : SpeedDisabledBackgroundBrush;
+
+    public IBrush SpeedButtonBorderBrush => IsSpeedPopupOpen ? SpeedEnabledBorderBrush : SpeedDisabledBorderBrush;
+
+    public IBrush SpeedButtonForeground => IsSpeedPopupOpen ? SpeedEnabledForegroundBrush : SpeedDisabledForegroundBrush;
+
     private async void OnOpenMidiClicked(object? sender, RoutedEventArgs e)
     {
         if (!CanOpenMidi)
@@ -478,7 +549,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var dialog = new ExportWavWindow(_player.MidiPath, _player.SoundFontPath, _player.SampleRate);
+        var dialog = new ExportWavWindow(
+            _player.MidiPath,
+            _player.SoundFontPath,
+            _player.SampleRate,
+            _player.PlaybackSpeedPercent,
+            _player.TransposeSemitones);
         await dialog.ShowDialog(this);
 
         if (!dialog.WasConfirmed || dialog.ExportOptions is null)
@@ -547,6 +623,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnLoopClicked(object? sender, RoutedEventArgs e)
     {
         CloseChannelMixerPopup();
+        IsGlobalMixerPopupOpen = false;
+        IsSpeedPopupOpen = false;
         _player.IsLooping = !_player.IsLooping;
         OnPropertyChanged(nameof(LoopButtonBackground));
         OnPropertyChanged(nameof(LoopButtonBorderBrush));
@@ -556,7 +634,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnGlobalMixerClicked(object? sender, RoutedEventArgs e)
     {
         CloseChannelMixerPopup();
+        IsSpeedPopupOpen = false;
         IsGlobalMixerPopupOpen = !IsGlobalMixerPopupOpen;
+    }
+
+    private void OnSpeedButtonClicked(object? sender, RoutedEventArgs e)
+    {
+        CloseChannelMixerPopup();
+        IsGlobalMixerPopupOpen = false;
+        IsSpeedPopupOpen = !IsSpeedPopupOpen;
     }
 
     private void OnChannelMixerRequested(object? sender, ChannelMixerRequestedEventArgs e)
@@ -571,12 +657,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SelectedChannelMixStrip = ChannelMixRows[e.Channel];
         IsChannelMixerPopupOpen = true;
         IsGlobalMixerPopupOpen = false;
+        IsSpeedPopupOpen = false;
         UpdateChannelMixerPopupPosition();
     }
 
     private void OnMasterVolumeSliderDoubleTapped(object? sender, TappedEventArgs e)
     {
         MasterVolumePercent = BassMidiPlayer.DefaultMixPercent;
+        e.Handled = true;
+    }
+
+    private void OnPlaybackSpeedSliderDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        PlaybackSpeedPercent = BassMidiPlayer.DefaultPlaybackSpeedPercent;
+        e.Handled = true;
+    }
+
+    private void OnTransposeDownClicked(object? sender, RoutedEventArgs e)
+    {
+        if (!CanAdjustPlaybackModifiers)
+        {
+            return;
+        }
+
+        TransposeSemitones -= 1;
+        e.Handled = true;
+    }
+
+    private void OnTransposeUpClicked(object? sender, RoutedEventArgs e)
+    {
+        if (!CanAdjustPlaybackModifiers)
+        {
+            return;
+        }
+
+        TransposeSemitones += 1;
         e.Handled = true;
     }
 
@@ -665,6 +780,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnSeekPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         CloseChannelMixerPopup();
+        IsGlobalMixerPopupOpen = false;
+        IsSpeedPopupOpen = false;
         if (!CanSeek)
         {
             return;
@@ -696,6 +813,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var sourceVisual = e.Source as Visual;
         bool clickedChannelMixer = IsWithinVisual(sourceVisual, ChannelMonitorView) || IsWithinVisual(sourceVisual, ChannelMixerPopupHost);
         bool clickedGlobalMixer = IsWithinVisual(sourceVisual, GlobalMixerButtonHost);
+        bool clickedSpeedPopup = IsWithinVisual(sourceVisual, SpeedButtonHost);
 
         if (!clickedChannelMixer)
         {
@@ -705,6 +823,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (!clickedGlobalMixer)
         {
             IsGlobalMixerPopupOpen = false;
+        }
+
+        if (!clickedSpeedPopup)
+        {
+            IsSpeedPopupOpen = false;
         }
     }
 
@@ -741,6 +864,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(CanOpenSettings));
         OnPropertyChanged(nameof(CanExport));
         OnPropertyChanged(nameof(ExportButtonText));
+        OnPropertyChanged(nameof(CanAdjustPlaybackModifiers));
         OnPropertyChanged(nameof(PlayPauseIcon));
         OnPropertyChanged(nameof(PlayPauseIconMargin));
         OnPropertyChanged(nameof(CurrentBpmText));
@@ -753,6 +877,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         CloseChannelMixerPopup();
         IsGlobalMixerPopupOpen = false;
+        IsSpeedPopupOpen = false;
         if (StorageProvider is null || !StorageProvider.CanOpen)
         {
             StatusText = "File picker not supported.";
@@ -828,6 +953,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var rounded = (int)Math.Round(value);
         return rounded > 0 ? $"+{rounded}" : rounded.ToString(CultureInfo.InvariantCulture);
     }
+
+    private static string FormatSemitoneShift(double value)
+        => $"{FormatSignedValue(value)} st";
 
     private static ChannelSendMode GetNextMode(ChannelSendMode mode)
         => mode switch
@@ -921,6 +1049,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RefreshMixBindings()
     {
+        RefreshPlaybackBindings();
         OnPropertyChanged(nameof(MasterVolumePercent));
         OnPropertyChanged(nameof(MasterVolumePercentText));
         OnPropertyChanged(nameof(ReverbReturnPercent));
@@ -929,6 +1058,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(ChorusReturnPercentText));
         RefreshGlobalReverbBindings();
         RefreshGlobalChorusBindings();
+    }
+
+    private void RefreshPlaybackBindings()
+    {
+        OnPropertyChanged(nameof(PlaybackSpeedPercent));
+        OnPropertyChanged(nameof(PlaybackSpeedPercentText));
+        OnPropertyChanged(nameof(TransposeSemitones));
+        OnPropertyChanged(nameof(TransposeSemitonesText));
     }
 
     private void RefreshChannelMixRows()
@@ -1024,6 +1161,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(CanOpenSettings));
         OnPropertyChanged(nameof(CanExport));
         OnPropertyChanged(nameof(ExportButtonText));
+    }
+
+    private void UpdateNowPlayingTimeline()
+    {
+        if (!_player.HasStream)
+        {
+            return;
+        }
+
+        _mediaControls.UpdateNowPlaying(MidiDisplayName, "Kintsugi Midi Player", DurationSeconds, PositionSeconds);
+        _mediaControls.UpdatePlaybackState(_player.IsPlaying, PositionSeconds);
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
