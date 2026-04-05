@@ -160,3 +160,42 @@ jobs:
           path: artifacts/dist/${{ matrix.package_name }}*
           if-no-files-found: error
           compression-level: 0
+
+  release:
+    name: Create Release
+    needs: publish
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/R')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: release-assets
+          pattern: Kintsugi.MidiPlayer-*
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          shopt -s nullglob
+          files=(release-assets/*)
+
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No release assets were downloaded."
+            exit 1
+          fi
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" "${files[@]}" --clobber
+          else
+            gh release create "$TAG_NAME" "${files[@]}" \
+              --verify-tag \
+              --title "$TAG_NAME" \
+              --generate-notes
+          fi
