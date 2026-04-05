@@ -32,9 +32,9 @@ Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, dra
 4. Use the transport controls at the bottom to play, pause, seek, or loop the track.
 5. Click `EXPORT WAV` if you want to render the current track to a WAV file.
 
-<img width="1512" height="982" alt="截屏2026-04-05 12 48 38 1" src="https://github.com/user-attachments/assets/d37db25c-5444-4a5a-ba24-bb801367df2d" />
-
 ### 3. Main Window Overview
+
+<img width="1512" height="982" alt="截屏2026-04-05 15 21 08" src="https://github.com/user-attachments/assets/d465c590-23ca-4eba-a22a-3e74c108716b" />
 
 The main window is divided into four areas.
 
