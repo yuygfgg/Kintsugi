@@ -86,11 +86,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _player.SampleRate = _settings.SampleRate;
 
-        if (!string.IsNullOrEmpty(_settings.SoundFontPath) && File.Exists(_settings.SoundFontPath))
+        var initialSoundFontPath = BundledSoundFont.ResolvePreferredPath(_settings.SoundFontPath);
+        if (!string.IsNullOrWhiteSpace(initialSoundFontPath))
         {
             try
             {
-                _player.LoadSoundFont(_settings.SoundFontPath);
+                _player.LoadSoundFont(initialSoundFontPath);
             }
             catch
             {

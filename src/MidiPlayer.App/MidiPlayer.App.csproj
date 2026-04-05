@@ -21,6 +21,7 @@
     <NativeAssetsRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</NativeAssetsRid>
     <NativeAssetsRid Condition="'$(NativeAssetsRid)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</NativeAssetsRid>
     <NativeAssetsDir>$(MSBuildThisFileDirectory)../../.native-assets/$(NativeAssetsRid)</NativeAssetsDir>
+    <BundledAssetsDir>$(MSBuildThisFileDirectory)../../.bundled-assets</BundledAssetsDir>
     <MacNativeArch Condition="$([System.String]::Copy('$(NativeAssetsRid)').ToLowerInvariant().EndsWith('-arm64'))">arm64</MacNativeArch>
     <MacNativeArch Condition="$([System.String]::Copy('$(NativeAssetsRid)').ToLowerInvariant().EndsWith('-x64'))">x86_64</MacNativeArch>
     <CreateMacAppBundle Condition="'$(CreateMacAppBundle)' == ''">false</CreateMacAppBundle>
@@ -41,6 +42,11 @@
     <Exec Command="dotnet run --project &quot;$(MSBuildThisFileDirectory)../../tools/NativeAssetDownloader/NativeAssetDownloader.csproj&quot; -- --rid &quot;$(NativeAssetsRid)&quot; --output &quot;$(NativeAssetsDir)&quot;" />
   </Target>
 
+  <Target Name="PrepareBundledAssets" BeforeTargets="Build;Publish" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MakeDir Directories="$(BundledAssetsDir)" />
+    <Exec Command="dotnet run --project &quot;$(MSBuildThisFileDirectory)../../tools/NativeAssetDownloader/NativeAssetDownloader.csproj&quot; -- --asset-set bundled --output &quot;$(BundledAssetsDir)&quot;" />
+  </Target>
+
   <Target Name="CompileMacMediaControls" BeforeTargets="Build;Publish" Condition="'$(DesignTimeBuild)' != 'true' and '$([MSBuild]::IsOSPlatform(`OSX`))' == 'true' and $([System.String]::Copy('$(NativeAssetsRid)').StartsWith('osx'))">
     <Message Importance="High" Text="Compiling native Mac media controls..." />
     <MakeDir Directories="$(NativeAssetsDir)" />
@@ -54,11 +60,25 @@
     <Copy SourceFiles="@(NativeDependencyFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
 
+  <Target Name="CopyBundledAssetsToOutput" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <BundledAssetFiles Include="$(BundledAssetsDir)/**/*.*" Exclude="$(BundledAssetsDir)/.cache/**/*;$(BundledAssetsDir)/.asset-manifest" />
+    </ItemGroup>
+    <Copy SourceFiles="@(BundledAssetFiles)" DestinationFiles="@(BundledAssetFiles -> '$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+
   <Target Name="CopyNativeDependenciesToPublishDir" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true'">
     <ItemGroup>
       <NativeDependencyFiles Include="$(NativeAssetsDir)/*.*" Exclude="$(NativeAssetsDir)/.cache/**/*;$(NativeAssetsDir)/.asset-manifest" />
     </ItemGroup>
     <Copy SourceFiles="@(NativeDependencyFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyBundledAssetsToPublishDir" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <BundledAssetFiles Include="$(BundledAssetsDir)/**/*.*" Exclude="$(BundledAssetsDir)/.cache/**/*;$(BundledAssetsDir)/.asset-manifest" />
+    </ItemGroup>
+    <Copy SourceFiles="@(BundledAssetFiles)" DestinationFiles="@(BundledAssetFiles -> '$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
   <Target Name="CreateMacAppBundle" AfterTargets="CopyNativeDependenciesToPublishDir" Condition="'$(DesignTimeBuild)' != 'true' and '$(CreateMacAppBundle)' == 'true' and $([System.String]::Copy('$(NativeAssetsRid)').StartsWith('osx'))">

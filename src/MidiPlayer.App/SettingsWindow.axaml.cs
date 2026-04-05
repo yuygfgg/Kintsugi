@@ -67,7 +67,10 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     {
         if (_player?.SoundFontPath != null)
         {
-            SoundFontDisplayName = Path.GetFileName(_player.SoundFontPath);
+            var fileName = Path.GetFileName(_player.SoundFontPath);
+            SoundFontDisplayName = BundledSoundFont.IsBundledDefault(_player.SoundFontPath)
+                ? $"{fileName} (bundled default)"
+                : fileName;
         }
         else
         {
@@ -106,6 +109,33 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
                     SoundFontDisplayName = "Error: " + ex.Message;
                 }
             }
+        }
+    }
+
+    private void OnUseBundledSoundFontClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_player is null)
+        {
+            return;
+        }
+
+        var bundledPath = BundledSoundFont.ResolvePreferredPath(null);
+        if (string.IsNullOrWhiteSpace(bundledPath))
+        {
+            SoundFontDisplayName = "Error: bundled FluidR3_GM.sf2 not found";
+            return;
+        }
+
+        try
+        {
+            _player.LoadSoundFont(bundledPath);
+            _settings.SoundFontPath = null;
+            _settings.Save();
+            UpdateSoundFontDisplay();
+        }
+        catch (Exception ex)
+        {
+            SoundFontDisplayName = "Error: " + ex.Message;
         }
     }
 

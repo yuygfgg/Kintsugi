@@ -24,11 +24,12 @@
 
       <StackPanel Spacing="8">
         <TextBlock Text="SoundFont" FontWeight="SemiBold" />
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
           <TextBox Text="{Binding SoundFontDisplayName}" IsReadOnly="True" VerticalAlignment="Center" Background="#303030" BorderThickness="0" Foreground="#E0E0E0" />
-          <Button Grid.Column="1" Content="Browse..." Click="OnBrowseSoundFontClicked" Background="#404040" Foreground="#E0E0E0" BorderThickness="0" Padding="12,6" />
+          <Button Grid.Column="1" Content="Use Bundled" Click="OnUseBundledSoundFontClicked" Background="#353535" Foreground="#E0E0E0" BorderThickness="0" Padding="12,6" />
+          <Button Grid.Column="2" Content="Browse..." Click="OnBrowseSoundFontClicked" Background="#404040" Foreground="#E0E0E0" BorderThickness="0" Padding="12,6" />
         </Grid>
-        <TextBlock Classes="hint" Text="Load an SF2 or SFZ file for deterministic rendering." />
+        <TextBlock Classes="hint" Text="Load an SF2 or SFZ file, or switch back to the bundled FluidR3_GM.sf2." />
       </StackPanel>
 
       <StackPanel Spacing="8">

@@ -33,8 +33,8 @@ Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, dra
 ### 2. Quick Start
 
 1. Open the app.
-2. Click the gear button and load a SoundFont (`.sf2` or `.sfz`).
-3. Click `OPEN FILE` and choose a MIDI file, or drag a MIDI file into the window.
+2. Open a MIDI file. The bundled `FluidR3_GM.sf2` default SoundFont loads automatically in packaged builds.
+3. Optional: click the gear button and replace it with your own SoundFont (`.sf2` or `.sfz`).
 4. Use the transport controls at the bottom to play, pause, seek, or loop the track.
 5. Click `EXPORT WAV` if you want to render the current track to a WAV file.
 
@@ -95,9 +95,9 @@ The bottom bar contains:
 
 Click `OPEN FILE` and choose a MIDI file, or drag a MIDI file into the window. The app loads the file immediately.
 
-If a SoundFont is already loaded, playback starts automatically.
+Playback starts automatically when the bundled `FluidR3_GM.sf2` or a previously selected custom SoundFont is available.
 
-If no SoundFont is loaded yet, the file still loads, but playback will not start. Open `Settings`, load a SoundFont, then press Play.
+If neither the bundled default nor a custom SoundFont can be loaded, the file still loads, but playback will not start. Open `Settings`, load a SoundFont, then press Play.
 
 #### Play and Pause
 
@@ -225,14 +225,18 @@ Click the gear button to open `Player Settings`.
 
 #### SoundFont
 
-Use `Browse...` to load an `.sf2` or `.sfz` file.
+The app ships with a bundled default SoundFont, `FluidR3_GM.sf2`.
+
+Use `Browse...` if you want to replace it with your own `.sf2` or `.sfz` file.
+
+If you later want to switch back, click `Use Bundled` to restore the packaged `FluidR3_GM.sf2` and clear the saved custom SoundFont path.
 
 This is required for:
 
 - Playback
 - WAV export
 
-The loaded SoundFont is applied to the current MIDI file and remembered for later launches.
+The currently loaded SoundFont is applied to the current MIDI file. Custom selections are remembered for later launches.
 
 #### MIDI System Mode
 
@@ -261,7 +265,7 @@ Click `EXPORT WAV` to render the current MIDI file to a WAV file.
 
 The export button is enabled only when a MIDI file is loaded.
 
-If no SoundFont is loaded, export does not start. Load a SoundFont first.
+If no SoundFont can be loaded, export does not start. Load a SoundFont first.
 
 <img width="480" height="402" alt="截屏2026-04-05 10 57 45" src="https://github.com/user-attachments/assets/e3af57d5-43e3-4f10-b394-b35eba11042f" />
 
@@ -304,10 +308,12 @@ The status badge shows export progress and completion messages.
 
 The app saves these settings automatically:
 
-- Last selected SoundFont
+- Last selected custom SoundFont
 - MIDI system mode
 - Output sample rate
 - Mix settings for each MIDI file path
+
+When no saved custom SoundFont is available, the app falls back to the bundled `FluidR3_GM.sf2` when present.
 
 Per-file mix recall includes:
 
@@ -324,7 +330,7 @@ Mix recall is path-based. If you move or rename a MIDI file, the app treats it a
 
 #### Playback does not start
 
-Most often, no SoundFont is loaded. Open `Settings`, load an `.sf2` or `.sfz`, then press Play again.
+Most often, the bundled default was removed or a custom SoundFont path is no longer valid. Open `Settings`, load an `.sf2` or `.sfz`, then press Play again.
 
 #### Export WAV does not start
 

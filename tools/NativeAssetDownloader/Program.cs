@@ -8,23 +8,27 @@ if (string.IsNullOrWhiteSpace(options.OutputDirectory))
 }
 
 var rid = string.IsNullOrWhiteSpace(options.RuntimeIdentifier)
-    ? DetectRuntimeIdentifier()
+    ? options.AssetSet == AssetSet.Native ? DetectRuntimeIdentifier() : string.Empty
     : options.RuntimeIdentifier!;
 
 var outputDirectory = Path.GetFullPath(options.OutputDirectory!);
 Directory.CreateDirectory(outputDirectory);
 
-var assets = ResolveAssets(rid);
+var assets = ResolveAssets(options.AssetSet, rid);
+var assetSetDisplayName = GetAssetSetDisplayName(options.AssetSet);
 var manifestPath = Path.Combine(outputDirectory, ".asset-manifest");
 var manifest = string.Join(
     Environment.NewLine,
-    assets.Select(asset => $"{asset.VersionStamp}|{asset.OutputFileName}|{asset.DownloadUrl}|{asset.ArchiveEntry}"));
+    assets.Select(asset => $"{asset.VersionStamp}|{asset.OutputFileName}|{asset.DownloadUrl}|{asset.ArchiveEntry ?? string.Empty}"));
 
 if (File.Exists(manifestPath) &&
     string.Equals(File.ReadAllText(manifestPath), manifest, StringComparison.Ordinal) &&
     assets.All(asset => File.Exists(Path.Combine(outputDirectory, asset.OutputFileName))))
 {
-    Console.WriteLine($"Native assets are up to date for {rid}.");
+    Console.WriteLine(
+        string.IsNullOrWhiteSpace(rid)
+            ? $"{assetSetDisplayName} are up to date."
+            : $"{assetSetDisplayName} are up to date for {rid}.");
     return;
 }
 
@@ -36,19 +40,26 @@ httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("KintsugiMidiPlayerBuild/1.0
 
 foreach (var asset in assets)
 {
-    var archivePath = Path.Combine(cacheDirectory, $"{asset.VersionStamp}-{Path.GetFileName(asset.DownloadUrl)}");
-    if (!File.Exists(archivePath))
+    var downloadedAssetPath = Path.Combine(cacheDirectory, $"{asset.VersionStamp}-{Path.GetFileName(asset.DownloadUrl)}");
+    if (!File.Exists(downloadedAssetPath))
     {
         Console.WriteLine($"Downloading {asset.DownloadUrl}...");
-        await DownloadFileAsync(httpClient, asset.DownloadUrl, archivePath);
+        await DownloadFileAsync(httpClient, asset.DownloadUrl, downloadedAssetPath);
     }
 
-    Console.WriteLine($"Extracting {asset.OutputFileName} for {rid}...");
-    ExtractFile(archivePath, asset.ArchiveEntry, Path.Combine(outputDirectory, asset.OutputFileName));
+    var action = string.IsNullOrWhiteSpace(asset.ArchiveEntry) ? "Copying" : "Extracting";
+    Console.WriteLine(
+        string.IsNullOrWhiteSpace(rid)
+            ? $"{action} {asset.OutputFileName}..."
+            : $"{action} {asset.OutputFileName} for {rid}...");
+    MaterializeAsset(downloadedAssetPath, asset, Path.Combine(outputDirectory, asset.OutputFileName));
 }
 
 File.WriteAllText(manifestPath, manifest);
-Console.WriteLine($"Prepared native assets for {rid} in {outputDirectory}.");
+Console.WriteLine(
+    string.IsNullOrWhiteSpace(rid)
+        ? $"Prepared {assetSetDisplayName.ToLowerInvariant()} in {outputDirectory}."
+        : $"Prepared {assetSetDisplayName.ToLowerInvariant()} for {rid} in {outputDirectory}.");
 
 static async Task DownloadFileAsync(HttpClient httpClient, string downloadUrl, string destinationPath)
 {
@@ -60,13 +71,8 @@ static async Task DownloadFileAsync(HttpClient httpClient, string downloadUrl, s
     await input.CopyToAsync(output);
 }
 
-static void ExtractFile(string archivePath, string archiveEntryPath, string destinationPath)
+static void MaterializeAsset(string downloadedAssetPath, DownloadAsset asset, string destinationPath)
 {
-    using var archive = ZipFile.OpenRead(archivePath);
-    var normalizedEntry = archiveEntryPath.Replace('\\', '/');
-    var entry = archive.GetEntry(normalizedEntry)
-        ?? throw new FileNotFoundException($"Archive entry '{archiveEntryPath}' was not found in '{archivePath}'.");
-
     Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
 
     var tempPath = destinationPath + ".tmp";
@@ -75,9 +81,27 @@ static void ExtractFile(string archivePath, string archiveEntryPath, string dest
         File.Delete(tempPath);
     }
 
-    entry.ExtractToFile(tempPath, overwrite: true);
+    if (string.IsNullOrWhiteSpace(asset.ArchiveEntry))
+    {
+        File.Copy(downloadedAssetPath, tempPath, overwrite: true);
+    }
+    else
+    {
+        ExtractZipEntry(downloadedAssetPath, asset.ArchiveEntry, tempPath);
+    }
+
     TrySetUnixPermissions(tempPath);
     File.Move(tempPath, destinationPath, overwrite: true);
+}
+
+static void ExtractZipEntry(string archivePath, string archiveEntryPath, string destinationPath)
+{
+    using var archive = ZipFile.OpenRead(archivePath);
+    var normalizedEntry = archiveEntryPath.Replace('\\', '/');
+    var entry = archive.GetEntry(normalizedEntry)
+        ?? throw new FileNotFoundException($"Archive entry '{archiveEntryPath}' was not found in '{archivePath}'.");
+
+    entry.ExtractToFile(destinationPath, overwrite: true);
 }
 
 static void TrySetUnixPermissions(string path)
@@ -101,18 +125,53 @@ static void TrySetUnixPermissions(string path)
     }
 }
 
-static NativeAsset[] ResolveAssets(string rid)
+static DownloadAsset[] ResolveAssets(AssetSet assetSet, string rid)
+    => assetSet switch
+    {
+        AssetSet.Native => ResolveNativeAssets(rid),
+        AssetSet.Bundled => ResolveBundledAssets(),
+        _ => throw new NotSupportedException($"Unsupported asset set: {assetSet}.")
+    };
+
+static string GetAssetSetDisplayName(AssetSet assetSet)
+    => assetSet switch
+    {
+        AssetSet.Native => "Native assets",
+        AssetSet.Bundled => "Bundled assets",
+        _ => "Assets"
+    };
+
+static DownloadAsset[] ResolveBundledAssets()
+{
+    return
+    [
+        new DownloadAsset(
+            VersionStamp: "fluidr3-gm-sf2-3.1",
+            DownloadUrl: "https://github.com/pianobooster/fluid-soundfont/releases/download/v3.1/FluidR3_GM.sf2",
+            OutputFileName: "SoundFonts/FluidR3_GM.sf2"),
+        new DownloadAsset(
+            VersionStamp: "fluidr3-gm-readme-3.1",
+            DownloadUrl: "https://raw.githubusercontent.com/pianobooster/fluid-soundfont/v3.1/README",
+            OutputFileName: "SoundFonts/FluidR3_GM.README.txt"),
+        new DownloadAsset(
+            VersionStamp: "fluidr3-gm-copying-3.1",
+            DownloadUrl: "https://raw.githubusercontent.com/pianobooster/fluid-soundfont/v3.1/COPYING",
+            OutputFileName: "SoundFonts/FluidR3_GM.COPYING.txt")
+    ];
+}
+
+static DownloadAsset[] ResolveNativeAssets(string rid)
 {
     if (rid.StartsWith("osx", StringComparison.OrdinalIgnoreCase))
     {
         return
         [
-            new NativeAsset(
+            new DownloadAsset(
                 VersionStamp: "bass24-osx-2026-01-02",
                 DownloadUrl: "https://www.un4seen.com/files/bass24-osx.zip",
                 ArchiveEntry: "libbass.dylib",
                 OutputFileName: "libbass.dylib"),
-            new NativeAsset(
+            new DownloadAsset(
                 VersionStamp: "bassmidi24-osx-2025-10-28",
                 DownloadUrl: "https://www.un4seen.com/files/bassmidi24-osx.zip",
                 ArchiveEntry: "libbassmidi.dylib",
@@ -143,12 +202,12 @@ static NativeAsset[] ResolveAssets(string rid)
 
         return
         [
-            new NativeAsset(
+            new DownloadAsset(
                 VersionStamp: "bass24-linux-2026-01-02",
                 DownloadUrl: "https://www.un4seen.com/files/bass24-linux.zip",
                 ArchiveEntry: bassPath,
                 OutputFileName: "libbass.so"),
-            new NativeAsset(
+            new DownloadAsset(
                 VersionStamp: "bassmidi24-linux-2025-10-28",
                 DownloadUrl: "https://www.un4seen.com/files/bassmidi24-linux.zip",
                 ArchiveEntry: bassMidiPath,
@@ -209,12 +268,12 @@ static NativeAsset[] ResolveAssets(string rid)
 
         return
         [
-            new NativeAsset(
+            new DownloadAsset(
                 VersionStamp: bassVersionStamp,
                 DownloadUrl: bassUrl,
                 ArchiveEntry: bassPath,
                 OutputFileName: "bass.dll"),
-            new NativeAsset(
+            new DownloadAsset(
                 VersionStamp: bassMidiVersionStamp,
                 DownloadUrl: bassMidiUrl,
                 ArchiveEntry: bassMidiPath,
@@ -303,6 +362,9 @@ static Options ParseArguments(string[] arguments)
             case "--output":
                 options.OutputDirectory = RequireValue(arguments, ref i, "--output");
                 break;
+            case "--asset-set":
+                options.AssetSet = ParseAssetSet(RequireValue(arguments, ref i, "--asset-set"));
+                break;
             default:
                 throw new ArgumentException($"Unknown argument: {arguments[i]}");
         }
@@ -322,11 +384,27 @@ static string RequireValue(string[] arguments, ref int index, string option)
     return arguments[index];
 }
 
+static AssetSet ParseAssetSet(string value)
+    => value.ToLowerInvariant() switch
+    {
+        "native" => AssetSet.Native,
+        "bundled" => AssetSet.Bundled,
+        _ => throw new ArgumentException($"Unsupported asset set: {value}.")
+    };
+
 sealed class Options
 {
     public string? RuntimeIdentifier { get; set; }
 
     public string? OutputDirectory { get; set; }
+
+    public AssetSet AssetSet { get; set; } = AssetSet.Native;
 }
 
-sealed record NativeAsset(string VersionStamp, string DownloadUrl, string ArchiveEntry, string OutputFileName);
+enum AssetSet
+{
+    Native,
+    Bundled
+}
+
+sealed record DownloadAsset(string VersionStamp, string DownloadUrl, string OutputFileName, string? ArchiveEntry = null);
