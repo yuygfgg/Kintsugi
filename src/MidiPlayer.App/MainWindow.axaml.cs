@@ -23,6 +23,12 @@ namespace MidiPlayer.App;
 
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
+    private enum VisualizerView
+    {
+        Eq,
+        PianoRoll
+    }
+
     private static readonly IBrush LoopEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#214B75"));
     private static readonly IBrush LoopEnabledBorderBrush = new SolidColorBrush(Color.Parse("#4A90E2"));
     private static readonly IBrush LoopEnabledForegroundBrush = new SolidColorBrush(Color.Parse("#DCEEFF"));
@@ -80,6 +86,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isSpeedPopupOpen;
     private bool _isEqEnabled = true;
     private int _selectedChannelIndex = -1;
+    private VisualizerView _selectedVisualizerView = VisualizerView.Eq;
+    private PianoRollNote[] _pianoRollNotes = Array.Empty<PianoRollNote>();
 
     public ObservableCollection<PlaylistItem> Playlist { get; } = new();
     private bool _isPlaylistSortAscending = true;
@@ -336,6 +344,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public IBrush EqButtonForeground => IsEqEnabled ? SpeedEnabledForegroundBrush : SpeedDisabledForegroundBrush;
 
     public string EqButtonToolTip => IsEqEnabled ? "Turn EQ off" : "Turn EQ on";
+
+    public PianoRollNote[] PianoRollNotes
+    {
+        get => _pianoRollNotes;
+        private set => SetField(ref _pianoRollNotes, value);
+    }
+
+    public bool IsEqViewSelected => _selectedVisualizerView == VisualizerView.Eq;
+
+    public bool IsPianoRollViewSelected => _selectedVisualizerView == VisualizerView.PianoRoll;
+
+    public IBrush EqViewButtonBackground => GetVisualizerViewButtonBackground(VisualizerView.Eq);
+
+    public IBrush EqViewButtonBorderBrush => GetVisualizerViewButtonBorderBrush(VisualizerView.Eq);
+
+    public IBrush EqViewButtonForeground => GetVisualizerViewButtonForeground(VisualizerView.Eq);
+
+    public IBrush PianoRollViewButtonBackground => GetVisualizerViewButtonBackground(VisualizerView.PianoRoll);
+
+    public IBrush PianoRollViewButtonBorderBrush => GetVisualizerViewButtonBorderBrush(VisualizerView.PianoRoll);
+
+    public IBrush PianoRollViewButtonForeground => GetVisualizerViewButtonForeground(VisualizerView.PianoRoll);
 
     public double PlaybackSpeedPercent
     {
@@ -785,6 +815,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnEqToggleClicked(object? sender, RoutedEventArgs e)
     {
         IsEqEnabled = !IsEqEnabled;
+        e.Handled = true;
+    }
+
+    private void OnShowEqViewClicked(object? sender, RoutedEventArgs e)
+    {
+        SetVisualizerView(VisualizerView.Eq);
+        e.Handled = true;
+    }
+
+    private void OnShowPianoRollViewClicked(object? sender, RoutedEventArgs e)
+    {
+        SetVisualizerView(VisualizerView.PianoRoll);
         e.Handled = true;
     }
 
@@ -1409,6 +1451,33 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(GlobalChorusReturnModeToolTip));
     }
 
+    private void SetVisualizerView(VisualizerView view)
+    {
+        if (_selectedVisualizerView == view)
+        {
+            return;
+        }
+
+        _selectedVisualizerView = view;
+        OnPropertyChanged(nameof(IsEqViewSelected));
+        OnPropertyChanged(nameof(IsPianoRollViewSelected));
+        OnPropertyChanged(nameof(EqViewButtonBackground));
+        OnPropertyChanged(nameof(EqViewButtonBorderBrush));
+        OnPropertyChanged(nameof(EqViewButtonForeground));
+        OnPropertyChanged(nameof(PianoRollViewButtonBackground));
+        OnPropertyChanged(nameof(PianoRollViewButtonBorderBrush));
+        OnPropertyChanged(nameof(PianoRollViewButtonForeground));
+    }
+
+    private IBrush GetVisualizerViewButtonBackground(VisualizerView view)
+        => _selectedVisualizerView == view ? SpeedEnabledBackgroundBrush : SpeedDisabledBackgroundBrush;
+
+    private IBrush GetVisualizerViewButtonBorderBrush(VisualizerView view)
+        => _selectedVisualizerView == view ? SpeedEnabledBorderBrush : SpeedDisabledBorderBrush;
+
+    private IBrush GetVisualizerViewButtonForeground(VisualizerView view)
+        => _selectedVisualizerView == view ? SpeedEnabledForegroundBrush : SpeedDisabledForegroundBrush;
+
     private static bool IsWithinVisual(Visual? source, Visual? target)
     {
         for (var current = source; current != null; current = current.GetVisualParent())
@@ -1459,6 +1528,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             _player.LoadMidi(path);
+            try
+            {
+                PianoRollNotes = MidiFileAnalysisService.LoadPianoRollNotes(path);
+            }
+            catch
+            {
+                PianoRollNotes = Array.Empty<PianoRollNote>();
+            }
+
             LoadMixSettingsForMidi(path);
             var title = Path.GetFileNameWithoutExtension(path);
             MidiDisplayName = title;
@@ -1483,6 +1561,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
+            PianoRollNotes = Array.Empty<PianoRollNote>();
             StatusText = "Error: " + ex.Message;
         }
     }

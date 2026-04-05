@@ -9,7 +9,7 @@ using MidiPlayer.App.Models;
 
 namespace MidiPlayer.App.Services;
 
-internal static class MidiEventBrowserService
+internal static class MidiFileAnalysisService
 {
     private const int DefaultTempoMicrosecondsPerQuarterNote = 500_000;
 
@@ -61,6 +61,122 @@ internal static class MidiEventBrowserService
             Rows = rows,
             TrackCount = midiFile.TrackCount
         };
+    }
+
+    public static PianoRollNote[] LoadPianoRollNotes(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        byte[] midiData = ReadMidiPayload(path);
+        var parser = new MidiFileParser(midiData);
+        ParsedMidiFile midiFile = parser.Parse();
+        TempoMap tempoMap = TempoMap.Create(midiFile.TimeBase, midiFile.Events);
+
+        var orderedEvents = midiFile.Events
+            .OrderBy(static evt => evt.Tick)
+            .ThenBy(static evt => evt.TrackIndex)
+            .ThenBy(static evt => evt.Sequence)
+            .ToArray();
+
+        var pendingNotes = new List<PendingNote>[16, 128];
+        var notes = new List<PianoRollNote>(Math.Max(16, orderedEvents.Length / 4));
+        long finalTick = 0;
+
+        foreach (ParsedMidiEvent midiEvent in orderedEvents)
+        {
+            long tick = Math.Max(0, midiEvent.Tick);
+            finalTick = Math.Max(finalTick, tick);
+
+            if (midiEvent.Kind != ParsedEventKind.Channel)
+            {
+                continue;
+            }
+
+            int statusCode = midiEvent.Status & 0xF0;
+            if (statusCode is not 0x80 and not 0x90)
+            {
+                continue;
+            }
+
+            int channel = midiEvent.Status & 0x0F;
+            if ((uint)channel >= 16 || midiEvent.Data.Length < 2)
+            {
+                continue;
+            }
+
+            int note = midiEvent.Data[0];
+            int velocity = midiEvent.Data[1];
+            if ((uint)note >= 128)
+            {
+                continue;
+            }
+
+            if (statusCode == 0x90 && velocity > 0)
+            {
+                (pendingNotes[channel, note] ??= []).Add(new PendingNote(tick, tempoMap.GetSeconds(tick), velocity));
+                continue;
+            }
+
+            List<PendingNote>? bucket = pendingNotes[channel, note];
+            if (bucket is null || bucket.Count == 0)
+            {
+                continue;
+            }
+
+            PendingNote pending = bucket[0];
+            bucket.RemoveAt(0);
+
+            long endTick = Math.Max(tick, pending.StartTick + 1);
+            notes.Add(new PianoRollNote(
+                channel,
+                note,
+                pending.Velocity,
+                pending.StartTick,
+                endTick,
+                pending.StartSeconds,
+                tempoMap.GetSeconds(endTick)));
+        }
+
+        for (int channel = 0; channel < pendingNotes.GetLength(0); channel++)
+        {
+            for (int note = 0; note < pendingNotes.GetLength(1); note++)
+            {
+                List<PendingNote>? bucket = pendingNotes[channel, note];
+                if (bucket is null || bucket.Count == 0)
+                {
+                    continue;
+                }
+
+                foreach (PendingNote pending in bucket)
+                {
+                    long endTick = Math.Max(finalTick, pending.StartTick + 1);
+                    notes.Add(new PianoRollNote(
+                        channel,
+                        note,
+                        pending.Velocity,
+                        pending.StartTick,
+                        endTick,
+                        pending.StartSeconds,
+                        tempoMap.GetSeconds(endTick)));
+                }
+            }
+        }
+
+        notes.Sort(static (left, right) =>
+        {
+            int startCompare = left.StartSeconds.CompareTo(right.StartSeconds);
+            if (startCompare != 0)
+            {
+                return startCompare;
+            }
+
+            int noteCompare = left.Note.CompareTo(right.Note);
+            return noteCompare != 0
+                ? noteCompare
+                : left.Channel.CompareTo(right.Channel);
+        });
+
+        return [.. notes];
     }
 
     private static string CreateToolTipText(ParsedMidiEvent midiEvent, EventDisplay display, long tick, double seconds)
@@ -455,6 +571,8 @@ internal static class MidiEventBrowserService
     private readonly record struct ParsedMidiFile(int Format, int TrackCount, TimeBase TimeBase, ParsedMidiEvent[] Events);
 
     private readonly record struct ParsedMidiEvent(int TrackIndex, long Tick, int Sequence, ParsedEventKind Kind, byte Status, byte MetaType, byte[] Data);
+
+    private readonly record struct PendingNote(long StartTick, double StartSeconds, int Velocity);
 
     private readonly record struct EventDisplay(string StatusText, string ChannelText, string NumberText, string ValueText, string SummaryText, int ChannelIndex);
 

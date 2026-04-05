@@ -1,6 +1,6 @@
 # Kintsugi Midi Player
 
-Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI loading, live visualizers, an interactive EQ, transport controls, tempo override, global transpose, per-channel mixing, a live MIDI event browser, and offline audio export.
+Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI loading, switchable live visualizers, an interactive EQ, a piano-roll waterfall view, transport controls, tempo override, global transpose, per-channel mixing, a live MIDI event browser, and offline audio export.
 
 ## Build
 
@@ -98,12 +98,13 @@ Hovering a channel shows the current instrument or drum kit name for that channe
 
 The center panel contains:
 
-- A real-time spectrum analyzer with an integrated EQ curve
-- A draggable multi-band EQ with a power toggle
+- A switchable `EQ` / `ROLL` visualizer header
+- An `EQ` view with a real-time spectrum analyzer and integrated EQ curve
+- A `ROLL` view with a piano-roll waterfall made of channel-colored falling note blocks
 - A piano keyboard that lights up with active notes
 - `KEY -` and `KEY +` buttons for global transpose in semitones
 
-Colors match MIDI channels, so you can see which channel is playing which notes. When transpose is active, the piano display shifts with it. EQ changes are reflected immediately in both live playback and the analyzer background.
+Colors match MIDI channels, so you can see which channel is playing which notes. In `ROLL`, the falling blocks use the same key geometry as the piano below it, so note lanes line up exactly with the keyboard. When transpose is active, both the piano-roll lanes and the piano display shift with it. EQ changes are reflected immediately in both live playback and the analyzer background.
 
 #### Playlist Drawer
 
@@ -185,7 +186,7 @@ Double-click the popup slider to reset it to `100%`.
 Use the `KEY -` and `KEY +` buttons on the left and right sides of the piano keyboard to transpose playback in semitones.
 
 - Range: `-24` to `+24` semitones
-- The transpose readout is shown above the piano keyboard
+- The transpose readout is shown below the piano keyboard
 - The piano note display moves with the transpose setting
 
 #### EQ
@@ -200,6 +201,16 @@ The spectrum panel also works as a live EQ editor.
 - Double-click the selected band to reset it to its default position
 - Click the EQ power button to bypass or enable the entire EQ
 - EQ currently affects live playback and the analyzer display in real time
+
+#### Piano Roll / Waterfall
+
+Click `ROLL` in the center visualizer header to switch from the EQ editor to the piano-roll waterfall.
+
+- Notes appear as falling colored blocks
+- Channel colors match the `CHANNEL ACTIVITY` strip and the piano keyboard highlights
+- The waterfall lanes align directly with the piano below
+- The bottom hit area shows where notes land on the keyboard
+- Playback speed and transpose both affect the waterfall display
 
 ### 5. Channel Activity and Per-Channel Mixer
 
@@ -436,6 +447,7 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 | `MIX`                          | Open global mixer                                  |
 | Loop button                    | Toggle looping                                     |
 | `BPM`                          | Open tempo override popup                          |
+| `EQ` / `ROLL`                  | Switch the center visualizer view                  |
 | `KEY -` / `KEY +`              | Transpose down or up                               |
 | EQ power button                | Bypass or enable the EQ                            |
 | EQ drag / wheel / double-click | Edit EQ bands / adjust width or slope / reset band |

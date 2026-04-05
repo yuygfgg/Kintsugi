@@ -110,7 +110,7 @@ public partial class MidiEventsWindow : Window, INotifyPropertyChanged
 
         try
         {
-            MidiEventBrowserDocument document = await Task.Run(() => MidiEventBrowserService.Load(path));
+            MidiEventBrowserDocument document = await Task.Run(() => MidiFileAnalysisService.Load(path));
             if (version != _loadVersion || !string.Equals(_loadedPath, path, StringComparison.OrdinalIgnoreCase))
             {
                 return;

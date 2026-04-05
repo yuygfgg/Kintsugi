@@ -1,4 +1,3 @@
-using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -27,40 +26,13 @@ public class PianoControl : Control
         set => SetValue(TransposeOffsetSemitonesProperty, value);
     }
 
-    private static readonly IBrush[] ChannelBrushes =
-    {
-        Brushes.Red, Brushes.Orange, Brushes.Yellow, Brushes.LimeGreen,
-        Brushes.Cyan, Brushes.DodgerBlue, Brushes.Indigo, Brushes.Violet,
-        Brushes.Magenta, Brushes.Purple, Brushes.DeepPink, Brushes.Goldenrod,
-        Brushes.Teal, Brushes.Navy, Brushes.Maroon, Brushes.Olive
-    };
-
     private static readonly IBrush WhiteKeyBrush = new SolidColorBrush(Color.Parse("#E0E0E0"));
     private static readonly IBrush BlackKeyBrush = new SolidColorBrush(Color.Parse("#202020"));
     private static readonly IPen OutlinePen = new Pen(new SolidColorBrush(Color.Parse("#111")), 1);
 
-    private readonly bool[] _isBlack = new bool[128];
-    private readonly int[] _whiteIndex = new int[128];
-    private int _numWhiteKeys = 0;
-
     public PianoControl()
     {
         ClipToBounds = true;
-
-        for (int i = 0; i < 128; i++)
-        {
-            int noteInOctave = i % 12;
-            bool isBlack = noteInOctave == 1 || noteInOctave == 3 || noteInOctave == 6 || noteInOctave == 8 || noteInOctave == 10;
-            _isBlack[i] = isBlack;
-            if (!isBlack)
-            {
-                _whiteIndex[i] = _numWhiteKeys++;
-            }
-            else
-            {
-                _whiteIndex[i] = _numWhiteKeys;
-            }
-        }
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -96,48 +68,45 @@ public class PianoControl : Control
         if (player == null) return;
 
         var bounds = Bounds;
-        double whiteKeyWidth = bounds.Width / _numWhiteKeys;
-        double blackKeyWidth = whiteKeyWidth * 0.6;
-        double blackKeyHeight = bounds.Height * 0.65;
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            return;
+        }
 
         // Draw white keys
-        for (int i = 0; i < 128; i++)
+        for (int i = 0; i < PianoKeyLayout.KeyCount; i++)
         {
-            if (!_isBlack[i])
+            if (!PianoKeyLayout.IsBlackKey(i))
             {
-                double x = _whiteIndex[i] * whiteKeyWidth;
-                var rect = new Rect(x, 0, whiteKeyWidth, bounds.Height);
-                
+                Rect rect = PianoKeyLayout.GetKeyRect(bounds, i);
                 IBrush fill = WhiteKeyBrush;
                 int sourceNote = i - TransposeOffsetSemitones;
                 for (int ch = 0; ch < 16; ch++)
                 {
                     if ((uint)sourceNote < 128 && player.ActiveNotes[ch, sourceNote])
                     {
-                        fill = ChannelBrushes[ch];
+                        fill = ChannelVisualPalette.GetChannelBrush(ch);
                         break;
                     }
                 }
-                
+
                 context.DrawRectangle(fill, OutlinePen, rect);
             }
         }
 
         // Draw black keys
-        for (int i = 0; i < 128; i++)
+        for (int i = 0; i < PianoKeyLayout.KeyCount; i++)
         {
-            if (_isBlack[i])
+            if (PianoKeyLayout.IsBlackKey(i))
             {
-                double x = _whiteIndex[i] * whiteKeyWidth - (blackKeyWidth / 2);
-                var rect = new Rect(x, 0, blackKeyWidth, blackKeyHeight);
-                
+                Rect rect = PianoKeyLayout.GetKeyRect(bounds, i);
                 IBrush fill = BlackKeyBrush;
                 int sourceNote = i - TransposeOffsetSemitones;
                 for (int ch = 0; ch < 16; ch++)
                 {
                     if ((uint)sourceNote < 128 && player.ActiveNotes[ch, sourceNote])
                     {
-                        fill = ChannelBrushes[ch];
+                        fill = ChannelVisualPalette.GetChannelBrush(ch);
                         break;
                     }
                 }
