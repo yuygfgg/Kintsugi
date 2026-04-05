@@ -37,6 +37,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static readonly IBrush SpeedDisabledBackgroundBrush = new SolidColorBrush(Color.Parse("#171717"));
     private static readonly IBrush SpeedDisabledBorderBrush = new SolidColorBrush(Color.Parse("#2F2F2F"));
     private static readonly IBrush SpeedDisabledForegroundBrush = new SolidColorBrush(Color.Parse("#A0A0A0"));
+    private static readonly string[] SupportedMidiExtensions = [".mid", ".midi", ".kar", ".rmi"];
     private const double ChannelMixerPopupWidth = 244;
     private const double ChannelMixerPopupHeight = 206;
     private const double ChannelMixerPopupPointerWidth = 20;
@@ -111,6 +112,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SeekSlider.AddHandler(PointerPressedEvent, OnSeekPointerPressed, RoutingStrategies.Tunnel);
         SeekSlider.AddHandler(PointerReleasedEvent, OnSeekPointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerPressedEvent, OnWindowPointerPressed, RoutingStrategies.Bubble, true);
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, OnWindowDragOver);
+        AddHandler(DragDrop.DropEvent, OnWindowDrop);
         
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
 
@@ -507,22 +511,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        try
-        {
-            _player.LoadMidi(path);
-            LoadMixSettingsForMidi(path);
-            var title = Path.GetFileNameWithoutExtension(path);
-            MidiDisplayName = title;
-            StatusText = "Playing";
-            _player.Play();
-            RefreshTransport(resetPosition: true);
-            _mediaControls.UpdateNowPlaying(title, "Kintsugi Midi Player", DurationSeconds, PositionSeconds);
-            _mediaControls.UpdatePlaybackState(true, PositionSeconds);
-        }
-        catch (Exception ex)
-        {
-            StatusText = "Error: " + ex.Message;
-        }
+        LoadMidiFromPath(path);
     }
 
     private void OnSettingsClicked(object? sender, RoutedEventArgs e)
@@ -831,6 +820,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private void OnWindowDragOver(object? sender, DragEventArgs e)
+    {
+        bool canDrop = CanOpenMidi && TryGetDraggedMidiPath(e.DataTransfer) is not null;
+        e.DragEffects = canDrop ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnWindowDrop(object? sender, DragEventArgs e)
+    {
+        if (!CanOpenMidi)
+        {
+            e.DragEffects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        string? path = TryGetDraggedMidiPath(e.DataTransfer);
+        if (path is null)
+        {
+            StatusText = "Drop a MIDI file (.mid, .midi, .kar, .rmi).";
+            e.DragEffects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        e.DragEffects = DragDropEffects.Copy;
+        e.Handled = true;
+        LoadMidiFromPath(path);
+    }
+
     private void RefreshTransport(bool resetPosition = false)
     {
         var isPlaying = _player.IsPlaying;
@@ -1136,6 +1155,71 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static string FormatCoord(double value)
         => value.ToString("0.###", CultureInfo.InvariantCulture);
+
+    private void LoadMidiFromPath(string path)
+    {
+        CloseChannelMixerPopup();
+        IsGlobalMixerPopupOpen = false;
+        IsSpeedPopupOpen = false;
+
+        try
+        {
+            _player.LoadMidi(path);
+            LoadMixSettingsForMidi(path);
+            var title = Path.GetFileNameWithoutExtension(path);
+            MidiDisplayName = title;
+            StatusText = "Playing";
+            _player.Play();
+            RefreshTransport(resetPosition: true);
+            _mediaControls.UpdateNowPlaying(title, "Kintsugi Midi Player", DurationSeconds, PositionSeconds);
+            _mediaControls.UpdatePlaybackState(true, PositionSeconds);
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Error: " + ex.Message;
+        }
+    }
+
+    private static string? TryGetDraggedMidiPath(IDataTransfer dataTransfer)
+    {
+        if (dataTransfer.TryGetFiles() is { } storageItems)
+        {
+            foreach (var item in storageItems)
+            {
+                if (item is not IStorageFile storageFile)
+                {
+                    continue;
+                }
+
+                string? path = storageFile.TryGetLocalPath();
+                if (IsSupportedMidiPath(path))
+                {
+                    return path;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsSupportedMidiPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        string extension = Path.GetExtension(path);
+        foreach (var supportedExtension in SupportedMidiExtensions)
+        {
+            if (string.Equals(extension, supportedExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {

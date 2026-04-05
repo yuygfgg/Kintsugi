@@ -33,6 +33,7 @@ public class ChannelMonitorControl : Control
     private static readonly IPen OutlinePen = new Pen(new SolidColorBrush(Color.Parse("#111")), 1);
     private readonly DispatcherTimer _pendingMuteTimer;
     private int _pendingMuteChannel = -1;
+    private int _hoveredChannel = -1;
 
     public event EventHandler<ChannelMixerRequestedEventArgs>? ChannelMixerRequested;
 
@@ -40,6 +41,8 @@ public class ChannelMonitorControl : Control
     {
         ClipToBounds = true;
         Cursor = new Cursor(StandardCursorType.Hand);
+        ToolTip.SetShowDelay(this, 0);
+        ToolTip.SetBetweenShowDelay(this, 0);
 
         _pendingMuteTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _pendingMuteTimer.Tick += OnPendingMuteTimerTick;
@@ -54,6 +57,7 @@ public class ChannelMonitorControl : Control
 
         var currentPoint = e.GetCurrentPoint(this);
         int? channel = GetChannelAt(currentPoint.Position);
+        ToolTip.SetIsOpen(this, false);
         if (channel is null)
         {
             return;
@@ -88,6 +92,18 @@ public class ChannelMonitorControl : Control
         }
     }
 
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        UpdateHoveredChannel(e.GetPosition(this));
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        ClearHoveredChannel();
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -102,13 +118,21 @@ public class ChannelMonitorControl : Control
             {
                 newPlayer.NotesChanged += OnNotesChanged;
             }
-            Dispatcher.UIThread.Post(InvalidateVisual);
+            Dispatcher.UIThread.Post(() =>
+            {
+                RefreshToolTip();
+                InvalidateVisual();
+            });
         }
     }
 
     private void OnNotesChanged()
     {
-        Dispatcher.UIThread.Post(InvalidateVisual);
+        Dispatcher.UIThread.Post(() =>
+        {
+            RefreshToolTip();
+            InvalidateVisual();
+        });
     }
 
     private int? GetChannelAt(Point point)
@@ -135,6 +159,34 @@ public class ChannelMonitorControl : Control
         _pendingMuteTimer.Interval = TopLevel.GetTopLevel(this)?.PlatformSettings?.GetDoubleTapTime(pointerType)
             ?? TimeSpan.FromMilliseconds(250);
         _pendingMuteTimer.Start();
+    }
+
+    private void UpdateHoveredChannel(Point point)
+    {
+        int hoveredChannel = Player is { HasStream: true }
+            ? GetChannelAt(point) ?? -1
+            : -1;
+
+        if (_hoveredChannel == hoveredChannel)
+        {
+            return;
+        }
+
+        _hoveredChannel = hoveredChannel;
+        RefreshToolTip();
+    }
+
+    private void ClearHoveredChannel()
+    {
+        if (_hoveredChannel < 0)
+        {
+            ToolTip.SetIsOpen(this, false);
+            return;
+        }
+
+        _hoveredChannel = -1;
+        ToolTip.SetIsOpen(this, false);
+        ToolTip.SetTip(this, null);
     }
 
     private void CancelPendingMute(int channel)
@@ -167,6 +219,28 @@ public class ChannelMonitorControl : Control
         _pendingMuteChannel = -1;
         player.ToggleChannelMute(channel);
         InvalidateVisual();
+    }
+
+    private void RefreshToolTip()
+    {
+        var player = Player;
+        if (player is null || !player.HasStream || _hoveredChannel < 0)
+        {
+            ToolTip.SetIsOpen(this, false);
+            ToolTip.SetTip(this, null);
+            return;
+        }
+
+        string instrumentName = player.GetChannelInstrumentName(_hoveredChannel);
+        if (string.IsNullOrWhiteSpace(instrumentName))
+        {
+            ToolTip.SetIsOpen(this, false);
+            ToolTip.SetTip(this, null);
+            return;
+        }
+
+        ToolTip.SetTip(this, $"CH {_hoveredChannel + 1:00}: {instrumentName}");
+        ToolTip.SetIsOpen(this, true);
     }
 
     public override void Render(DrawingContext context)

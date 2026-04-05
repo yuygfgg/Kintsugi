@@ -1,6 +1,6 @@
 # Kintsugi Midi Player
 
-Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, live visualizers, transport controls, tempo override, global transpose, and offline WAV export.
+Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI loading, live visualizers, transport controls, tempo override, global transpose, per-channel mixing, and offline WAV export.
 
 ## Build
 
@@ -16,7 +16,7 @@ scripts/publish-macos-app.sh
 
 ## User Manual
 
-Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, live note and spectrum visualization, per-channel mixing, tempo override, global transpose, and offline WAV export.
+Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, drag-and-drop MIDI loading, live note and spectrum visualization, per-channel mixing, tempo override, global transpose, and offline WAV export.
 
 ### 1. Supported Files
 
@@ -28,7 +28,7 @@ Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, liv
 
 1. Open the app.
 2. Click the gear button and load a SoundFont (`.sf2` or `.sfz`).
-3. Click `OPEN FILE` and choose a MIDI file.
+3. Click `OPEN FILE` and choose a MIDI file, or drag a MIDI file into the window.
 4. Use the transport controls at the bottom to play, pause, seek, or loop the track.
 5. Click `EXPORT WAV` if you want to render the current track to a WAV file.
 
@@ -59,6 +59,8 @@ The `CHANNEL ACTIVITY` strip shows 16 MIDI channels. Each block is one channel.
 
 This strip is also the fastest way to mute, solo, and edit channels.
 
+Hovering a channel shows the current instrument or drum kit name for that channel.
+
 #### Visualizer
 
 The center panel contains:
@@ -85,7 +87,7 @@ The bottom bar contains:
 
 #### Open a MIDI File
 
-Click `OPEN FILE` and choose a MIDI file. The app loads the file immediately.
+Click `OPEN FILE` and choose a MIDI file, or drag a MIDI file into the window. The app loads the file immediately.
 
 If a SoundFont is already loaded, playback starts automatically.
 
@@ -136,6 +138,9 @@ Each channel block in `CHANNEL ACTIVITY` supports three actions:
 - Single-click: mute or unmute that channel
 - Double-click: solo that channel; double-click the same channel again to leave solo mode
 - Right-click: open the mixer popup for that channel
+- Hover: show the current instrument or drum kit name for that channel
+
+The hover label follows the channel's current MIDI state, so it updates when the file switches program, bank, or drum mode.
 
 <img width="254" height="250" alt="截屏2026-04-05 10 56 20" src="https://github.com/user-attachments/assets/aa13da1f-ae85-43fa-a3f8-9dbf8a71fd08" />
 
@@ -332,6 +337,7 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 | Channel single-click | Mute/unmute channel             |
 | Channel double-click | Solo/unsolo channel             |
 | Channel right-click  | Open per-channel mixer          |
+| Channel hover        | Show channel instrument name    |
 | `MIX`                | Open global mixer               |
 | Loop button          | Toggle looping                  |
 | `BPM`                | Open tempo override popup       |
