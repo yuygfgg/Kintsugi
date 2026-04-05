@@ -40,7 +40,7 @@ Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, dra
 
 ### 3. Main Window Overview
 
-<img width="1512" height="982" alt="截屏2026-04-05 15 21 08" src="https://github.com/user-attachments/assets/d465c590-23ca-4eba-a22a-3e74c108716b" />
+<img width="1512" height="982" alt="截屏2026-04-05 19 49 27" src="https://github.com/user-attachments/assets/18495e30-e5fe-4f7a-be72-54f91f3017c1" />
 
 The main window is divided into four primary areas, along with a slide-out drawer.
 
