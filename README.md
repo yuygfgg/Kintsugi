@@ -221,7 +221,7 @@ Click outside the popup to close it.
 
 Click the gear button to open `Player Settings`.
 
-<img width="439" height="480" alt="截屏2026-04-05 10 57 25" src="https://github.com/user-attachments/assets/871a6cec-16e9-42f7-a1fe-f5b7f32534e6" />
+<img width="442" height="479" alt="截屏2026-04-05 17 16 23" src="https://github.com/user-attachments/assets/58b8e191-df51-421d-a647-ee6329247a85" />
 
 #### SoundFont
 
