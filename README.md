@@ -111,6 +111,15 @@ Click the loop button to toggle loop playback on or off.
 
 When loop is off, the status changes to `Finished` when the song reaches the end.
 
+To loop only a short section instead of the full track:
+
+1. Hold `Shift` and drag on the seek timeline to create an A-B range.
+2. Release the pointer to enable looping for that selected range immediately.
+3. Drag inside the highlighted range to move it, or drag either edge to resize it.
+4. Click `CLEAR` to remove the A-B range and return to full-track playback.
+
+You can also turn loop off while keeping the A-B range selected, then click the loop button again to resume looping that same section.
+
 #### Tempo Override
 
 Click the `BPM` badge to open the tempo override popup.
