@@ -51,6 +51,16 @@ static MediaSeekCallback _seekCallback = NULL;
         return MPRemoteCommandHandlerStatusSuccess;
     }];
     
+    [commandCenter.nextTrackCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent * _Nonnull event) {
+        if (_callback) _callback(4);
+        return MPRemoteCommandHandlerStatusSuccess;
+    }];
+    
+    [commandCenter.previousTrackCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent * _Nonnull event) {
+        if (_callback) _callback(5);
+        return MPRemoteCommandHandlerStatusSuccess;
+    }];
+    
     if (@available(macOS 10.12.2, *)) {
         [commandCenter.changePlaybackPositionCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent * _Nonnull event) {
             MPChangePlaybackPositionCommandEvent *positionEvent = (MPChangePlaybackPositionCommandEvent *)event;

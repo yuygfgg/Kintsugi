@@ -10,6 +10,8 @@ public class SystemMediaControls : IDisposable
     private readonly Action _onStop;
     private readonly Action _onToggle;
     private readonly Action<double> _onSeek;
+    private readonly Action _onNext;
+    private readonly Action _onPrevious;
 
     private static SystemMediaControls? _instance;
 
@@ -17,13 +19,15 @@ public class SystemMediaControls : IDisposable
     private Windows.Media.SystemMediaTransportControls? _smtc;
 #endif
 
-    public SystemMediaControls(Action onPlay, Action onPause, Action onStop, Action onToggle, Action<double> onSeek)
+    public SystemMediaControls(Action onPlay, Action onPause, Action onStop, Action onToggle, Action<double> onSeek, Action onNext, Action onPrevious)
     {
         _onPlay = onPlay;
         _onPause = onPause;
         _onStop = onStop;
         _onToggle = onToggle;
         _onSeek = onSeek;
+        _onNext = onNext;
+        _onPrevious = onPrevious;
         _instance = this;
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -60,6 +64,8 @@ public class SystemMediaControls : IDisposable
             _smtc.IsPlayEnabled = true;
             _smtc.IsPauseEnabled = true;
             _smtc.IsStopEnabled = true;
+            _smtc.IsNextEnabled = true;
+            _smtc.IsPreviousEnabled = true;
             _smtc.ButtonPressed += Smtc_ButtonPressed;
         }
         catch (Exception ex)
@@ -82,6 +88,12 @@ public class SystemMediaControls : IDisposable
                 break;
             case Windows.Media.SystemMediaTransportControlsButton.Stop:
                 _onStop?.Invoke();
+                break;
+            case Windows.Media.SystemMediaTransportControlsButton.Next:
+                _onNext?.Invoke();
+                break;
+            case Windows.Media.SystemMediaTransportControlsButton.Previous:
+                _onPrevious?.Invoke();
                 break;
         }
     }
@@ -216,6 +228,8 @@ public class SystemMediaControls : IDisposable
                 case 1: _instance._onPause?.Invoke(); break;
                 case 2: _instance._onStop?.Invoke(); break;
                 case 3: _instance._onToggle?.Invoke(); break;
+                case 4: _instance._onNext?.Invoke(); break;
+                case 5: _instance._onPrevious?.Invoke(); break;
             }
         });
     }

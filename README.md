@@ -33,7 +33,7 @@ Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, dra
 ### 2. Quick Start
 
 1. Open the app.
-2. Open a MIDI file. The bundled `GeneralUser-GS.sf2` default SoundFont loads automatically in packaged builds.
+2. Open a MIDI file. The bundled `GeneralUser-GS.sf2` default SoundFont loads automatically in packaged builds. All other MIDI files in the same directory will automatically be imported into the Playlist.
 3. Optional: click the gear button and replace it with your own SoundFont (`.sf2` or `.sfz`).
 4. Use the transport controls at the bottom to play, pause, seek, or loop the track.
 5. Click `EXPORT WAV` if you want to render the current track to a WAV file.
@@ -42,7 +42,7 @@ Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, dra
 
 <img width="1512" height="982" alt="截屏2026-04-05 15 21 08" src="https://github.com/user-attachments/assets/d465c590-23ca-4eba-a22a-3e74c108716b" />
 
-The main window is divided into four areas.
+The main window is divided into four primary areas, along with a slide-out drawer.
 
 #### Header
 
@@ -77,10 +77,19 @@ The center panel contains:
 
 Colors match MIDI channels, so you can see which channel is playing which notes. When transpose is active, the piano display shifts with it.
 
+#### Playlist Drawer
+
+Click the `◀` tab located on the right edge of the main window to slide out the playlist panel.
+- It automatically imports all valid MIDI files from the directory of the last opened file.
+- Track durations are parsed instantly in the background.
+- Click `↓ A-Z` or `↑ Z-A` to toggle alphabetical sorting.
+- Click `▶` in the drawer's header to cleanly retract it.
+
 #### Transport Bar
 
 The bottom bar contains:
 
+- Previous and Next track controls
 - Play/Pause
 - Current position and total length
 - Seek slider
@@ -105,7 +114,12 @@ If neither the bundled default nor a custom SoundFont can be loaded, the file st
 - Press `Space`
 - On macOS and Windows, system media controls can also control playback
 
-If playback has already reached the end of the song, pressing Play starts again from the beginning.
+If playback has already reached the end of the song, pressing Play starts again from the beginning. If the playlist has multiple items, the player will automatically advance to the next track upon finishing.
+
+#### Track Navigation
+
+- Use the `⏮` (Previous) or `⏭` (Next) buttons in the transport bar to skip between tracks in your auto-imported Playlist.
+- These controls map directly to your system's native media controllers (SMTC/macOS remote commands), meaning your keyboard's hardware media keys will naturally switch tracks in Kintsugi.
 
 #### Seek
 
@@ -353,8 +367,10 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 | Action               | Result                          |
 | -------------------- | ------------------------------- |
 | `OPEN FILE`          | Load a MIDI file                |
+| `◀` tab (Right Edge) | Slide out the Playlist drawer   |
 | `EXPORT WAV`         | Render the current track to WAV |
 | `Space`              | Play or pause                   |
+| `⏮` / `⏭`            | Previous / Next track           |
 | Channel single-click | Mute/unmute channel             |
 | Channel double-click | Solo/unsolo channel             |
 | Channel right-click  | Open per-channel mixer          |

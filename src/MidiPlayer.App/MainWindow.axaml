@@ -2,7 +2,11 @@
     x:Class="MidiPlayer.App.MainWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:controls="using:MidiPlayer.App.Controls"
+    xmlns:models="using:MidiPlayer.App.Models"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="700"
     Title="Kintsugi Midi Player"
     Width="820"
     Height="560"
@@ -51,10 +55,11 @@
     </Style>
   </Window.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
-    <!-- Header -->
-    <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,16">
-      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalAlignment="Center" ClipToBounds="True" Margin="0,0,12,0">
+  <Panel>
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
+      <!-- Header -->
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,16">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalAlignment="Center" ClipToBounds="True" Margin="0,0,12,0">
         <TextBlock Text="KINTSUGI MIDI PLAYER" FontSize="16" FontWeight="Bold" Foreground="#4A90E2" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1"
                    Text="{Binding MidiDisplayName}"
@@ -79,16 +84,16 @@
                      ToolTip.Tip="{Binding StatusText}" />
         </Border>
       </Grid>
-      <Button Grid.Column="1" Click="OnOpenMidiClicked" Classes="iconBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0" IsEnabled="{Binding CanOpenMidi}">
-        <TextBlock Text="OPEN FILE" Foreground="#C8D7E6" />
-      </Button>
-      <Button Grid.Column="2" Click="OnExportWavClicked" Classes="iconBtn actionBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0" IsEnabled="{Binding CanExport}">
-        <TextBlock Text="{Binding ExportButtonText}" Foreground="#DCEEFF" />
-      </Button>
-      <Button Grid.Column="3" Classes="iconBtn" Click="OnSettingsClicked" ToolTip.Tip="Settings" IsEnabled="{Binding CanOpenSettings}">
-        <TextBlock Text="⚙" FontSize="14" />
-      </Button>
-    </Grid>
+        <Button Grid.Column="1" Click="OnOpenMidiClicked" Classes="iconBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0" IsEnabled="{Binding CanOpenMidi}">
+          <TextBlock Text="OPEN FILE" Foreground="#C8D7E6" />
+        </Button>
+        <Button Grid.Column="2" Click="OnExportWavClicked" Classes="iconBtn actionBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0" IsEnabled="{Binding CanExport}">
+          <TextBlock Text="{Binding ExportButtonText}" Foreground="#DCEEFF" />
+        </Button>
+        <Button Grid.Column="3" Classes="iconBtn" Click="OnSettingsClicked" ToolTip.Tip="Settings" IsEnabled="{Binding CanOpenSettings}">
+          <TextBlock Text="⚙" FontSize="14" />
+        </Button>
+      </Grid>
 
     <!-- Channel Monitor -->
     <Border Grid.Row="1"
@@ -275,17 +280,17 @@
     <!-- Transport Controls -->
     <Border Grid.Row="3" Background="#181818" BorderBrush="#333" BorderThickness="1" CornerRadius="4" Padding="16">
       <Grid ColumnDefinitions="Auto,*,Auto">
-        <Button Grid.Column="0"
-            Width="48"
-            Height="48"
-            CornerRadius="24"
-            Background="#4A90E2"
-            BorderThickness="0"
-            Click="OnPlayPauseClicked"
-            IsEnabled="{Binding CanTogglePlayback}"
-            Margin="0,0,16,0">
-          <TextBlock Text="{Binding PlayPauseIcon}" FontSize="20" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{Binding PlayPauseIconMargin}"/>
-        </Button>
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" Margin="0,0,16,0" VerticalAlignment="Center">
+          <Button Classes="iconBtn" Width="36" Height="36" CornerRadius="18" Padding="0" Click="OnPlayPreviousClicked" ToolTip.Tip="Previous Track">
+            <TextBlock Text="⏮" FontSize="16" Foreground="#C8D7E6" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Button>
+          <Button Width="48" Height="48" CornerRadius="24" Background="#4A90E2" BorderThickness="0" Click="OnPlayPauseClicked" IsEnabled="{Binding CanTogglePlayback}" Margin="4,0">
+            <TextBlock Text="{Binding PlayPauseIcon}" FontSize="20" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{Binding PlayPauseIconMargin}"/>
+          </Button>
+          <Button Classes="iconBtn" Width="36" Height="36" CornerRadius="18" Padding="0" Click="OnPlayNextClicked" ToolTip.Tip="Next Track">
+            <TextBlock Text="⏭" FontSize="16" Foreground="#C8D7E6" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Button>
+        </StackPanel>
         
         <Grid Grid.Column="1" RowDefinitions="Auto,36" RowSpacing="4" VerticalAlignment="Center" ClipToBounds="False">
           <Grid ColumnDefinitions="Auto,*,Auto">
@@ -550,5 +555,64 @@
         </StackPanel>
       </Grid>
     </Border>
-  </Grid>
+    </Grid>
+
+    <Button HorizontalAlignment="Right" VerticalAlignment="Center" 
+            Background="#1A1A1A" BorderBrush="#333" BorderThickness="1,1,0,1" CornerRadius="8,0,0,8"
+            Click="OnTogglePlaylistClicked"
+            IsVisible="{Binding !IsPlaylistVisible}"
+            Padding="4,24" Margin="0,0,0,0" ZIndex="49"
+            ToolTip.Tip="Toggle Playlist">
+      <TextBlock Text="◀" Foreground="#888" FontSize="10"/>
+    </Button>
+
+    <Border HorizontalAlignment="Right" VerticalAlignment="Stretch"
+            IsVisible="{Binding IsPlaylistVisible}"
+            Width="300"
+            Background="#121212" 
+            BorderBrush="#333" 
+            BorderThickness="1,0,0,0"
+            ZIndex="50">
+      <Grid RowDefinitions="Auto,*">
+        <Border BorderBrush="#333" BorderThickness="0,0,0,1" Padding="12">
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBlock Text="PLAYLIST" FontWeight="Bold" FontSize="14" Foreground="#4A90E2" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="iconBtn" Click="OnToggleSortClicked" Padding="8,4" Margin="0,0,8,0">
+              <TextBlock x:Name="SortIconText" Text="↓ A-Z" FontSize="11" FontWeight="Bold" Foreground="#A0A0A0" />
+            </Button>
+            <Button Grid.Column="2" Classes="iconBtn" Click="OnTogglePlaylistClicked" Padding="8,4" ToolTip.Tip="Hide Playlist">
+              <TextBlock Text="▶" FontSize="11" Foreground="#888" />
+            </Button>
+          </Grid>
+        </Border>
+
+        <ListBox Grid.Row="1" ItemsSource="{Binding Playlist}" Background="Transparent" SelectionChanged="OnPlaylistSelectionChanged">
+          <ListBox.Styles>
+            <Style Selector="ListBoxItem">
+              <Setter Property="Padding" Value="12,8" />
+              <Setter Property="Cursor" Value="Hand" />
+            </Style>
+            <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+              <Setter Property="Background" Value="#1A1A1A" />
+            </Style>
+            <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+              <Setter Property="Background" Value="#252525" />
+            </Style>
+          </ListBox.Styles>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="models:PlaylistItem">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Background="Transparent">
+                <TextBlock Grid.Column="0" Text="▶" Foreground="#4A90E2" IsVisible="{Binding IsPlaying}" VerticalAlignment="Center" Width="14" FontSize="10" />
+                <TextBlock Grid.Column="0" Text="" IsVisible="{Binding !IsPlaying}" Width="14" />
+                
+                <TextBlock Grid.Column="1" Text="{Binding FileName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" FontSize="13" />
+                
+                <TextBlock Grid.Column="2" Text="{Binding DurationText}" Foreground="#888" FontSize="12" FontFamily="Courier New" VerticalAlignment="Center" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+  </Panel>
 </Window>

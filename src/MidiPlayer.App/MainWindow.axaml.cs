@@ -13,7 +13,11 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MidiPlayer.App.Controls;
+using MidiPlayer.App.Models;
 using MidiPlayer.App.Services;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading;
 
 namespace MidiPlayer.App;
 
@@ -75,6 +79,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isSpeedPopupOpen;
     private int _selectedChannelIndex = -1;
 
+    public ObservableCollection<PlaylistItem> Playlist { get; } = new();
+    private bool _isPlaylistSortAscending = true;
+    public bool IsPlaylistSortAscending
+    {
+        get => _isPlaylistSortAscending;
+        set
+        {
+            if (SetField(ref _isPlaylistSortAscending, value))
+            {
+                SortPlaylist();
+            }
+        }
+    }
+    
+    private bool _isPlaylistVisible;
+    public bool IsPlaylistVisible
+    {
+        get => _isPlaylistVisible;
+        set => SetField(ref _isPlaylistVisible, value);
+    }
+    
+    private CancellationTokenSource? _playlistParseCts;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -113,7 +140,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 }
             },
             onToggle: () => { if (CanTogglePlayback) OnPlayPauseClicked(this, new RoutedEventArgs()); },
-            onSeek: (pos) => { if (CanSeek) { _player.Seek(pos); _mediaControls?.UpdatePosition(pos); RefreshTransport(); } }
+            onSeek: (pos) => { if (CanSeek) { _player.Seek(pos); _mediaControls?.UpdatePosition(pos); RefreshTransport(); } },
+            onNext: () => Dispatcher.UIThread.Post(() => OnPlayNextClicked(this, new RoutedEventArgs())),
+            onPrevious: () => Dispatcher.UIThread.Post(() => OnPlayPreviousClicked(this, new RoutedEventArgs()))
         );
 
         _positionTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => RefreshTransport());
@@ -703,6 +732,58 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IsSpeedPopupOpen = !IsSpeedPopupOpen;
     }
 
+    private void OnTogglePlaylistClicked(object? sender, RoutedEventArgs e)
+    {
+        IsPlaylistVisible = !IsPlaylistVisible;
+    }
+
+    private void OnToggleSortClicked(object? sender, RoutedEventArgs e)
+    {
+        IsPlaylistSortAscending = !IsPlaylistSortAscending;
+        UpdateSortIcon();
+    }
+
+    private void UpdateSortIcon()
+    {
+        var run = this.FindControl<Avalonia.Controls.TextBlock>("SortIconText");
+        if (run != null)
+        {
+            run.Text = IsPlaylistSortAscending ? "↓ A-Z" : "↑ Z-A";
+        }
+    }
+
+    private void OnPlaylistSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is Avalonia.Controls.ListBox listBox && listBox.SelectedItem is PlaylistItem item)
+        {
+            listBox.SelectedItem = null; // Reset selection to allow clicking again
+            if (!item.IsPlaying)
+            {
+                LoadMidiFromPath(item.FilePath, true);
+            }
+        }
+    }
+
+    internal void OnPlayNextClicked(object? sender, RoutedEventArgs e)
+    {
+        if (Playlist.Count == 0 || string.IsNullOrEmpty(_player.MidiPath)) return;
+        var index = Playlist.ToList().FindIndex(x => string.Equals(x.FilePath, _player.MidiPath, StringComparison.OrdinalIgnoreCase));
+        if (index >= 0 && index < Playlist.Count - 1)
+        {
+            LoadMidiFromPath(Playlist[index + 1].FilePath, true);
+        }
+    }
+
+    internal void OnPlayPreviousClicked(object? sender, RoutedEventArgs e)
+    {
+        if (Playlist.Count == 0 || string.IsNullOrEmpty(_player.MidiPath)) return;
+        var index = Playlist.ToList().FindIndex(x => string.Equals(x.FilePath, _player.MidiPath, StringComparison.OrdinalIgnoreCase));
+        if (index > 0)
+        {
+            LoadMidiFromPath(Playlist[index - 1].FilePath, true);
+        }
+    }
+
     private void OnChannelMixerRequested(object? sender, ChannelMixerRequestedEventArgs e)
     {
         if (e.Channel == _selectedChannelIndex && IsChannelMixerPopupOpen)
@@ -990,8 +1071,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (_wasPlayingLastRefresh && !isPlaying && IsPlaybackAtEnd() && !_player.IsLooping)
         {
-            StatusText = "Finished";
-            _mediaControls.UpdatePlaybackState(false, PositionSeconds);
+            if (Playlist.Count > 1)
+            {
+                OnPlayNextClicked(this, new RoutedEventArgs());
+            }
+            else
+            {
+                StatusText = "Finished";
+                _mediaControls.UpdatePlaybackState(false, PositionSeconds);
+            }
         }
 
         _wasPlayingLastRefresh = isPlaying;
@@ -1298,7 +1386,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static string FormatCoord(double value)
         => value.ToString("0.###", CultureInfo.InvariantCulture);
 
-    private void LoadMidiFromPath(string path)
+    internal void LoadMidiFromPath(string path, bool isFromPlaylist = false)
     {
         CloseChannelMixerPopup();
         IsGlobalMixerPopupOpen = false;
@@ -1315,10 +1403,116 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             RefreshTransport(resetPosition: true);
             _mediaControls.UpdateNowPlaying(title, "Kintsugi Midi Player", DurationSeconds, PositionSeconds);
             _mediaControls.UpdatePlaybackState(true, PositionSeconds);
+
+            if (!isFromPlaylist)
+            {
+                ImportPlaylistFromDirectory(path);
+            }
+            else
+            {
+                UpdatePlaylistPlayingState(path);
+            }
         }
         catch (Exception ex)
         {
             StatusText = "Error: " + ex.Message;
+        }
+    }
+
+    private void ImportPlaylistFromDirectory(string currentMidiPath)
+    {
+        _playlistParseCts?.Cancel();
+        Playlist.Clear();
+
+        try
+        {
+            string? dir = Path.GetDirectoryName(currentMidiPath);
+            if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) return;
+
+            var files = Directory.GetFiles(dir)
+                .Where(f => IsSupportedMidiPath(f))
+                .ToList();
+
+            foreach (var f in files)
+            {
+                Playlist.Add(new PlaylistItem
+                {
+                    FilePath = f,
+                    FileName = Path.GetFileName(f),
+                    IsPlaying = string.Equals(f, currentMidiPath, StringComparison.OrdinalIgnoreCase)
+                });
+            }
+
+            SortPlaylist();
+            _playlistParseCts = new CancellationTokenSource();
+            _ = ParsePlaylistDurationsAsync(_playlistParseCts.Token);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error importing playlist: {ex.Message}");
+        }
+    }
+
+    private void SortPlaylist()
+    {
+        var items = Playlist.ToList();
+        if (_isPlaylistSortAscending)
+            items.Sort((a, b) => string.Compare(a.FileName, b.FileName, StringComparison.OrdinalIgnoreCase));
+        else
+            items.Sort((a, b) => string.Compare(b.FileName, a.FileName, StringComparison.OrdinalIgnoreCase));
+        
+        Playlist.Clear();
+        foreach (var item in items) Playlist.Add(item);
+    }
+
+    private void UpdatePlaylistPlayingState(string playingPath)
+    {
+        foreach (var item in Playlist)
+        {
+            item.IsPlaying = string.Equals(item.FilePath, playingPath, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private async Task ParsePlaylistDurationsAsync(CancellationToken ct)
+    {
+        var itemsToParse = Playlist.ToList();
+        foreach (var item in itemsToParse)
+        {
+            if (ct.IsCancellationRequested) return;
+            if (item.IsDurationParsed || item.IsFailed) continue;
+
+            await Task.Run(() =>
+            {
+                try
+                {
+                    int handle = ManagedBass.Midi.BassMidi.CreateStream(item.FilePath, 0, 0, ManagedBass.BassFlags.Decode | ManagedBass.BassFlags.Prescan, 44100);
+                    if (handle != 0)
+                    {
+                        long lenBytes = ManagedBass.Bass.ChannelGetLength(handle, ManagedBass.PositionFlags.Bytes);
+                        double dur = ManagedBass.Bass.ChannelBytes2Seconds(handle, lenBytes);
+                        ManagedBass.Bass.StreamFree(handle);
+                        
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            if (ct.IsCancellationRequested) return;
+                            item.DurationSeconds = dur;
+                            item.IsDurationParsed = true;
+                        });
+                    }
+                    else 
+                    {
+                        throw new Exception("CreateStream failed");
+                    }
+                }
+                catch
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (ct.IsCancellationRequested) return;
+                        item.IsFailed = true;
+                    });
+                }
+            }, ct);
         }
     }
 
