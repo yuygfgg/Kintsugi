@@ -355,7 +355,7 @@
               HasCustomLoopRange="{Binding HasCustomLoopRange}"
               IsLoopEnabled="{Binding IsLoopEnabled}"
               IsEnabled="{Binding CanSeek}"
-              ToolTip.Tip="Top lane: drag to create or adjust an A-B loop. Bottom lane: drag to seek."
+              ToolTip.Tip="Drag to seek. Shift+Drag to create an A-B loop. Drag loop edges to resize."
               SeekStarted="OnTimelineSeekStarted"
               SeekChanged="OnTimelineSeekChanged"
               SeekCompleted="OnTimelineSeekCompleted"

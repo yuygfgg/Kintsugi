@@ -45,10 +45,8 @@ public sealed class LoopTimelineControl : Control
     private static readonly Cursor RangeCursor = new(StandardCursorType.Cross);
 
     private const double HorizontalPadding = 4;
-    private const double LoopLaneTop = 3;
-    private const double LoopLaneHeight = 12;
-    private const double SeekLaneTop = 22;
-    private const double SeekLaneHeight = 8;
+    private const double TrackTop = 10;
+    private const double TrackHeight = 16;
     private const double LaneCornerRadius = 999;
     private const double SelectionCornerRadius = 4;
     private const double SelectionVerticalInset = 2;
@@ -146,25 +144,18 @@ public sealed class LoopTimelineControl : Control
     {
         base.Render(context);
 
-        var loopLane = GetLoopLaneRect();
-        var seekLane = GetSeekLaneRect();
-        if (loopLane.Width <= 0 || seekLane.Width <= 0)
+        var trackRect = GetTrackRect();
+        if (trackRect.Width <= 0)
         {
             return;
         }
 
-        var loopTrack = GetTrackRect(loopLane);
-        var seekTrack = GetTrackRect(seekLane);
-
-        DrawRoundedLane(context, loopTrack, LoopLaneFill, LaneBorderPen);
-        DrawRoundedLane(context, seekTrack, SeekLaneFill, LaneBorderPen);
+        DrawRoundedLane(context, trackRect, SeekLaneFill, LaneBorderPen);
 
         bool hasCustomRange = GetDisplayedHasCustomLoopRange();
         if (hasCustomRange)
         {
-            var rangeRect = GetSelectionRect(loopTrack, SelectionVerticalInset);
-            var seekRangeRect = GetSelectionRect(seekTrack, SeekRangeVerticalInset);
-            context.DrawRectangle(RangeTintFill, null, seekRangeRect, SeekRangeCornerRadius, SeekRangeCornerRadius);
+            var rangeRect = GetSelectionRect(trackRect, SelectionVerticalInset);
             context.DrawRectangle(
                 GetSelectionFill(),
                 GetSelectionBorderPen(),
@@ -175,16 +166,16 @@ public sealed class LoopTimelineControl : Control
         }
         else if (IsLoopEnabled)
         {
-            context.DrawRectangle(FullLoopFill, null, loopTrack, TrackCornerRadius, TrackCornerRadius);
+            context.DrawRectangle(FullLoopFill, null, trackRect, TrackCornerRadius, TrackCornerRadius);
         }
 
-        var progressRect = GetProgressRect(seekTrack);
+        var progressRect = GetProgressRect(trackRect);
         if (progressRect.Width > 0)
         {
             context.DrawRectangle(ProgressFill, null, progressRect, ProgressCornerRadius, ProgressCornerRadius);
         }
 
-        DrawPlayhead(context, loopLane, seekLane);
+        DrawPlayhead(context, trackRect);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -203,7 +194,7 @@ public sealed class LoopTimelineControl : Control
         }
 
         var position = point.Position;
-        var hitTarget = GetHitTarget(position);
+        var hitTarget = GetHitTarget(position, e.KeyModifiers);
 
         if (e.ClickCount >= 2 && hitTarget is HitTarget.LoopRange or HitTarget.LoopStartHandle or HitTarget.LoopEndHandle)
         {
@@ -265,7 +256,7 @@ public sealed class LoopTimelineControl : Control
             }
         }
 
-        UpdateCursor(e.GetPosition(this));
+        UpdateCursor(e);
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
@@ -305,7 +296,7 @@ public sealed class LoopTimelineControl : Control
         }
 
         ReleasePointer();
-        UpdateCursor(position);
+        UpdateCursor(e);
         e.Handled = true;
     }
 
@@ -481,9 +472,9 @@ public sealed class LoopTimelineControl : Control
         LoopRangeChanged?.Invoke(this, new TimelineLoopRangeChangedEventArgs(start, end, isFinal));
     }
 
-    private void UpdateCursor(Point position)
+    private void UpdateCursor(PointerEventArgs e)
     {
-        Cursor = GetHitTarget(position) switch
+        Cursor = GetHitTarget(e.GetPosition(this), e.KeyModifiers) switch
         {
             HitTarget.LoopStartHandle or HitTarget.LoopEndHandle => ResizeCursor,
             HitTarget.LoopRange => MoveCursor,
@@ -493,80 +484,68 @@ public sealed class LoopTimelineControl : Control
         };
     }
 
-    private HitTarget GetHitTarget(Point position)
+    private HitTarget GetHitTarget(Point position, KeyModifiers modifiers)
     {
         if (!IsEnabled || GetMaximumValue() <= 0)
         {
             return HitTarget.None;
         }
 
-        var loopLane = GetLoopLaneRect();
-        if (loopLane.Contains(position))
+        var trackRect = GetTrackRect();
+        var hitRect = new Rect(
+            trackRect.X,
+            trackRect.Y - 4,
+            trackRect.Width,
+            trackRect.Height + 8);
+
+        if (!hitRect.Contains(position))
         {
-            var loopTrack = GetTrackRect(loopLane);
-            if (GetDisplayedHasCustomLoopRange())
+            return HitTarget.None;
+        }
+
+        if (GetDisplayedHasCustomLoopRange())
+        {
+            var selectionRect = GetSelectionRect(trackRect, SelectionVerticalInset);
+            double startX = selectionRect.X;
+            double endX = selectionRect.Right;
+
+            if (Math.Abs(position.X - startX) <= HandleHotZone)
             {
-                var selectionRect = GetSelectionRect(loopTrack, SelectionVerticalInset);
-                double startX = selectionRect.X;
-                double endX = selectionRect.Right;
-
-                if (Math.Abs(position.X - startX) <= HandleHotZone)
-                {
-                    return HitTarget.LoopStartHandle;
-                }
-
-                if (Math.Abs(position.X - endX) <= HandleHotZone)
-                {
-                    return HitTarget.LoopEndHandle;
-                }
-
-                if (position.X >= startX && position.X <= endX)
-                {
-                    return HitTarget.LoopRange;
-                }
+                return HitTarget.LoopStartHandle;
             }
 
+            if (Math.Abs(position.X - endX) <= HandleHotZone)
+            {
+                return HitTarget.LoopEndHandle;
+            }
+
+            if (position.X >= startX && position.X <= endX)
+            {
+                if (modifiers.HasFlag(KeyModifiers.Shift)) return HitTarget.LoopLane;
+            }
+        }
+
+        if (modifiers.HasFlag(KeyModifiers.Shift))
+        {
             return HitTarget.LoopLane;
         }
 
-        var seekHitRect = new Rect(
-            GetSeekLaneRect().X,
-            GetSeekLaneRect().Y - 4,
-            GetSeekLaneRect().Width,
-            GetSeekLaneRect().Height + 8);
-        if (seekHitRect.Contains(position))
-        {
-            return HitTarget.SeekLane;
-        }
-
-        return HitTarget.None;
+        return HitTarget.SeekLane;
     }
 
-    private Rect GetLoopLaneRect()
-        => GetLaneRect(LoopLaneTop, LoopLaneHeight);
-
-    private Rect GetSeekLaneRect()
-        => GetLaneRect(SeekLaneTop, SeekLaneHeight);
-
-    private Rect GetLaneRect(double top, double height)
+    private Rect GetTrackRect()
     {
         double width = Math.Max(0, Bounds.Width - (HorizontalPadding * 2));
-        return new Rect(HorizontalPadding, top, width, height);
+        return new Rect(HorizontalPadding, TrackTop, width, TrackHeight);
     }
 
-    private Rect GetSelectionRect(Rect laneRect, double verticalInset)
+    private Rect GetSelectionRect(Rect trackRect, double verticalInset)
     {
-        double startX = ValueToX(DisplayedLoopStart, laneRect);
-        double endX = ValueToX(DisplayedLoopEnd, laneRect);
+        double startX = ValueToX(DisplayedLoopStart, trackRect);
+        double endX = ValueToX(DisplayedLoopEnd, trackRect);
         double width = Math.Max(2, endX - startX);
-        double inset = Math.Clamp(verticalInset, 0, Math.Max(0, laneRect.Height / 2 - 1));
-        return new Rect(startX, laneRect.Y + inset, width, Math.Max(2, laneRect.Height - (inset * 2)));
-    }
-
-    private Rect GetTrackRect(Rect laneRect)
-    {
-        double inset = Math.Clamp(TrackVerticalInset, 0, Math.Max(0, laneRect.Height / 2 - 1));
-        return new Rect(laneRect.X, laneRect.Y + inset, laneRect.Width, Math.Max(2, laneRect.Height - (inset * 2)));
+        double inset = Math.Clamp(verticalInset, 0, Math.Max(0, trackRect.Height / 2 - 1));
+        return new Rect(startX, trackRect.Y + inset, width, Math.Max(2, trackRect.Height - (inset * 2)));
     }
 
     private Rect GetProgressRect(Rect trackRect)
@@ -597,23 +576,23 @@ public sealed class LoopTimelineControl : Control
         context.DrawRectangle(HandleFill, null, rightHandle, HandleWidth / 2, HandleWidth / 2);
     }
 
-    private void DrawPlayhead(DrawingContext context, Rect loopLane, Rect seekLane)
+    private void DrawPlayhead(DrawingContext context, Rect trackRect)
     {
-        double playheadX = ValueToX(CurrentValue, seekLane);
-        var lineTop = new Point(playheadX, loopLane.Y - 1);
-        var lineBottom = new Point(playheadX, seekLane.Bottom + PlayheadRadius + PlayheadBottomPadding);
+        double playheadX = ValueToX(CurrentValue, trackRect);
+        var lineTop = new Point(playheadX, trackRect.Y - 1);
+        var lineBottom = new Point(playheadX, trackRect.Bottom + PlayheadRadius + PlayheadBottomPadding);
         context.DrawLine(PlayheadPen, lineTop, lineBottom);
         context.DrawEllipse(
             PlayheadFill,
             null,
-            new Point(playheadX, seekLane.Bottom + PlayheadRadius + PlayheadBottomPadding),
+            new Point(playheadX, trackRect.Bottom + PlayheadRadius + PlayheadBottomPadding),
             PlayheadRadius,
             PlayheadRadius);
     }
 
     private double PositionToValue(double positionX)
     {
-        var laneRect = GetSeekLaneRect();
+        var laneRect = GetTrackRect();
         if (laneRect.Width <= 0)
         {
             return 0;
@@ -638,7 +617,7 @@ public sealed class LoopTimelineControl : Control
 
     private double GetMinimumLoopSpan()
     {
-        var laneRect = GetLoopLaneRect();
+        var laneRect = GetTrackRect();
         if (laneRect.Width <= 0)
         {
             return 0.1;
