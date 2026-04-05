@@ -206,6 +206,8 @@ The spectrum panel also works as a live EQ editor.
 
 Click `ROLL` in the center visualizer header to switch from the EQ editor to the piano-roll waterfall.
 
+<img width="1512" height="982" alt="截屏2026-04-06 01 09 38" src="https://github.com/user-attachments/assets/8a68c3b7-eb3d-498b-a975-fdd7455a5b66" />
+
 - Notes appear as falling colored blocks
 - Channel colors match the `CHANNEL ACTIVITY` strip and the piano keyboard highlights
 - The waterfall lanes align directly with the piano below
