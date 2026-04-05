@@ -14,7 +14,7 @@ public class SystemMediaControls : IDisposable
     private static SystemMediaControls? _instance;
 
 #if WINDOWS
-    private Windows.Media.Playback.SystemMediaTransportControls? _smtc;
+    private Windows.Media.SystemMediaTransportControls? _smtc;
 #endif
 
     public SystemMediaControls(Action onPlay, Action onPause, Action onStop, Action onToggle, Action<double> onSeek)
@@ -56,7 +56,7 @@ public class SystemMediaControls : IDisposable
         try
         {
             // For Windows 10+, requires net10.0-windows TFM
-            _smtc = Windows.Media.Playback.SystemMediaTransportControls.GetForCurrentView();
+            _smtc = Windows.Media.SystemMediaTransportControls.GetForCurrentView();
             _smtc.IsPlayEnabled = true;
             _smtc.IsPauseEnabled = true;
             _smtc.IsStopEnabled = true;
@@ -70,17 +70,17 @@ public class SystemMediaControls : IDisposable
     }
 
 #if WINDOWS
-    private void Smtc_ButtonPressed(Windows.Media.Playback.SystemMediaTransportControls sender, Windows.Media.Playback.SystemMediaTransportControlsButtonPressedEventArgs args)
+    private void Smtc_ButtonPressed(Windows.Media.SystemMediaTransportControls sender, Windows.Media.SystemMediaTransportControlsButtonPressedEventArgs args)
     {
         switch (args.Button)
         {
-            case Windows.Media.Playback.SystemMediaTransportControlsButton.Play:
+            case Windows.Media.SystemMediaTransportControlsButton.Play:
                 _onPlay?.Invoke();
                 break;
-            case Windows.Media.Playback.SystemMediaTransportControlsButton.Pause:
+            case Windows.Media.SystemMediaTransportControlsButton.Pause:
                 _onPause?.Invoke();
                 break;
-            case Windows.Media.Playback.SystemMediaTransportControlsButton.Stop:
+            case Windows.Media.SystemMediaTransportControlsButton.Stop:
                 _onStop?.Invoke();
                 break;
         }
@@ -142,8 +142,8 @@ public class SystemMediaControls : IDisposable
                 if (_smtc != null)
                 {
                     _smtc.PlaybackStatus = isPlaying
-                        ? Windows.Media.Playback.MediaPlaybackStatus.Playing
-                        : Windows.Media.Playback.MediaPlaybackStatus.Paused;
+                        ? Windows.Media.MediaPlaybackStatus.Playing
+                        : Windows.Media.MediaPlaybackStatus.Paused;
                 }
             }
             catch { }
@@ -193,7 +193,7 @@ public class SystemMediaControls : IDisposable
             if (_smtc != null)
             {
                 _smtc.ButtonPressed -= Smtc_ButtonPressed;
-                _smtc.PlaybackStatus = Windows.Media.Playback.MediaPlaybackStatus.Stopped;
+                _smtc.PlaybackStatus = Windows.Media.MediaPlaybackStatus.Stopped;
             }
 #endif
         }

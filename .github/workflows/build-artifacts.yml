@@ -39,12 +39,6 @@ jobs:
             package_name: Kintsugi.MidiPlayer-win-arm64
             package_ext: zip
             mac_app_bundle: false
-          - label: Linux x86
-            runner: ubuntu-24.04
-            rid: linux-x86
-            package_name: Kintsugi.MidiPlayer-linux-x86
-            package_ext: tar.gz
-            mac_app_bundle: false
           - label: Linux x64
             runner: ubuntu-24.04
             rid: linux-x64
