@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using ManagedBass.Midi;
@@ -10,6 +11,7 @@ public class AppSettings
     public string? SoundFontPath { get; set; }
     public MidiSystem SystemMode { get; set; } = MidiSystem.Default;
     public int SampleRate { get; set; } = 44100;
+    public Dictionary<string, MidiMixSettings> MidiMixSettingsByPath { get; set; } = [];
 
     private static string GetConfigPath()
     {
@@ -36,14 +38,18 @@ public class AppSettings
             if (File.Exists(path))
             {
                 var json = File.ReadAllText(path);
-                return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                var settings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                settings.Normalize();
+                return settings;
             }
 
             var legacyPath = GetLegacyConfigPath();
             if (File.Exists(legacyPath))
             {
                 var json = File.ReadAllText(legacyPath);
-                return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                var settings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                settings.Normalize();
+                return settings;
             }
         }
         catch
@@ -51,6 +57,28 @@ public class AppSettings
             // Ignore load errors
         }
         return new AppSettings();
+    }
+
+    public MidiMixSettings? GetMidiMixSettings(string midiPath)
+    {
+        var key = NormalizeMidiPath(midiPath);
+        if (string.IsNullOrEmpty(key))
+        {
+            return null;
+        }
+
+        return MidiMixSettingsByPath.TryGetValue(key, out var settings)
+            ? settings.Clone()
+            : null;
+    }
+
+    public void SetMidiMixSettings(string midiPath, MidiMixSettings settings)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(midiPath);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        settings.Normalize();
+        MidiMixSettingsByPath[NormalizeMidiPath(midiPath)] = settings.Clone();
     }
 
     public void Save()
@@ -64,6 +92,46 @@ public class AppSettings
         catch
         {
             // Ignore save errors
+        }
+    }
+
+    private void Normalize()
+    {
+        MidiMixSettingsByPath ??= [];
+        var normalized = new Dictionary<string, MidiMixSettings>();
+        foreach (var pair in MidiMixSettingsByPath)
+        {
+            var key = NormalizeMidiPath(pair.Key);
+            if (string.IsNullOrEmpty(key))
+            {
+                continue;
+            }
+
+            var settings = pair.Value ?? new MidiMixSettings();
+            settings.Normalize();
+            normalized[key] = settings;
+        }
+
+        MidiMixSettingsByPath = normalized;
+    }
+
+    private static string NormalizeMidiPath(string? midiPath)
+    {
+        if (string.IsNullOrWhiteSpace(midiPath))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var fullPath = Path.GetFullPath(midiPath);
+            return OperatingSystem.IsWindows()
+                ? fullPath.ToUpperInvariant()
+                : fullPath;
+        }
+        catch
+        {
+            return midiPath;
         }
     }
 }

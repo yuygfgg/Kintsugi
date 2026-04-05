@@ -101,6 +101,7 @@ public sealed class BassMidiPlayer : IDisposable
     public const int DefaultChannelReverb = 40;
     public const int DefaultChannelChorus = 0;
     public const int DefaultChannelVolume = 100;
+    public const int MaxMidiControllerValue = 127;
     public const int DefaultMixPercent = 100;
     public const int MinMixPercent = 0;
     public const int MaxMixPercent = 200;
@@ -111,6 +112,12 @@ public sealed class BassMidiPlayer : IDisposable
     private int _masterVolumePercent = DefaultMixPercent;
     private int _reverbReturnPercent = DefaultMixPercent;
     private int _chorusReturnPercent = DefaultMixPercent;
+    private int _reverbReturnScalePercent = DefaultMixPercent;
+    private int _chorusReturnScalePercent = DefaultMixPercent;
+    private int _reverbReturnBiasValue = MidiMixSettings.DefaultBiasValue;
+    private int _chorusReturnBiasValue = MidiMixSettings.DefaultBiasValue;
+    private ChannelSendMode _reverbReturnMode = ChannelSendMode.Absolute;
+    private ChannelSendMode _chorusReturnMode = ChannelSendMode.Absolute;
 
     public int MasterVolumePercent
     {
@@ -120,8 +127,8 @@ public sealed class BassMidiPlayer : IDisposable
             var clampedValue = Math.Clamp(value, MinMixPercent, MaxMixPercent);
             if (_masterVolumePercent == clampedValue) return;
             _masterVolumePercent = clampedValue;
-            _channelMixer.SetGlobalPercents(_masterVolumePercent, _reverbReturnPercent, _chorusReturnPercent);
-            ReapplyChannelMix();
+            ApplyGlobalMixSettings();
+            ReapplyMixerState();
         }
     }
 
@@ -133,8 +140,8 @@ public sealed class BassMidiPlayer : IDisposable
             var clampedValue = Math.Clamp(value, MinMixPercent, MaxMixPercent);
             if (_reverbReturnPercent == clampedValue) return;
             _reverbReturnPercent = clampedValue;
-            _channelMixer.SetGlobalPercents(_masterVolumePercent, _reverbReturnPercent, _chorusReturnPercent);
-            ReapplyChannelMix();
+            ApplyGlobalMixSettings();
+            ReapplyMixerState();
         }
     }
 
@@ -146,8 +153,86 @@ public sealed class BassMidiPlayer : IDisposable
             var clampedValue = Math.Clamp(value, MinMixPercent, MaxMixPercent);
             if (_chorusReturnPercent == clampedValue) return;
             _chorusReturnPercent = clampedValue;
-            _channelMixer.SetGlobalPercents(_masterVolumePercent, _reverbReturnPercent, _chorusReturnPercent);
-            ReapplyChannelMix();
+            ApplyGlobalMixSettings();
+            ReapplyMixerState();
+        }
+    }
+
+    public int ReverbReturnScalePercent
+    {
+        get => _reverbReturnScalePercent;
+        set
+        {
+            var clampedValue = Math.Clamp(value, MinMixPercent, MaxMixPercent);
+            if (_reverbReturnScalePercent == clampedValue) return;
+            _reverbReturnScalePercent = clampedValue;
+            ApplyGlobalMixSettings();
+            ReapplyMixerState();
+        }
+    }
+
+    public int ChorusReturnScalePercent
+    {
+        get => _chorusReturnScalePercent;
+        set
+        {
+            var clampedValue = Math.Clamp(value, MinMixPercent, MaxMixPercent);
+            if (_chorusReturnScalePercent == clampedValue) return;
+            _chorusReturnScalePercent = clampedValue;
+            ApplyGlobalMixSettings();
+            ReapplyMixerState();
+        }
+    }
+
+    public int ReverbReturnBiasValue
+    {
+        get => _reverbReturnBiasValue;
+        set
+        {
+            var clampedValue = Math.Clamp(value, -MaxMixPercent, MaxMixPercent);
+            if (_reverbReturnBiasValue == clampedValue) return;
+            _reverbReturnBiasValue = clampedValue;
+            ApplyGlobalMixSettings();
+            ReapplyMixerState();
+        }
+    }
+
+    public int ChorusReturnBiasValue
+    {
+        get => _chorusReturnBiasValue;
+        set
+        {
+            var clampedValue = Math.Clamp(value, -MaxMixPercent, MaxMixPercent);
+            if (_chorusReturnBiasValue == clampedValue) return;
+            _chorusReturnBiasValue = clampedValue;
+            ApplyGlobalMixSettings();
+            ReapplyMixerState();
+        }
+    }
+
+    public ChannelSendMode ReverbReturnMode
+    {
+        get => _reverbReturnMode;
+        set
+        {
+            var normalizedValue = NormalizeMode(value, ChannelSendMode.Absolute);
+            if (_reverbReturnMode == normalizedValue) return;
+            _reverbReturnMode = normalizedValue;
+            ApplyGlobalMixSettings();
+            ReapplyMixerState();
+        }
+    }
+
+    public ChannelSendMode ChorusReturnMode
+    {
+        get => _chorusReturnMode;
+        set
+        {
+            var normalizedValue = NormalizeMode(value, ChannelSendMode.Absolute);
+            if (_chorusReturnMode == normalizedValue) return;
+            _chorusReturnMode = normalizedValue;
+            ApplyGlobalMixSettings();
+            ReapplyMixerState();
         }
     }
 
@@ -159,6 +244,24 @@ public sealed class BassMidiPlayer : IDisposable
 
     public int GetChannelChorusSendPercent(int channel)
         => _channelMixer.GetChannelChorusSendPercent(channel);
+
+    public int GetChannelReverbSendAbsoluteValue(int channel)
+        => _channelMixer.GetChannelReverbSendAbsoluteValue(channel);
+
+    public int GetChannelChorusSendAbsoluteValue(int channel)
+        => _channelMixer.GetChannelChorusSendAbsoluteValue(channel);
+
+    public int GetChannelReverbSendBiasValue(int channel)
+        => _channelMixer.GetChannelReverbSendBiasValue(channel);
+
+    public int GetChannelChorusSendBiasValue(int channel)
+        => _channelMixer.GetChannelChorusSendBiasValue(channel);
+
+    public ChannelSendMode GetChannelReverbSendMode(int channel)
+        => _channelMixer.GetChannelReverbSendMode(channel);
+
+    public ChannelSendMode GetChannelChorusSendMode(int channel)
+        => _channelMixer.GetChannelChorusSendMode(channel);
 
     public void SetChannelVolumePercent(int channel, int value)
     {
@@ -190,8 +293,122 @@ public sealed class BassMidiPlayer : IDisposable
         _channelMixer.ApplyChannel(_streamHandle, channel);
     }
 
-    private void ReapplyChannelMix()
+    public void SetChannelReverbSendAbsoluteValue(int channel, int value)
+    {
+        if (!_channelMixer.SetChannelReverbSendAbsoluteValue(channel, value))
+        {
+            return;
+        }
+
+        _channelMixer.ApplyChannel(_streamHandle, channel);
+    }
+
+    public void SetChannelChorusSendAbsoluteValue(int channel, int value)
+    {
+        if (!_channelMixer.SetChannelChorusSendAbsoluteValue(channel, value))
+        {
+            return;
+        }
+
+        _channelMixer.ApplyChannel(_streamHandle, channel);
+    }
+
+    public void SetChannelReverbSendBiasValue(int channel, int value)
+    {
+        if (!_channelMixer.SetChannelReverbSendBiasValue(channel, value))
+        {
+            return;
+        }
+
+        _channelMixer.ApplyChannel(_streamHandle, channel);
+    }
+
+    public void SetChannelChorusSendBiasValue(int channel, int value)
+    {
+        if (!_channelMixer.SetChannelChorusSendBiasValue(channel, value))
+        {
+            return;
+        }
+
+        _channelMixer.ApplyChannel(_streamHandle, channel);
+    }
+
+    public void SetChannelReverbSendMode(int channel, ChannelSendMode mode)
+    {
+        if (!_channelMixer.SetChannelReverbSendMode(channel, mode))
+        {
+            return;
+        }
+
+        _channelMixer.ApplyChannel(_streamHandle, channel);
+    }
+
+    public void SetChannelChorusSendMode(int channel, ChannelSendMode mode)
+    {
+        if (!_channelMixer.SetChannelChorusSendMode(channel, mode))
+        {
+            return;
+        }
+
+        _channelMixer.ApplyChannel(_streamHandle, channel);
+    }
+
+    public MidiMixSettings CaptureMixSettings()
+        => _channelMixer.CreateMixSettings(
+            _masterVolumePercent,
+            _reverbReturnMode,
+            _reverbReturnScalePercent,
+            _reverbReturnPercent,
+            _reverbReturnBiasValue,
+            _chorusReturnMode,
+            _chorusReturnScalePercent,
+            _chorusReturnPercent,
+            _chorusReturnBiasValue);
+
+    public void ApplyMixSettings(MidiMixSettings? settings)
+    {
+        var mixSettings = settings?.Clone() ?? new MidiMixSettings();
+        mixSettings.Normalize();
+
+        _masterVolumePercent = Math.Clamp(mixSettings.MasterVolumePercent, MinMixPercent, MaxMixPercent);
+        _reverbReturnPercent = Math.Clamp(mixSettings.ReverbReturnPercent, MinMixPercent, MaxMixPercent);
+        _chorusReturnPercent = Math.Clamp(mixSettings.ChorusReturnPercent, MinMixPercent, MaxMixPercent);
+        _reverbReturnScalePercent = Math.Clamp(mixSettings.ReverbReturnScalePercent, MinMixPercent, MaxMixPercent);
+        _chorusReturnScalePercent = Math.Clamp(mixSettings.ChorusReturnScalePercent, MinMixPercent, MaxMixPercent);
+        _reverbReturnBiasValue = Math.Clamp(mixSettings.ReverbReturnBiasValue, -MaxMixPercent, MaxMixPercent);
+        _chorusReturnBiasValue = Math.Clamp(mixSettings.ChorusReturnBiasValue, -MaxMixPercent, MaxMixPercent);
+        _reverbReturnMode = NormalizeMode(mixSettings.ReverbReturnMode, ChannelSendMode.Absolute);
+        _chorusReturnMode = NormalizeMode(mixSettings.ChorusReturnMode, ChannelSendMode.Absolute);
+
+        ApplyGlobalMixSettings();
+        _channelMixer.SetChannelMixSettings(
+            mixSettings.ChannelVolumePercents,
+            mixSettings.ChannelReverbSendPercents,
+            mixSettings.ChannelChorusSendPercents,
+            mixSettings.ChannelReverbSendModes,
+            mixSettings.ChannelChorusSendModes,
+            mixSettings.ChannelReverbSendAbsoluteValues,
+            mixSettings.ChannelChorusSendAbsoluteValues,
+            mixSettings.ChannelReverbSendBiasValues,
+            mixSettings.ChannelChorusSendBiasValues);
+
+        ReapplyMixerState();
+    }
+
+    private void ReapplyMixerState()
         => _channelMixer.ApplyAll(_streamHandle);
+
+    private void ApplyGlobalMixSettings()
+        => _channelMixer.SetGlobalMixSettings(
+            _masterVolumePercent,
+            _reverbReturnMode,
+            _reverbReturnScalePercent,
+            _reverbReturnPercent,
+            _reverbReturnBiasValue,
+            _chorusReturnMode,
+            _chorusReturnScalePercent,
+            _chorusReturnPercent,
+            _chorusReturnBiasValue);
 
     public int SampleRate
     {
@@ -308,7 +525,7 @@ public sealed class BassMidiPlayer : IDisposable
         BuildTempoMap();
 
         _channelMixer.ResetTrackedValues();
-        ReapplyChannelMix();
+        ReapplyMixerState();
     }
 
     private void RegisterMidiSyncs()
@@ -353,7 +570,7 @@ public sealed class BassMidiPlayer : IDisposable
             _channelMixer.ResetTrackedValues();
             Bass.ChannelSetPosition(_streamHandle, 0, PositionFlags.Bytes);
             ReapplySystemModeOverride();
-            ReapplyChannelMix();
+            ReapplyMixerState();
             ClearNotes();
         };
 
@@ -540,12 +757,7 @@ public sealed class BassMidiPlayer : IDisposable
             options,
             _systemMode,
             _channelMuted,
-            _masterVolumePercent,
-            _reverbReturnPercent,
-            _chorusReturnPercent,
-            _channelMixer.GetChannelVolumePercents(),
-            _channelMixer.GetChannelReverbSendPercents(),
-            _channelMixer.GetChannelChorusSendPercents());
+            CaptureMixSettings());
     }
 
     public void Play()
@@ -594,7 +806,7 @@ public sealed class BassMidiPlayer : IDisposable
         }
 
         ReapplySystemModeOverride();
-        ReapplyChannelMix();
+        ReapplyMixerState();
         ClearNotes();
     }
 
@@ -860,18 +1072,22 @@ public sealed class BassMidiPlayer : IDisposable
         return new InvalidOperationException($"{message} ({Bass.LastError}).");
     }
 
+    private static ChannelSendMode NormalizeMode(ChannelSendMode mode, ChannelSendMode defaultMode)
+        => mode switch
+        {
+            ChannelSendMode.Scale => ChannelSendMode.Scale,
+            ChannelSendMode.Absolute => ChannelSendMode.Absolute,
+            ChannelSendMode.Bias => ChannelSendMode.Bias,
+            _ => defaultMode
+        };
+
     private static void ExportMidiToWav(
         string midiPath,
         string soundFontPath,
         WavExportOptions options,
         MidiSystem systemMode,
         bool[]? channelMuted,
-        int masterVolumePercent,
-        int reverbReturnPercent,
-        int chorusReturnPercent,
-        int[] channelVolumePercents,
-        int[] channelReverbSendPercents,
-        int[] channelChorusSendPercents)
+        MidiMixSettings mixSettings)
     {
         int exportStreamHandle = 0;
         int exportFontHandle = 0;
@@ -898,8 +1114,28 @@ public sealed class BassMidiPlayer : IDisposable
 
             ApplySoundFont(exportStreamHandle, exportFontHandle);
 
-            var mixerState = new ChannelMixerState(masterVolumePercent, reverbReturnPercent, chorusReturnPercent);
-            mixerState.SetChannelMixPercents(channelVolumePercents, channelReverbSendPercents, channelChorusSendPercents);
+            mixSettings.Normalize();
+            var mixerState = new ChannelMixerState();
+            mixerState.SetGlobalMixSettings(
+                mixSettings.MasterVolumePercent,
+                mixSettings.ReverbReturnMode,
+                mixSettings.ReverbReturnScalePercent,
+                mixSettings.ReverbReturnPercent,
+                mixSettings.ReverbReturnBiasValue,
+                mixSettings.ChorusReturnMode,
+                mixSettings.ChorusReturnScalePercent,
+                mixSettings.ChorusReturnPercent,
+                mixSettings.ChorusReturnBiasValue);
+            mixerState.SetChannelMixSettings(
+                mixSettings.ChannelVolumePercents,
+                mixSettings.ChannelReverbSendPercents,
+                mixSettings.ChannelChorusSendPercents,
+                mixSettings.ChannelReverbSendModes,
+                mixSettings.ChannelChorusSendModes,
+                mixSettings.ChannelReverbSendAbsoluteValues,
+                mixSettings.ChannelChorusSendAbsoluteValues,
+                mixSettings.ChannelReverbSendBiasValues,
+                mixSettings.ChannelChorusSendBiasValues);
             ConfigureExportFilter(exportStreamHandle, systemMode, channelMuted, mixerState, out MidiFilterProcedure filter, out SyncProcedure resetSync);
             mixerState.ApplyAll(exportStreamHandle);
 
@@ -1110,34 +1346,69 @@ public sealed class BassMidiPlayer : IDisposable
         private readonly int[] _rawVolumeValues = new int[16];
         private readonly int[] _rawReverbValues = new int[16];
         private readonly int[] _rawChorusValues = new int[16];
+        private int _rawReverbReturnValue;
+        private int _rawChorusReturnValue;
         private readonly int[] _channelVolumePercents = new int[16];
         private readonly int[] _channelReverbSendPercents = new int[16];
         private readonly int[] _channelChorusSendPercents = new int[16];
+        private readonly int[] _channelReverbSendAbsoluteValues = new int[16];
+        private readonly int[] _channelChorusSendAbsoluteValues = new int[16];
+        private readonly int[] _channelReverbSendBiasValues = new int[16];
+        private readonly int[] _channelChorusSendBiasValues = new int[16];
+        private readonly ChannelSendMode[] _channelReverbSendModes = new ChannelSendMode[16];
+        private readonly ChannelSendMode[] _channelChorusSendModes = new ChannelSendMode[16];
         private int _masterVolumePercent;
-        private int _reverbReturnPercent;
-        private int _chorusReturnPercent;
+        private int _reverbReturnScalePercent;
+        private int _chorusReturnScalePercent;
+        private int _reverbReturnAbsoluteValue;
+        private int _chorusReturnAbsoluteValue;
+        private int _reverbReturnBiasValue;
+        private int _chorusReturnBiasValue;
+        private ChannelSendMode _reverbReturnMode;
+        private ChannelSendMode _chorusReturnMode;
 
         public ChannelMixerState()
-            : this(DefaultMixPercent, DefaultMixPercent, DefaultMixPercent)
+            : this(DefaultMixPercent)
         {
         }
 
-        public ChannelMixerState(int masterVolumePercent, int reverbReturnPercent, int chorusReturnPercent)
+        public ChannelMixerState(int masterVolumePercent)
         {
             _masterVolumePercent = ClampMixPercent(masterVolumePercent);
-            _reverbReturnPercent = ClampMixPercent(reverbReturnPercent);
-            _chorusReturnPercent = ClampMixPercent(chorusReturnPercent);
+            _reverbReturnScalePercent = DefaultMixPercent;
+            _chorusReturnScalePercent = DefaultMixPercent;
+            _reverbReturnAbsoluteValue = DefaultMixPercent;
+            _chorusReturnAbsoluteValue = DefaultMixPercent;
+            _reverbReturnBiasValue = MidiMixSettings.DefaultBiasValue;
+            _chorusReturnBiasValue = MidiMixSettings.DefaultBiasValue;
+            _reverbReturnMode = ChannelSendMode.Absolute;
+            _chorusReturnMode = ChannelSendMode.Absolute;
             ResetTrackedValues();
             ResetUserMixSettings();
         }
 
-        public void SetGlobalPercents(int masterVolumePercent, int reverbReturnPercent, int chorusReturnPercent)
+        public void SetGlobalMixSettings(
+            int masterVolumePercent,
+            ChannelSendMode reverbReturnMode,
+            int reverbReturnScalePercent,
+            int reverbReturnAbsoluteValue,
+            int reverbReturnBiasValue,
+            ChannelSendMode chorusReturnMode,
+            int chorusReturnScalePercent,
+            int chorusReturnAbsoluteValue,
+            int chorusReturnBiasValue)
         {
             lock (_syncRoot)
             {
                 _masterVolumePercent = ClampMixPercent(masterVolumePercent);
-                _reverbReturnPercent = ClampMixPercent(reverbReturnPercent);
-                _chorusReturnPercent = ClampMixPercent(chorusReturnPercent);
+                _reverbReturnMode = NormalizeMode(reverbReturnMode, ChannelSendMode.Absolute);
+                _chorusReturnMode = NormalizeMode(chorusReturnMode, ChannelSendMode.Absolute);
+                _reverbReturnScalePercent = ClampMixPercent(reverbReturnScalePercent);
+                _chorusReturnScalePercent = ClampMixPercent(chorusReturnScalePercent);
+                _reverbReturnAbsoluteValue = ClampMixPercent(reverbReturnAbsoluteValue);
+                _chorusReturnAbsoluteValue = ClampMixPercent(chorusReturnAbsoluteValue);
+                _reverbReturnBiasValue = ClampSignedValue(reverbReturnBiasValue, MaxMixPercent);
+                _chorusReturnBiasValue = ClampSignedValue(chorusReturnBiasValue, MaxMixPercent);
             }
         }
 
@@ -1148,6 +1419,8 @@ public sealed class BassMidiPlayer : IDisposable
                 Array.Fill(_rawVolumeValues, DefaultChannelVolume);
                 Array.Fill(_rawReverbValues, DefaultChannelReverb);
                 Array.Fill(_rawChorusValues, DefaultChannelChorus);
+                _rawReverbReturnValue = DefaultMixPercent;
+                _rawChorusReturnValue = DefaultMixPercent;
             }
         }
 
@@ -1190,6 +1463,84 @@ public sealed class BassMidiPlayer : IDisposable
             }
         }
 
+        public int GetChannelReverbSendAbsoluteValue(int channel)
+        {
+            if ((uint)channel >= 16)
+            {
+                return DefaultChannelReverb;
+            }
+
+            lock (_syncRoot)
+            {
+                return _channelReverbSendAbsoluteValues[channel];
+            }
+        }
+
+        public int GetChannelChorusSendAbsoluteValue(int channel)
+        {
+            if ((uint)channel >= 16)
+            {
+                return DefaultChannelChorus;
+            }
+
+            lock (_syncRoot)
+            {
+                return _channelChorusSendAbsoluteValues[channel];
+            }
+        }
+
+        public int GetChannelReverbSendBiasValue(int channel)
+        {
+            if ((uint)channel >= 16)
+            {
+                return MidiMixSettings.DefaultBiasValue;
+            }
+
+            lock (_syncRoot)
+            {
+                return _channelReverbSendBiasValues[channel];
+            }
+        }
+
+        public int GetChannelChorusSendBiasValue(int channel)
+        {
+            if ((uint)channel >= 16)
+            {
+                return MidiMixSettings.DefaultBiasValue;
+            }
+
+            lock (_syncRoot)
+            {
+                return _channelChorusSendBiasValues[channel];
+            }
+        }
+
+        public ChannelSendMode GetChannelReverbSendMode(int channel)
+        {
+            if ((uint)channel >= 16)
+            {
+                return ChannelSendMode.Scale;
+            }
+
+            lock (_syncRoot)
+            {
+                return _channelReverbSendModes[channel];
+            }
+        }
+
+        public ChannelSendMode GetChannelChorusSendMode(int channel)
+        {
+            if ((uint)channel >= 16)
+            {
+                return ChannelSendMode.Scale;
+            }
+
+            lock (_syncRoot)
+            {
+                return _channelChorusSendModes[channel];
+            }
+        }
+
         public int[] GetChannelVolumePercents()
         {
             lock (_syncRoot)
@@ -1214,6 +1565,54 @@ public sealed class BassMidiPlayer : IDisposable
             }
         }
 
+        public int[] GetChannelReverbSendAbsoluteValues()
+        {
+            lock (_syncRoot)
+            {
+                return [.. _channelReverbSendAbsoluteValues];
+            }
+        }
+
+        public int[] GetChannelChorusSendAbsoluteValues()
+        {
+            lock (_syncRoot)
+            {
+                return [.. _channelChorusSendAbsoluteValues];
+            }
+        }
+
+        public int[] GetChannelReverbSendBiasValues()
+        {
+            lock (_syncRoot)
+            {
+                return [.. _channelReverbSendBiasValues];
+            }
+        }
+
+        public int[] GetChannelChorusSendBiasValues()
+        {
+            lock (_syncRoot)
+            {
+                return [.. _channelChorusSendBiasValues];
+            }
+        }
+
+        public ChannelSendMode[] GetChannelReverbSendModes()
+        {
+            lock (_syncRoot)
+            {
+                return [.. _channelReverbSendModes];
+            }
+        }
+
+        public ChannelSendMode[] GetChannelChorusSendModes()
+        {
+            lock (_syncRoot)
+            {
+                return [.. _channelChorusSendModes];
+            }
+        }
+
         public bool SetChannelVolumePercent(int channel, int value)
             => SetChannelPercent(_channelVolumePercents, channel, value);
 
@@ -1223,18 +1622,106 @@ public sealed class BassMidiPlayer : IDisposable
         public bool SetChannelChorusSendPercent(int channel, int value)
             => SetChannelPercent(_channelChorusSendPercents, channel, value);
 
-        public void SetChannelMixPercents(int[] channelVolumePercents, int[] channelReverbSendPercents, int[] channelChorusSendPercents)
+        public bool SetChannelReverbSendAbsoluteValue(int channel, int value)
+            => SetChannelSendValue(_channelReverbSendAbsoluteValues, channel, value);
+
+        public bool SetChannelChorusSendAbsoluteValue(int channel, int value)
+            => SetChannelSendValue(_channelChorusSendAbsoluteValues, channel, value);
+
+        public bool SetChannelReverbSendBiasValue(int channel, int value)
+            => SetChannelBiasValue(_channelReverbSendBiasValues, channel, value, MaxMidiControllerValue);
+
+        public bool SetChannelChorusSendBiasValue(int channel, int value)
+            => SetChannelBiasValue(_channelChorusSendBiasValues, channel, value, MaxMidiControllerValue);
+
+        public bool SetChannelReverbSendMode(int channel, ChannelSendMode mode)
+            => SetChannelMode(_channelReverbSendModes, channel, mode);
+
+        public bool SetChannelChorusSendMode(int channel, ChannelSendMode mode)
+            => SetChannelMode(_channelChorusSendModes, channel, mode);
+
+        public void SetChannelMixSettings(
+            int[] channelVolumePercents,
+            int[] channelReverbSendPercents,
+            int[] channelChorusSendPercents,
+            ChannelSendMode[] channelReverbSendModes,
+            ChannelSendMode[] channelChorusSendModes,
+            int[] channelReverbSendAbsoluteValues,
+            int[] channelChorusSendAbsoluteValues,
+            int[] channelReverbSendBiasValues,
+            int[] channelChorusSendBiasValues)
         {
             lock (_syncRoot)
             {
                 CopyPercents(channelVolumePercents, _channelVolumePercents);
                 CopyPercents(channelReverbSendPercents, _channelReverbSendPercents);
                 CopyPercents(channelChorusSendPercents, _channelChorusSendPercents);
+                CopyModes(channelReverbSendModes, _channelReverbSendModes);
+                CopyModes(channelChorusSendModes, _channelChorusSendModes);
+                CopySendValues(channelReverbSendAbsoluteValues, _channelReverbSendAbsoluteValues, DefaultChannelReverb);
+                CopySendValues(channelChorusSendAbsoluteValues, _channelChorusSendAbsoluteValues, DefaultChannelChorus);
+                CopyBiasValues(channelReverbSendBiasValues, _channelReverbSendBiasValues, MaxMidiControllerValue);
+                CopyBiasValues(channelChorusSendBiasValues, _channelChorusSendBiasValues, MaxMidiControllerValue);
+            }
+        }
+
+        public MidiMixSettings CreateMixSettings(
+            int masterVolumePercent,
+            ChannelSendMode reverbReturnMode,
+            int reverbReturnScalePercent,
+            int reverbReturnAbsoluteValue,
+            int reverbReturnBiasValue,
+            ChannelSendMode chorusReturnMode,
+            int chorusReturnScalePercent,
+            int chorusReturnAbsoluteValue,
+            int chorusReturnBiasValue)
+        {
+            lock (_syncRoot)
+            {
+                return new MidiMixSettings
+                {
+                    MasterVolumePercent = ClampMixPercent(masterVolumePercent),
+                    ReverbReturnPercent = ClampMixPercent(reverbReturnAbsoluteValue),
+                    ChorusReturnPercent = ClampMixPercent(chorusReturnAbsoluteValue),
+                    ReverbReturnScalePercent = ClampMixPercent(reverbReturnScalePercent),
+                    ChorusReturnScalePercent = ClampMixPercent(chorusReturnScalePercent),
+                    ReverbReturnBiasValue = ClampSignedValue(reverbReturnBiasValue, MaxMixPercent),
+                    ChorusReturnBiasValue = ClampSignedValue(chorusReturnBiasValue, MaxMixPercent),
+                    ReverbReturnMode = NormalizeMode(reverbReturnMode, ChannelSendMode.Absolute),
+                    ChorusReturnMode = NormalizeMode(chorusReturnMode, ChannelSendMode.Absolute),
+                    ChannelVolumePercents = [.. _channelVolumePercents],
+                    ChannelReverbSendPercents = [.. _channelReverbSendPercents],
+                    ChannelChorusSendPercents = [.. _channelChorusSendPercents],
+                    ChannelReverbSendModes = [.. _channelReverbSendModes],
+                    ChannelChorusSendModes = [.. _channelChorusSendModes],
+                    ChannelReverbSendAbsoluteValues = [.. _channelReverbSendAbsoluteValues],
+                    ChannelChorusSendAbsoluteValues = [.. _channelChorusSendAbsoluteValues],
+                    ChannelReverbSendBiasValues = [.. _channelReverbSendBiasValues],
+                    ChannelChorusSendBiasValues = [.. _channelChorusSendBiasValues]
+                };
             }
         }
 
         public bool TryFilterMixEvent(int streamHandle, MidiEvent midiEvent)
         {
+            if (midiEvent.EventType is MidiEventType.ReverbLevel or MidiEventType.ChorusLevel)
+            {
+                lock (_syncRoot)
+                {
+                    if (midiEvent.EventType == MidiEventType.ReverbLevel)
+                    {
+                        _rawReverbReturnValue = ClampMixPercent(midiEvent.Parameter);
+                    }
+                    else
+                    {
+                        _rawChorusReturnValue = ClampMixPercent(midiEvent.Parameter);
+                    }
+                }
+
+                ApplyGlobalReturns(streamHandle);
+                return true;
+            }
+
             if ((uint)midiEvent.Channel >= 16)
             {
                 return false;
@@ -1334,6 +1821,7 @@ public sealed class BassMidiPlayer : IDisposable
                 }
             }
 
+            ApplyGlobalReturns(streamHandle);
             for (int channel = 0; channel < mixStates.Length; channel++)
             {
                 ApplyChannel(streamHandle, mixStates[channel]);
@@ -1356,6 +1844,24 @@ public sealed class BassMidiPlayer : IDisposable
             ApplyChannel(streamHandle, mixState);
         }
 
+        public void ApplyGlobalReturns(int streamHandle)
+        {
+            if (streamHandle == 0)
+            {
+                return;
+            }
+
+            int reverbReturnValue;
+            int chorusReturnValue;
+            lock (_syncRoot)
+            {
+                reverbReturnValue = ResolveReturnValue(_rawReverbReturnValue, _reverbReturnScalePercent, _reverbReturnAbsoluteValue, _reverbReturnBiasValue, _reverbReturnMode);
+                chorusReturnValue = ResolveReturnValue(_rawChorusReturnValue, _chorusReturnScalePercent, _chorusReturnAbsoluteValue, _chorusReturnBiasValue, _chorusReturnMode);
+            }
+
+            ApplyGlobalReturns(streamHandle, reverbReturnValue, chorusReturnValue);
+        }
+
         private static void ApplyChannel(int streamHandle, ChannelMixState? mixState)
         {
             if (streamHandle == 0 || !mixState.HasValue)
@@ -1367,6 +1873,17 @@ public sealed class BassMidiPlayer : IDisposable
             BassMidi.StreamEvent(streamHandle, value.Channel, MidiEventType.Volume, value.VolumeValue);
             BassMidi.StreamEvent(streamHandle, value.Channel, MidiEventType.Reverb, value.ReverbValue);
             BassMidi.StreamEvent(streamHandle, value.Channel, MidiEventType.Chorus, value.ChorusValue);
+        }
+
+        private static void ApplyGlobalReturns(int streamHandle, int reverbReturnPercent, int chorusReturnPercent)
+        {
+            if (streamHandle == 0)
+            {
+                return;
+            }
+
+            BassMidi.StreamEvent(streamHandle, 0, MidiEventType.ReverbLevel, ClampMixPercent(reverbReturnPercent));
+            BassMidi.StreamEvent(streamHandle, 0, MidiEventType.ChorusLevel, ClampMixPercent(chorusReturnPercent));
         }
 
         private void ResetTrackedChannel(int channel)
@@ -1381,6 +1898,12 @@ public sealed class BassMidiPlayer : IDisposable
             Array.Fill(_channelVolumePercents, DefaultMixPercent);
             Array.Fill(_channelReverbSendPercents, DefaultMixPercent);
             Array.Fill(_channelChorusSendPercents, DefaultMixPercent);
+            Array.Fill(_channelReverbSendAbsoluteValues, DefaultChannelReverb);
+            Array.Fill(_channelChorusSendAbsoluteValues, DefaultChannelChorus);
+            Array.Fill(_channelReverbSendBiasValues, MidiMixSettings.DefaultBiasValue);
+            Array.Fill(_channelChorusSendBiasValues, MidiMixSettings.DefaultBiasValue);
+            Array.Fill(_channelReverbSendModes, ChannelSendMode.Scale);
+            Array.Fill(_channelChorusSendModes, ChannelSendMode.Scale);
         }
 
         private static void CopyPercents(int[] source, int[] target)
@@ -1388,6 +1911,30 @@ public sealed class BassMidiPlayer : IDisposable
             for (int i = 0; i < target.Length; i++)
             {
                 target[i] = i < source.Length ? ClampMixPercent(source[i]) : DefaultMixPercent;
+            }
+        }
+
+        private static void CopySendValues(int[] source, int[] target, int defaultValue)
+        {
+            for (int i = 0; i < target.Length; i++)
+            {
+                target[i] = i < source.Length ? ClampMidiValue(source[i]) : defaultValue;
+            }
+        }
+
+        private static void CopyModes(ChannelSendMode[] source, ChannelSendMode[] target)
+        {
+            for (int i = 0; i < target.Length; i++)
+            {
+                target[i] = i < source.Length ? NormalizeMode(source[i], ChannelSendMode.Scale) : ChannelSendMode.Scale;
+            }
+        }
+
+        private static void CopyBiasValues(int[] source, int[] target, int limit)
+        {
+            for (int i = 0; i < target.Length; i++)
+            {
+                target[i] = i < source.Length ? ClampSignedValue(source[i], limit) : MidiMixSettings.DefaultBiasValue;
             }
         }
 
@@ -1411,12 +1958,72 @@ public sealed class BassMidiPlayer : IDisposable
             }
         }
 
+        private bool SetChannelSendValue(int[] values, int channel, int value)
+        {
+            if ((uint)channel >= 16)
+            {
+                return false;
+            }
+
+            lock (_syncRoot)
+            {
+                int clampedValue = ClampMidiValue(value);
+                if (values[channel] == clampedValue)
+                {
+                    return false;
+                }
+
+                values[channel] = clampedValue;
+                return true;
+            }
+        }
+
+        private bool SetChannelBiasValue(int[] values, int channel, int value, int limit)
+        {
+            if ((uint)channel >= 16)
+            {
+                return false;
+            }
+
+            lock (_syncRoot)
+            {
+                int clampedValue = ClampSignedValue(value, limit);
+                if (values[channel] == clampedValue)
+                {
+                    return false;
+                }
+
+                values[channel] = clampedValue;
+                return true;
+            }
+        }
+
+        private bool SetChannelMode(ChannelSendMode[] values, int channel, ChannelSendMode value)
+        {
+            if ((uint)channel >= 16)
+            {
+                return false;
+            }
+
+            lock (_syncRoot)
+            {
+                var normalizedValue = NormalizeMode(value, ChannelSendMode.Scale);
+                if (values[channel] == normalizedValue)
+                {
+                    return false;
+                }
+
+                values[channel] = normalizedValue;
+                return true;
+            }
+        }
+
         private ChannelMixState CreateChannelMixState(int channel)
             => new(
                 channel,
                 ScaleMidiValue(_rawVolumeValues[channel], _channelVolumePercents[channel], _masterVolumePercent),
-                ScaleMidiValue(_rawReverbValues[channel], _channelReverbSendPercents[channel], _reverbReturnPercent),
-                ScaleMidiValue(_rawChorusValues[channel], _channelChorusSendPercents[channel], _chorusReturnPercent));
+                ResolveSendValue(_rawReverbValues[channel], _channelReverbSendPercents[channel], _channelReverbSendAbsoluteValues[channel], _channelReverbSendBiasValues[channel], _channelReverbSendModes[channel]),
+                ResolveSendValue(_rawChorusValues[channel], _channelChorusSendPercents[channel], _channelChorusSendAbsoluteValues[channel], _channelChorusSendBiasValues[channel], _channelChorusSendModes[channel]));
 
         private static int ClampMidiValue(int value)
             => Math.Clamp(value, 0, 127);
@@ -1424,8 +2031,39 @@ public sealed class BassMidiPlayer : IDisposable
         private static int ClampMixPercent(int value)
             => Math.Clamp(value, MinMixPercent, MaxMixPercent);
 
+        private static int ClampSignedValue(int value, int limit)
+            => Math.Clamp(value, -limit, limit);
+
         private static int ScaleMidiValue(int value, int channelPercent, int globalPercent)
-            => Math.Clamp((int)Math.Round(ClampMidiValue(value) * (channelPercent / 100d) * (globalPercent / 100d)), 0, 127);
+            => Math.Clamp((int)Math.Round(ClampMidiValue(value) * (channelPercent / 100d) * (globalPercent / 100d)), 0, MaxMidiControllerValue);
+
+        private static int ScaleMidiValue(int value, int percent)
+            => Math.Clamp((int)Math.Round(ClampMidiValue(value) * (percent / 100d)), 0, MaxMidiControllerValue);
+
+        private static int ResolveSendValue(int rawValue, int percentValue, int absoluteValue, int biasValue, ChannelSendMode mode)
+            => NormalizeMode(mode, ChannelSendMode.Scale) switch
+            {
+                ChannelSendMode.Absolute => ClampMidiValue(absoluteValue),
+                ChannelSendMode.Bias => ClampMidiValue(ClampMidiValue(rawValue) + ClampSignedValue(biasValue, MaxMidiControllerValue)),
+                _ => ScaleMidiValue(rawValue, percentValue)
+            };
+
+        private static int ResolveReturnValue(int rawValue, int scalePercent, int absoluteValue, int biasValue, ChannelSendMode mode)
+            => NormalizeMode(mode, ChannelSendMode.Absolute) switch
+            {
+                ChannelSendMode.Scale => ClampMixPercent((int)Math.Round(ClampMixPercent(rawValue) * (scalePercent / 100d))),
+                ChannelSendMode.Bias => ClampMixPercent(ClampMixPercent(rawValue) + ClampSignedValue(biasValue, MaxMixPercent)),
+                _ => ClampMixPercent(absoluteValue)
+            };
+
+        private static ChannelSendMode NormalizeMode(ChannelSendMode mode, ChannelSendMode defaultMode)
+            => mode switch
+            {
+                ChannelSendMode.Scale => ChannelSendMode.Scale,
+                ChannelSendMode.Absolute => ChannelSendMode.Absolute,
+                ChannelSendMode.Bias => ChannelSendMode.Bias,
+                _ => defaultMode
+            };
 
         private readonly record struct ChannelMixState(int Channel, int VolumeValue, int ReverbValue, int ChorusValue);
     }

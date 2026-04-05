@@ -31,7 +31,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static readonly IBrush MixerDisabledBackgroundBrush = Brushes.Transparent;
     private static readonly IBrush MixerDisabledBorderBrush = new SolidColorBrush(Color.Parse("#333333"));
     private static readonly IBrush MixerDisabledForegroundBrush = new SolidColorBrush(Color.Parse("#A0A0A0"));
-    private const double ChannelMixerPopupWidth = 224;
+    private const double ChannelMixerPopupWidth = 244;
     private const double ChannelMixerPopupHeight = 206;
     private const double ChannelMixerPopupPointerWidth = 20;
     private const double ChannelMixerPopupPointerInset = 12;
@@ -256,6 +256,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _player.MasterVolumePercent = intValue;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(MasterVolumePercentText));
+                PersistCurrentMidiMix();
             }
         }
     }
@@ -273,6 +274,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _player.ReverbReturnPercent = intValue;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(ReverbReturnPercentText));
+                PersistCurrentMidiMix();
             }
         }
     }
@@ -290,11 +292,118 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _player.ChorusReturnPercent = intValue;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(ChorusReturnPercentText));
+                PersistCurrentMidiMix();
             }
         }
     }
 
     public string ChorusReturnPercentText => FormatPercent(_player.ChorusReturnPercent);
+
+    public double GlobalReverbReturnValue
+    {
+        get => GetGlobalReverbReturnValue();
+        set
+        {
+            var intValue = (int)Math.Round(value);
+            if (GetGlobalReverbReturnValue() == intValue)
+            {
+                return;
+            }
+
+            switch (_player.ReverbReturnMode)
+            {
+                case ChannelSendMode.Scale:
+                    _player.ReverbReturnScalePercent = intValue;
+                    break;
+                case ChannelSendMode.Bias:
+                    _player.ReverbReturnBiasValue = intValue;
+                    break;
+                default:
+                    _player.ReverbReturnPercent = intValue;
+                    break;
+            }
+
+            RefreshGlobalReverbBindings();
+            PersistCurrentMidiMix();
+        }
+    }
+
+    public double GlobalReverbReturnMinimum => _player.ReverbReturnMode == ChannelSendMode.Bias
+        ? -BassMidiPlayer.MaxMixPercent
+        : 0;
+
+    public double GlobalReverbReturnMaximum => BassMidiPlayer.MaxMixPercent;
+
+    public string GlobalReverbReturnText => _player.ReverbReturnMode == ChannelSendMode.Bias
+        ? FormatSignedValue(GetGlobalReverbReturnValue())
+        : FormatPercent(GetGlobalReverbReturnValue());
+
+    public string GlobalReverbReturnModeLabel => _player.ReverbReturnMode switch
+    {
+        ChannelSendMode.Scale => "SCL",
+        ChannelSendMode.Bias => "BIA",
+        _ => "ABS"
+    };
+
+    public string GlobalReverbReturnModeToolTip => _player.ReverbReturnMode switch
+    {
+        ChannelSendMode.Scale => "Scale the MIDI file's current reverb return",
+        ChannelSendMode.Bias => "Add or subtract from the MIDI file's current reverb return",
+        _ => "Absolute reverb return level"
+    };
+
+    public double GlobalChorusReturnValue
+    {
+        get => GetGlobalChorusReturnValue();
+        set
+        {
+            var intValue = (int)Math.Round(value);
+            if (GetGlobalChorusReturnValue() == intValue)
+            {
+                return;
+            }
+
+            switch (_player.ChorusReturnMode)
+            {
+                case ChannelSendMode.Scale:
+                    _player.ChorusReturnScalePercent = intValue;
+                    break;
+                case ChannelSendMode.Bias:
+                    _player.ChorusReturnBiasValue = intValue;
+                    break;
+                default:
+                    _player.ChorusReturnPercent = intValue;
+                    break;
+            }
+
+            RefreshGlobalChorusBindings();
+            PersistCurrentMidiMix();
+        }
+    }
+
+    public double GlobalChorusReturnMinimum => _player.ChorusReturnMode == ChannelSendMode.Bias
+        ? -BassMidiPlayer.MaxMixPercent
+        : 0;
+
+    public double GlobalChorusReturnMaximum => BassMidiPlayer.MaxMixPercent;
+
+    public string GlobalChorusReturnText => _player.ChorusReturnMode == ChannelSendMode.Bias
+        ? FormatSignedValue(GetGlobalChorusReturnValue())
+        : FormatPercent(GetGlobalChorusReturnValue());
+
+    public string GlobalChorusReturnModeLabel => _player.ChorusReturnMode switch
+    {
+        ChannelSendMode.Scale => "SCL",
+        ChannelSendMode.Bias => "BIA",
+        _ => "ABS"
+    };
+
+    public string GlobalChorusReturnModeToolTip => _player.ChorusReturnMode switch
+    {
+        ChannelSendMode.Scale => "Scale the MIDI file's current chorus return",
+        ChannelSendMode.Bias => "Add or subtract from the MIDI file's current chorus return",
+        _ => "Absolute chorus return level"
+    };
 
     public IBrush LoopButtonBackground => _player.IsLooping ? LoopEnabledBackgroundBrush : LoopDisabledBackgroundBrush;
 
@@ -330,6 +439,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             _player.LoadMidi(path);
+            LoadMixSettingsForMidi(path);
             var title = Path.GetFileNameWithoutExtension(path);
             MidiDisplayName = title;
             StatusText = "Playing";
@@ -502,13 +612,53 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void OnReverbSliderDoubleTapped(object? sender, TappedEventArgs e)
     {
-        ReverbReturnPercent = BassMidiPlayer.DefaultMixPercent;
+        GlobalReverbReturnValue = _player.ReverbReturnMode == ChannelSendMode.Bias
+            ? MidiMixSettings.DefaultBiasValue
+            : BassMidiPlayer.DefaultMixPercent;
         e.Handled = true;
     }
 
     private void OnChorusSliderDoubleTapped(object? sender, TappedEventArgs e)
     {
-        ChorusReturnPercent = BassMidiPlayer.DefaultMixPercent;
+        GlobalChorusReturnValue = _player.ChorusReturnMode == ChannelSendMode.Bias
+            ? MidiMixSettings.DefaultBiasValue
+            : BassMidiPlayer.DefaultMixPercent;
+        e.Handled = true;
+    }
+
+    private void OnGlobalReverbModeClicked(object? sender, RoutedEventArgs e)
+    {
+        _player.ReverbReturnMode = GetNextMode(_player.ReverbReturnMode);
+        RefreshGlobalReverbBindings();
+        PersistCurrentMidiMix();
+        e.Handled = true;
+    }
+
+    private void OnGlobalChorusModeClicked(object? sender, RoutedEventArgs e)
+    {
+        _player.ChorusReturnMode = GetNextMode(_player.ChorusReturnMode);
+        RefreshGlobalChorusBindings();
+        PersistCurrentMidiMix();
+        e.Handled = true;
+    }
+
+    private void OnChannelReverbModeClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: ChannelMixStrip strip })
+        {
+            strip.ToggleReverbSendMode();
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnChannelChorusModeClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: ChannelMixStrip strip })
+        {
+            strip.ToggleChorusSendMode();
+        }
+
         e.Handled = true;
     }
 
@@ -673,6 +823,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static string FormatPercent(double percent)
         => $"{Math.Round(percent):0}%";
 
+    private static string FormatSignedValue(double value)
+    {
+        var rounded = (int)Math.Round(value);
+        return rounded > 0 ? $"+{rounded}" : rounded.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static ChannelSendMode GetNextMode(ChannelSendMode mode)
+        => mode switch
+        {
+            ChannelSendMode.Scale => ChannelSendMode.Absolute,
+            ChannelSendMode.Absolute => ChannelSendMode.Bias,
+            _ => ChannelSendMode.Scale
+        };
+
+    private int GetGlobalReverbReturnValue()
+        => _player.ReverbReturnMode switch
+        {
+            ChannelSendMode.Scale => _player.ReverbReturnScalePercent,
+            ChannelSendMode.Bias => _player.ReverbReturnBiasValue,
+            _ => _player.ReverbReturnPercent
+        };
+
+    private int GetGlobalChorusReturnValue()
+        => _player.ChorusReturnMode switch
+        {
+            ChannelSendMode.Scale => _player.ChorusReturnScalePercent,
+            ChannelSendMode.Bias => _player.ChorusReturnBiasValue,
+            _ => _player.ChorusReturnPercent
+        };
+
     private bool IsPlaybackAtEnd()
         => DurationSeconds > 0 && PositionSeconds >= Math.Max(0, DurationSeconds - 0.05);
 
@@ -715,10 +895,68 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var rows = new ChannelMixStrip[16];
         for (int i = 0; i < rows.Length; i++)
         {
-            rows[i] = new ChannelMixStrip(_player, i);
+            rows[i] = new ChannelMixStrip(_player, i, PersistCurrentMidiMix);
         }
 
         return rows;
+    }
+
+    private void LoadMixSettingsForMidi(string midiPath)
+    {
+        _player.ApplyMixSettings(_settings.GetMidiMixSettings(midiPath));
+        RefreshMixBindings();
+        RefreshChannelMixRows();
+    }
+
+    private void PersistCurrentMidiMix()
+    {
+        if (string.IsNullOrWhiteSpace(_player.MidiPath))
+        {
+            return;
+        }
+
+        _settings.SetMidiMixSettings(_player.MidiPath, _player.CaptureMixSettings());
+        _settings.Save();
+    }
+
+    private void RefreshMixBindings()
+    {
+        OnPropertyChanged(nameof(MasterVolumePercent));
+        OnPropertyChanged(nameof(MasterVolumePercentText));
+        OnPropertyChanged(nameof(ReverbReturnPercent));
+        OnPropertyChanged(nameof(ReverbReturnPercentText));
+        OnPropertyChanged(nameof(ChorusReturnPercent));
+        OnPropertyChanged(nameof(ChorusReturnPercentText));
+        RefreshGlobalReverbBindings();
+        RefreshGlobalChorusBindings();
+    }
+
+    private void RefreshChannelMixRows()
+    {
+        foreach (var row in ChannelMixRows)
+        {
+            row.Refresh();
+        }
+    }
+
+    private void RefreshGlobalReverbBindings()
+    {
+        OnPropertyChanged(nameof(GlobalReverbReturnValue));
+        OnPropertyChanged(nameof(GlobalReverbReturnMinimum));
+        OnPropertyChanged(nameof(GlobalReverbReturnMaximum));
+        OnPropertyChanged(nameof(GlobalReverbReturnText));
+        OnPropertyChanged(nameof(GlobalReverbReturnModeLabel));
+        OnPropertyChanged(nameof(GlobalReverbReturnModeToolTip));
+    }
+
+    private void RefreshGlobalChorusBindings()
+    {
+        OnPropertyChanged(nameof(GlobalChorusReturnValue));
+        OnPropertyChanged(nameof(GlobalChorusReturnMinimum));
+        OnPropertyChanged(nameof(GlobalChorusReturnMaximum));
+        OnPropertyChanged(nameof(GlobalChorusReturnText));
+        OnPropertyChanged(nameof(GlobalChorusReturnModeLabel));
+        OnPropertyChanged(nameof(GlobalChorusReturnModeToolTip));
     }
 
     private static bool IsWithinVisual(Visual? source, Visual? target)

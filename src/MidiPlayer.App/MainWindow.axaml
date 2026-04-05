@@ -14,13 +14,26 @@
     <Style Selector="TextBlock">
       <Setter Property="Foreground" Value="#E0E0E0" />
     </Style>
+    <Style Selector="ToolTip">
+      <Setter Property="Background" Value="#0D0D0D" />
+      <Setter Property="BorderBrush" Value="#303030" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="#DCEEFF" />
+    </Style>
+    <Style Selector="ToolTip TextBlock">
+      <Setter Property="Foreground" Value="#DCEEFF" />
+    </Style>
     <Style Selector="Button.iconBtn">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="#333" />
+      <Setter Property="Foreground" Value="#C8D7E6" />
       <Setter Property="Padding" Value="8" />
       <Setter Property="Cursor" Value="Hand" />
       <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.iconBtn:disabled">
+      <Setter Property="Foreground" Value="#8091A2" />
     </Style>
     <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="#303030" />
@@ -66,8 +79,12 @@
                      ToolTip.Tip="{Binding StatusText}" />
         </Border>
       </Grid>
-      <Button Grid.Column="1" Content="OPEN FILE" Click="OnOpenMidiClicked" Classes="iconBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0" IsEnabled="{Binding CanOpenMidi}" />
-      <Button Grid.Column="2" Content="{Binding ExportButtonText}" Click="OnExportWavClicked" Classes="iconBtn actionBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0" IsEnabled="{Binding CanExport}" />
+      <Button Grid.Column="1" Click="OnOpenMidiClicked" Classes="iconBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0" IsEnabled="{Binding CanOpenMidi}">
+        <TextBlock Text="OPEN FILE" Foreground="#C8D7E6" />
+      </Button>
+      <Button Grid.Column="2" Click="OnExportWavClicked" Classes="iconBtn actionBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0" IsEnabled="{Binding CanExport}">
+        <TextBlock Text="{Binding ExportButtonText}" Foreground="#DCEEFF" />
+      </Button>
       <Button Grid.Column="3" Classes="iconBtn" Click="OnSettingsClicked" ToolTip.Tip="Settings" IsEnabled="{Binding CanOpenSettings}">
         <TextBlock Text="⚙" FontSize="14" />
       </Button>
@@ -98,7 +115,7 @@
                   IsVisible="{Binding IsChannelMixerPopupOpen}"
                   ClipToBounds="False">
             <Grid
-                Width="224"
+                Width="244"
                 Height="206"
                 Canvas.Left="{Binding ChannelMixerPopupLeft}"
                 Canvas.Top="26"
@@ -119,10 +136,10 @@
                 </Grid>
 
                 <StackPanel Spacing="6">
-                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                  <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
                     <TextBlock Text="VOL" FontSize="9" FontWeight="Bold" Foreground="#666" VerticalAlignment="Center" />
                     <Slider
-                        Grid.Column="1"
+                        Grid.Column="2"
                         Minimum="0"
                         Maximum="200"
                         Value="{Binding VolumePercent, Mode=TwoWay}"
@@ -131,37 +148,55 @@
                         LargeChange="10"
                         ToolTip.Tip="Double-click to reset to 100%"
                         DoubleTapped="OnChannelVolumeSliderDoubleTapped" />
-                    <TextBlock Grid.Column="2" Text="{Binding VolumeText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding VolumeText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
                   </Grid>
 
-                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                  <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
                     <TextBlock Text="REV" FontSize="9" FontWeight="Bold" Foreground="#666" VerticalAlignment="Center" />
-                    <Slider
+                    <Button
                         Grid.Column="1"
-                        Minimum="0"
-                        Maximum="200"
-                        Value="{Binding ReverbSendPercent, Mode=TwoWay}"
+                        MinWidth="34"
+                        Height="20"
+                        Padding="6,0"
+                        Click="OnChannelReverbModeClicked"
+                        ToolTip.Tip="{Binding ReverbSendModeToolTip}">
+                      <TextBlock Text="{Binding ReverbSendModeLabel}" FontSize="9" FontWeight="Bold" Foreground="#B6D6F8" />
+                    </Button>
+                    <Slider
+                        Grid.Column="2"
+                        Minimum="{Binding ReverbSendMinimum}"
+                        Maximum="{Binding ReverbSendMaximum}"
+                        Value="{Binding ReverbSendValue, Mode=TwoWay}"
                         Foreground="#4A90E2"
                         SmallChange="1"
                         LargeChange="10"
-                        ToolTip.Tip="Double-click to reset to 100%"
+                        ToolTip.Tip="Double-click to reset current mode"
                         DoubleTapped="OnChannelReverbSliderDoubleTapped" />
-                    <TextBlock Grid.Column="2" Text="{Binding ReverbSendText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding ReverbSendText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
                   </Grid>
 
-                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                  <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
                     <TextBlock Text="CHO" FontSize="9" FontWeight="Bold" Foreground="#666" VerticalAlignment="Center" />
-                    <Slider
+                    <Button
                         Grid.Column="1"
-                        Minimum="0"
-                        Maximum="200"
-                        Value="{Binding ChorusSendPercent, Mode=TwoWay}"
+                        MinWidth="34"
+                        Height="20"
+                        Padding="6,0"
+                        Click="OnChannelChorusModeClicked"
+                        ToolTip.Tip="{Binding ChorusSendModeToolTip}">
+                      <TextBlock Text="{Binding ChorusSendModeLabel}" FontSize="9" FontWeight="Bold" Foreground="#B6D6F8" />
+                    </Button>
+                    <Slider
+                        Grid.Column="2"
+                        Minimum="{Binding ChorusSendMinimum}"
+                        Maximum="{Binding ChorusSendMaximum}"
+                        Value="{Binding ChorusSendValue, Mode=TwoWay}"
                         Foreground="#4A90E2"
                         SmallChange="1"
                         LargeChange="10"
-                        ToolTip.Tip="Double-click to reset to 100%"
+                        ToolTip.Tip="Double-click to reset current mode"
                         DoubleTapped="OnChannelChorusSliderDoubleTapped" />
-                    <TextBlock Grid.Column="2" Text="{Binding ChorusSendText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding ChorusSendText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
                   </Grid>
                 </StackPanel>
               </StackPanel>
@@ -233,7 +268,7 @@
 
             <Border
                 IsVisible="{Binding IsGlobalMixerPopupOpen}"
-                Width="224"
+                Width="248"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Top"
                 Margin="0,-184,0,0"
@@ -260,34 +295,52 @@
                   <TextBlock Grid.Column="2" Text="{Binding MasterVolumePercentText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
                 </Grid>
 
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
                   <TextBlock Text="REV" FontSize="9" FontWeight="Bold" Foreground="#666" VerticalAlignment="Center" />
-                  <Slider
+                  <Button
                       Grid.Column="1"
-                      Minimum="0"
-                      Maximum="200"
-                      Value="{Binding ReverbReturnPercent, Mode=TwoWay}"
+                      MinWidth="34"
+                      Height="20"
+                      Padding="6,0"
+                      Click="OnGlobalReverbModeClicked"
+                      ToolTip.Tip="{Binding GlobalReverbReturnModeToolTip}">
+                    <TextBlock Text="{Binding GlobalReverbReturnModeLabel}" FontSize="9" FontWeight="Bold" Foreground="#B6D6F8" />
+                  </Button>
+                  <Slider
+                      Grid.Column="2"
+                      Minimum="{Binding GlobalReverbReturnMinimum}"
+                      Maximum="{Binding GlobalReverbReturnMaximum}"
+                      Value="{Binding GlobalReverbReturnValue, Mode=TwoWay}"
                       Foreground="#4A90E2"
                       SmallChange="1"
                       LargeChange="10"
-                      ToolTip.Tip="Double-click to reset to 100%"
+                      ToolTip.Tip="Double-click to reset current mode"
                       DoubleTapped="OnReverbSliderDoubleTapped" />
-                  <TextBlock Grid.Column="2" Text="{Binding ReverbReturnPercentText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="3" Text="{Binding GlobalReverbReturnText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
                 </Grid>
 
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
                   <TextBlock Text="CHO" FontSize="9" FontWeight="Bold" Foreground="#666" VerticalAlignment="Center" />
-                  <Slider
+                  <Button
                       Grid.Column="1"
-                      Minimum="0"
-                      Maximum="200"
-                      Value="{Binding ChorusReturnPercent, Mode=TwoWay}"
+                      MinWidth="34"
+                      Height="20"
+                      Padding="6,0"
+                      Click="OnGlobalChorusModeClicked"
+                      ToolTip.Tip="{Binding GlobalChorusReturnModeToolTip}">
+                    <TextBlock Text="{Binding GlobalChorusReturnModeLabel}" FontSize="9" FontWeight="Bold" Foreground="#B6D6F8" />
+                  </Button>
+                  <Slider
+                      Grid.Column="2"
+                      Minimum="{Binding GlobalChorusReturnMinimum}"
+                      Maximum="{Binding GlobalChorusReturnMaximum}"
+                      Value="{Binding GlobalChorusReturnValue, Mode=TwoWay}"
                       Foreground="#4A90E2"
                       SmallChange="1"
                       LargeChange="10"
-                      ToolTip.Tip="Double-click to reset to 100%"
+                      ToolTip.Tip="Double-click to reset current mode"
                       DoubleTapped="OnChorusSliderDoubleTapped" />
-                  <TextBlock Grid.Column="2" Text="{Binding ChorusReturnPercentText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="3" Text="{Binding GlobalChorusReturnText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
             </Border>
