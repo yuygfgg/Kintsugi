@@ -51,7 +51,7 @@
           <ComboBoxItem Content="88200 Hz" />
           <ComboBoxItem Content="96000 Hz" />
         </ComboBox>
-        <TextBlock Classes="hint" Text="Select the audio output sample rate. Changing this may briefly interrupt playback." />
+        <TextBlock Classes="hint" Text="Select the audio output sample rate." />
       </StackPanel>
 
       <Button Content="Close" Click="OnCloseClicked" HorizontalAlignment="Right" Margin="0,16,0,0" Width="80" HorizontalContentAlignment="Center" Background="#4A90E2" Foreground="White" BorderThickness="0" />
