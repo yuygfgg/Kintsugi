@@ -2,7 +2,9 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using ManagedBass;
+using ManagedBass.Enc;
 using ManagedBass.Midi;
 
 namespace MidiPlayer.App.Services;
@@ -164,6 +166,14 @@ public sealed class BassMidiPlayer : IDisposable
     public const int DefaultTransposeSemitones = 0;
     public const int MinTransposeSemitones = -24;
     public const int MaxTransposeSemitones = 24;
+    public const int DefaultOpusBitrateKbps = 160;
+    public const int MinOpusBitrateKbps = 6;
+    public const int MaxOpusBitrateKbps = 510;
+    public const int OpusExportSampleRate = 48000;
+    public static bool SupportsCompressedAudioExport => !OperatingSystem.IsWindows() || RuntimeInformation.ProcessArchitecture != Architecture.Arm64;
+
+    public static bool IsExportFormatAvailable(AudioExportFormat format)
+        => format == AudioExportFormat.Wav || SupportsCompressedAudioExport;
 
     private int _masterVolumePercent = DefaultMixPercent;
     private int _reverbReturnPercent = DefaultMixPercent;
@@ -1166,9 +1176,11 @@ public sealed class BassMidiPlayer : IDisposable
         }
     }
 
-    public void ExportCurrentMidiToWav(WavExportOptions options)
+    public void ExportCurrentMidiToAudio(AudioExportOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        options = NormalizeExportOptions(options);
+        var eqSettings = CaptureEqExportSettings();
         EnsureInitialized();
         EnsureStreamLoaded();
 
@@ -1192,13 +1204,45 @@ public sealed class BassMidiPlayer : IDisposable
             throw new ArgumentException("An output path is required.", nameof(options));
         }
 
-        ExportMidiToWav(
+        if (!IsExportFormatAvailable(options.Format))
+        {
+            throw new ArgumentException("Selected export format is unavailable.", nameof(options));
+        }
+
+        if (options.Format == AudioExportFormat.Flac && options.BitDepth == AudioBitDepth.Float32)
+        {
+            throw new ArgumentException("FLAC export only supports 16-bit PCM or 24-bit PCM.", nameof(options));
+        }
+
+        if (options.Format == AudioExportFormat.Opus &&
+            (options.OpusBitrateKbps < MinOpusBitrateKbps || options.OpusBitrateKbps > MaxOpusBitrateKbps))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), $"Opus bitrate must be between {MinOpusBitrateKbps} and {MaxOpusBitrateKbps} kbps.");
+        }
+
+        ExportMidiToAudio(
             MidiPath,
             SoundFontPath,
             options,
             _systemMode,
             _channelMuted,
-            CaptureMixSettings());
+            CaptureMixSettings(),
+            eqSettings);
+    }
+
+    private static AudioExportOptions NormalizeExportOptions(AudioExportOptions options)
+        => options.Format == AudioExportFormat.Opus && options.SampleRate != OpusExportSampleRate
+            ? options with { SampleRate = OpusExportSampleRate }
+            : options;
+
+    private EqExportSettings CaptureEqExportSettings()
+    {
+        lock (_eqLock)
+        {
+            return new EqExportSettings(
+                _isEqEnabled,
+                _eqBands.Select(band => new EqBandState(band.Frequency, band.GainDb, band.Q, band.SlopeDbPerOct)).ToArray());
+        }
     }
 
     public void Play()
@@ -1583,6 +1627,22 @@ public sealed class BassMidiPlayer : IDisposable
             _ => 4
         };
 
+    private static void ConfigureCutFilters(int sampleRate, EqBandState band, bool isHighPass, StereoBiquadFilter[] filters)
+    {
+        var stageCount = GetCutStageCount(band.SlopeDbPerOct);
+        for (var stage = 0; stage < stageCount && stage < filters.Length; stage++)
+        {
+            if (isHighPass)
+            {
+                filters[stage].SetHighPass(sampleRate, band.Frequency, 0.7071067811865476);
+            }
+            else
+            {
+                filters[stage].SetLowPass(sampleRate, band.Frequency, 0.7071067811865476);
+            }
+        }
+    }
+
     private static EqBandState[] CreateDefaultEqBands()
     {
         return
@@ -1833,16 +1893,18 @@ public sealed class BassMidiPlayer : IDisposable
             _ => defaultMode
         };
 
-    private static void ExportMidiToWav(
+    private static void ExportMidiToAudio(
         string midiPath,
         string soundFontPath,
-        WavExportOptions options,
+        AudioExportOptions options,
         MidiSystem systemMode,
         bool[]? channelMuted,
-        MidiMixSettings mixSettings)
+        MidiMixSettings mixSettings,
+        EqExportSettings eqSettings)
     {
         int exportStreamHandle = 0;
         int exportFontHandle = 0;
+        ExportEqProcessor? exportEq = null;
 
         try
         {
@@ -1891,13 +1953,16 @@ public sealed class BassMidiPlayer : IDisposable
             ConfigureExportFilter(exportStreamHandle, systemMode, channelMuted, mixerState, out MidiFilterProcedure filter, out SyncProcedure resetSync);
             ApplyPlaybackModifiers(exportStreamHandle, mixSettings.PlaybackSpeedPercent, mixSettings.PlaybackTransposeSemitones);
             mixerState.ApplyAll(exportStreamHandle);
+            exportEq = new ExportEqProcessor(eqSettings, options.SampleRate, exportStreamHandle);
 
-            WriteWaveFile(exportStreamHandle, options);
+            WriteExportFile(exportStreamHandle, options);
             GC.KeepAlive(resetSync);
             GC.KeepAlive(filter);
         }
         finally
         {
+            exportEq?.Dispose();
+
             if (exportStreamHandle != 0)
             {
                 Bass.StreamFree(exportStreamHandle);
@@ -1910,7 +1975,25 @@ public sealed class BassMidiPlayer : IDisposable
         }
     }
 
-    private static void WriteWaveFile(int streamHandle, WavExportOptions options)
+    private static void WriteExportFile(int streamHandle, AudioExportOptions options)
+    {
+        switch (options.Format)
+        {
+            case AudioExportFormat.Wav:
+                WriteWaveFile(streamHandle, options);
+                return;
+            case AudioExportFormat.Flac:
+                WriteEncodedFile(streamHandle, options, "FLAC", StartFlacEncoder);
+                return;
+            case AudioExportFormat.Opus:
+                WriteEncodedFile(streamHandle, options, "Opus", StartOpusEncoder);
+                return;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(options), options.Format, "Unsupported export format.");
+        }
+    }
+
+    private static void WriteWaveFile(int streamHandle, AudioExportOptions options)
     {
         const int ChannelCount = 2;
         const int FramesPerChunk = 16384;
@@ -1922,9 +2005,9 @@ public sealed class BassMidiPlayer : IDisposable
         }
 
         var floatBuffer = new float[FramesPerChunk * ChannelCount];
-        var floatBytes = options.BitDepth == WavBitDepth.Float32 ? new byte[floatBuffer.Length * sizeof(float)] : null;
-        var pcm16Bytes = options.BitDepth == WavBitDepth.Pcm16 ? new byte[floatBuffer.Length * sizeof(short)] : null;
-        var pcm24Bytes = options.BitDepth == WavBitDepth.Pcm24 ? new byte[floatBuffer.Length * 3] : null;
+        var floatBytes = options.BitDepth == AudioBitDepth.Float32 ? new byte[floatBuffer.Length * sizeof(float)] : null;
+        var pcm16Bytes = options.BitDepth == AudioBitDepth.Pcm16 ? new byte[floatBuffer.Length * sizeof(short)] : null;
+        var pcm24Bytes = options.BitDepth == AudioBitDepth.Pcm24 ? new byte[floatBuffer.Length * 3] : null;
 
         using var fileStream = File.Create(options.OutputPath);
         using var writer = new BinaryWriter(fileStream);
@@ -1933,6 +2016,105 @@ public sealed class BassMidiPlayer : IDisposable
 
         long dataLength = 0;
 
+        DrainDecodedStream(
+            streamHandle,
+            floatBuffer,
+            bytesRead =>
+            {
+                var sampleCount = bytesRead / sizeof(float);
+                if (sampleCount == 0)
+                {
+                    return;
+                }
+
+                dataLength += WriteSamples(writer, floatBuffer, sampleCount, options.BitDepth, floatBytes, pcm16Bytes, pcm24Bytes);
+            },
+            "Failed while rendering WAV data");
+
+        FinalizeWaveHeader(writer, dataLength);
+    }
+
+    private static void WriteEncodedFile(
+        int streamHandle,
+        AudioExportOptions options,
+        string formatLabel,
+        Func<int, AudioExportOptions, int> startEncoder)
+    {
+        const int ChannelCount = 2;
+        const int FramesPerChunk = 16384;
+
+        var directory = Path.GetDirectoryName(options.OutputPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var floatBuffer = new float[FramesPerChunk * ChannelCount];
+        int encoderHandle = 0;
+
+        try
+        {
+            try
+            {
+                encoderHandle = startEncoder(streamHandle, options);
+            }
+            catch (DllNotFoundException ex)
+            {
+                throw new InvalidOperationException("Selected export format is unavailable.", ex);
+            }
+            catch (EntryPointNotFoundException ex)
+            {
+                throw new InvalidOperationException("Selected export format is unavailable.", ex);
+            }
+
+            if (encoderHandle == 0)
+            {
+                throw CreateBassException($"Failed to start {formatLabel} encoder");
+            }
+
+            DrainDecodedStream(streamHandle, floatBuffer, _ => { }, $"Failed while rendering {formatLabel} data");
+
+            if (!BassEnc.EncodeStop(encoderHandle))
+            {
+                throw CreateBassException($"Failed to finalize {formatLabel} file");
+            }
+
+            encoderHandle = 0;
+        }
+        finally
+        {
+            if (encoderHandle != 0)
+            {
+                BassEnc.EncodeStop(encoderHandle);
+            }
+        }
+    }
+
+    private static int StartFlacEncoder(int streamHandle, AudioExportOptions options)
+    {
+        var flags = options.BitDepth switch
+        {
+            AudioBitDepth.Pcm16 => EncodeFlags.ConvertFloatTo16BitInt,
+            AudioBitDepth.Pcm24 => EncodeFlags.ConvertFloatTo24Bit,
+            _ => throw new ArgumentOutOfRangeException(nameof(options), options.BitDepth, "FLAC export only supports 16-bit PCM or 24-bit PCM.")
+        };
+
+        return BassEnc_Flac.Start(streamHandle, string.Empty, flags, options.OutputPath);
+    }
+
+    private static int StartOpusEncoder(int streamHandle, AudioExportOptions options)
+    {
+        var flags = EncodeFlags.ConvertFloatTo16BitInt;
+        var encoderOptions = $"--bitrate {options.OpusBitrateKbps}";
+        return BassEnc_Opus.Start(streamHandle, encoderOptions, flags, options.OutputPath);
+    }
+
+    private static void DrainDecodedStream(
+        int streamHandle,
+        float[] floatBuffer,
+        Action<int> onChunkDecoded,
+        string errorMessage)
+    {
         while (true)
         {
             var bytesRequested = (floatBuffer.Length * sizeof(float)) | (int)DataFlags.Float;
@@ -1945,7 +2127,7 @@ public sealed class BassMidiPlayer : IDisposable
                     break;
                 }
 
-                throw CreateBassException("Failed while rendering WAV data");
+                throw CreateBassException(errorMessage);
             }
 
             if (bytesRead == 0)
@@ -1953,30 +2135,22 @@ public sealed class BassMidiPlayer : IDisposable
                 break;
             }
 
-            var sampleCount = bytesRead / sizeof(float);
-            if (sampleCount == 0)
-            {
-                break;
-            }
-
-            dataLength += WriteSamples(writer, floatBuffer, sampleCount, options.BitDepth, floatBytes, pcm16Bytes, pcm24Bytes);
+            onChunkDecoded(bytesRead);
         }
-
-        FinalizeWaveHeader(writer, dataLength);
     }
 
     private static long WriteSamples(
         BinaryWriter writer,
         float[] source,
         int sampleCount,
-        WavBitDepth bitDepth,
+        AudioBitDepth bitDepth,
         byte[]? floatBytes,
         byte[]? pcm16Bytes,
         byte[]? pcm24Bytes)
     {
         switch (bitDepth)
         {
-            case WavBitDepth.Pcm16:
+            case AudioBitDepth.Pcm16:
             {
                 if (pcm16Bytes is null)
                 {
@@ -1994,7 +2168,7 @@ public sealed class BassMidiPlayer : IDisposable
                 writer.Write(pcm16Bytes, 0, targetIndex);
                 return targetIndex;
             }
-            case WavBitDepth.Pcm24:
+            case AudioBitDepth.Pcm24:
             {
                 if (pcm24Bytes is null)
                 {
@@ -2013,7 +2187,7 @@ public sealed class BassMidiPlayer : IDisposable
                 writer.Write(pcm24Bytes, 0, targetIndex);
                 return targetIndex;
             }
-            case WavBitDepth.Float32:
+            case AudioBitDepth.Float32:
             {
                 if (floatBytes is null)
                 {
@@ -2034,14 +2208,14 @@ public sealed class BassMidiPlayer : IDisposable
         BinaryWriter writer,
         int sampleRate,
         int channelCount,
-        WavBitDepth bitDepth,
+        AudioBitDepth bitDepth,
         long dataLength)
     {
         var bitsPerSample = GetBitsPerSample(bitDepth);
         var bytesPerSample = bitsPerSample / 8;
         var blockAlign = (short)(channelCount * bytesPerSample);
         var byteRate = sampleRate * blockAlign;
-        var formatTag = bitDepth == WavBitDepth.Float32 ? 3 : 1;
+        var formatTag = bitDepth == AudioBitDepth.Float32 ? 3 : 1;
 
         writer.Write("RIFF"u8.ToArray());
         writer.Write((int)(36 + dataLength));
@@ -2068,12 +2242,12 @@ public sealed class BassMidiPlayer : IDisposable
         writer.Flush();
     }
 
-    private static int GetBitsPerSample(WavBitDepth bitDepth)
+    private static int GetBitsPerSample(AudioBitDepth bitDepth)
         => bitDepth switch
         {
-            WavBitDepth.Pcm16 => 16,
-            WavBitDepth.Pcm24 => 24,
-            WavBitDepth.Float32 => 32,
+            AudioBitDepth.Pcm16 => 16,
+            AudioBitDepth.Pcm24 => 24,
+            AudioBitDepth.Float32 => 32,
             _ => throw new ArgumentOutOfRangeException(nameof(bitDepth), bitDepth, "Unsupported WAV bit depth.")
         };
 
@@ -2823,6 +2997,107 @@ public sealed class BassMidiPlayer : IDisposable
             };
 
         private readonly record struct ChannelMixState(int Channel, int VolumeValue, int ReverbValue, int ChorusValue);
+    }
+
+    private sealed record EqExportSettings(bool IsEnabled, EqBandState[] Bands);
+
+    private sealed class ExportEqProcessor : IDisposable
+    {
+        private readonly bool _isEnabled;
+        private readonly StereoBiquadFilter[] _peakFilters = CreateFilterArray(EqPeakBandCount);
+        private readonly StereoBiquadFilter[] _lowCutFilters = CreateFilterArray(EqMaxCutStages);
+        private readonly StereoBiquadFilter[] _highCutFilters = CreateFilterArray(EqMaxCutStages);
+        private readonly object _syncRoot = new();
+        private readonly DSPProcedure _dspProc;
+        private readonly int _streamHandle;
+        private int _dspHandle;
+
+        public ExportEqProcessor(EqExportSettings settings, int sampleRate, int streamHandle)
+        {
+            _isEnabled = settings.IsEnabled;
+            _streamHandle = streamHandle;
+            _dspProc = ProcessDsp;
+
+            if (!_isEnabled)
+            {
+                return;
+            }
+
+            for (var i = 0; i < EqPeakBandCount; i++)
+            {
+                var band = settings.Bands[EqPeakBandOffset + i];
+                if (Math.Abs(band.GainDb) < 0.01)
+                {
+                    continue;
+                }
+
+                _peakFilters[i].SetPeak(
+                    sampleRate,
+                    band.Frequency,
+                    band.GainDb,
+                    MapUiQToFilterQ(band.Q));
+            }
+
+            ConfigureCutFilters(sampleRate, settings.Bands[0], isHighPass: true, _lowCutFilters);
+            ConfigureCutFilters(sampleRate, settings.Bands[^1], isHighPass: false, _highCutFilters);
+
+            _dspHandle = Bass.ChannelSetDSP(streamHandle, _dspProc, IntPtr.Zero, 0);
+            if (_dspHandle == 0)
+            {
+                throw CreateBassException("Failed to install export EQ DSP");
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_streamHandle != 0 && _dspHandle != 0)
+            {
+                Bass.ChannelRemoveDSP(_streamHandle, _dspHandle);
+                _dspHandle = 0;
+            }
+        }
+
+        private unsafe void ProcessDsp(int handle, int channel, IntPtr buffer, int length, IntPtr user)
+        {
+            if (!_isEnabled || length <= 0)
+            {
+                return;
+            }
+
+            var sampleCount = length / sizeof(float);
+            if (sampleCount < EqChannelCount)
+            {
+                return;
+            }
+
+            var samples = (float*)buffer;
+            lock (_syncRoot)
+            {
+                for (var index = 0; index + 1 < sampleCount; index += EqChannelCount)
+                {
+                    var left = samples[index];
+                    var right = samples[index + 1];
+
+                    foreach (var filter in _lowCutFilters)
+                    {
+                        filter.Process(ref left, ref right);
+                    }
+
+                    foreach (var filter in _peakFilters)
+                    {
+                        filter.Process(ref left, ref right);
+                    }
+
+                    foreach (var filter in _highCutFilters)
+                    {
+                        filter.Process(ref left, ref right);
+                    }
+
+                    samples[index] = left;
+                    samples[index + 1] = right;
+                }
+            }
+        }
     }
 
     private sealed class StereoBiquadFilter

@@ -15,7 +15,7 @@
     <Company>Kintsugi</Company>
     <Product>Kintsugi Midi Player</Product>
     <AssemblyTitle>Kintsugi Midi Player</AssemblyTitle>
-    <Description>A desktop MIDI player with SoundFont playback, visualization, and WAV export.</Description>
+    <Description>A desktop MIDI player with SoundFont playback, visualization, and audio export.</Description>
     <PackageId>Kintsugi.MidiPlayer</PackageId>
     <UseAppHost>true</UseAppHost>
     <DefineConstants Condition="'$(IsWindowsTarget)' == 'true'">$(DefineConstants);WINDOWS</DefineConstants>
@@ -35,6 +35,7 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.3.13" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.13" />
     <PackageReference Include="ManagedBass" Version="4.0.2" />
+    <PackageReference Include="ManagedBass.Enc" Version="4.0.2" />
     <PackageReference Include="ManagedBass.Midi" Version="4.0.2" />
   </ItemGroup>
 
@@ -52,6 +53,20 @@
     <Message Importance="High" Text="Compiling native Mac media controls..." />
     <MakeDir Directories="$(NativeAssetsDir)" />
     <Exec Command="clang -dynamiclib -fobjc-arc -arch $(MacNativeArch) -mmacosx-version-min=12.0 -framework Foundation -framework MediaPlayer &quot;$(MSBuildThisFileDirectory)../native/macos/MediaControls.m&quot; -o &quot;$(NativeAssetsDir)/libMediaControls.dylib&quot;" />
+  </Target>
+
+  <Target Name="FixMacNativeLibraryLoadPaths" BeforeTargets="CopyNativeDependenciesToOutput;CopyNativeDependenciesToPublishDir" Condition="'$(DesignTimeBuild)' != 'true' and '$([MSBuild]::IsOSPlatform(`OSX`))' == 'true' and $([System.String]::Copy('$(NativeAssetsRid)').StartsWith('osx'))">
+    <Exec Command="install_name_tool -id @loader_path/libbass.dylib &quot;$(NativeAssetsDir)/libbass.dylib&quot;" Condition="Exists('$(NativeAssetsDir)/libbass.dylib')" />
+    <Exec Command="install_name_tool -id @loader_path/libbassmidi.dylib &quot;$(NativeAssetsDir)/libbassmidi.dylib&quot;" Condition="Exists('$(NativeAssetsDir)/libbassmidi.dylib')" />
+    <Exec Command="install_name_tool -change @rpath/libbass.dylib @loader_path/libbass.dylib &quot;$(NativeAssetsDir)/libbassmidi.dylib&quot;" Condition="Exists('$(NativeAssetsDir)/libbassmidi.dylib')" />
+    <Exec Command="install_name_tool -id @loader_path/libbassenc.dylib &quot;$(NativeAssetsDir)/libbassenc.dylib&quot;" Condition="Exists('$(NativeAssetsDir)/libbassenc.dylib')" />
+    <Exec Command="install_name_tool -change @rpath/libbass.dylib @loader_path/libbass.dylib &quot;$(NativeAssetsDir)/libbassenc.dylib&quot;" Condition="Exists('$(NativeAssetsDir)/libbassenc.dylib')" />
+    <Exec Command="install_name_tool -id @loader_path/libbassenc_flac.dylib &quot;$(NativeAssetsDir)/libbassenc_flac.dylib&quot;" Condition="Exists('$(NativeAssetsDir)/libbassenc_flac.dylib')" />
+    <Exec Command="install_name_tool -change @rpath/libbass.dylib @loader_path/libbass.dylib &quot;$(NativeAssetsDir)/libbassenc_flac.dylib&quot;" Condition="Exists('$(NativeAssetsDir)/libbassenc_flac.dylib')" />
+    <Exec Command="install_name_tool -change @rpath/libbassenc.dylib @loader_path/libbassenc.dylib &quot;$(NativeAssetsDir)/libbassenc_flac.dylib&quot;" Condition="Exists('$(NativeAssetsDir)/libbassenc_flac.dylib')" />
+    <Exec Command="install_name_tool -id @loader_path/libbassenc_opus.dylib &quot;$(NativeAssetsDir)/libbassenc_opus.dylib&quot;" Condition="Exists('$(NativeAssetsDir)/libbassenc_opus.dylib')" />
+    <Exec Command="install_name_tool -change @rpath/libbass.dylib @loader_path/libbass.dylib &quot;$(NativeAssetsDir)/libbassenc_opus.dylib&quot;" Condition="Exists('$(NativeAssetsDir)/libbassenc_opus.dylib')" />
+    <Exec Command="install_name_tool -change @rpath/libbassenc.dylib @loader_path/libbassenc.dylib &quot;$(NativeAssetsDir)/libbassenc_opus.dylib&quot;" Condition="Exists('$(NativeAssetsDir)/libbassenc_opus.dylib')" />
   </Target>
 
   <Target Name="CopyNativeDependenciesToOutput" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">

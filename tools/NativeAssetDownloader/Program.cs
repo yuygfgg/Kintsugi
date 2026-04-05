@@ -237,10 +237,25 @@ static DownloadAsset[] ResolveNativeAssets(string rid)
                 ArchiveEntry: "libbass.dylib",
                 OutputFileName: "libbass.dylib"),
             new DownloadAsset(
+                VersionStamp: "bassenc24-osx-2026-01-02",
+                DownloadUrl: "https://www.un4seen.com/files/bassenc24-osx.zip",
+                ArchiveEntry: "libbassenc.dylib",
+                OutputFileName: "libbassenc.dylib"),
+            new DownloadAsset(
                 VersionStamp: "bassmidi24-osx-2025-10-28",
                 DownloadUrl: "https://www.un4seen.com/files/bassmidi24-osx.zip",
                 ArchiveEntry: "libbassmidi.dylib",
-                OutputFileName: "libbassmidi.dylib")
+                OutputFileName: "libbassmidi.dylib"),
+            new DownloadAsset(
+                VersionStamp: "bassenc-flac24-osx-2026-01-06",
+                DownloadUrl: "https://www.un4seen.com/files/bassenc_flac24-osx.zip",
+                ArchiveEntry: "libbassenc_flac.dylib",
+                OutputFileName: "libbassenc_flac.dylib"),
+            new DownloadAsset(
+                VersionStamp: "bassenc-opus24-osx-2026-01-02",
+                DownloadUrl: "https://www.un4seen.com/files/bassenc_opus24-osx.zip",
+                ArchiveEntry: "libbassenc_opus.dylib",
+                OutputFileName: "libbassenc_opus.dylib")
         ];
     }
 
@@ -265,6 +280,33 @@ static DownloadAsset[] ResolveNativeAssets(string rid)
             _ => throw new NotSupportedException($"Unsupported Linux architecture for BASSMIDI native assets: {architecture}.")
         };
 
+        var bassEncPath = architecture switch
+        {
+            "x64" => "libs/x86_64/libbassenc.so",
+            "arm64" => "libs/aarch64/libbassenc.so",
+            "arm" => "libs/armhf/libbassenc.so",
+            "x86" => "libs/x86/libbassenc.so",
+            _ => throw new NotSupportedException($"Unsupported Linux architecture for BASSenc native assets: {architecture}.")
+        };
+
+        var bassEncFlacPath = architecture switch
+        {
+            "x64" => "libs/x86_64/libbassenc_flac.so",
+            "arm64" => "libs/aarch64/libbassenc_flac.so",
+            "arm" => "libs/armhf/libbassenc_flac.so",
+            "x86" => "libs/x86/libbassenc_flac.so",
+            _ => throw new NotSupportedException($"Unsupported Linux architecture for BASSenc FLAC native assets: {architecture}.")
+        };
+
+        var bassEncOpusPath = architecture switch
+        {
+            "x64" => "libs/x86_64/libbassenc_opus.so",
+            "arm64" => "libs/aarch64/libbassenc_opus.so",
+            "arm" => "libs/armhf/libbassenc_opus.so",
+            "x86" => "libs/x86/libbassenc_opus.so",
+            _ => throw new NotSupportedException($"Unsupported Linux architecture for BASSenc Opus native assets: {architecture}.")
+        };
+
         return
         [
             new DownloadAsset(
@@ -273,10 +315,25 @@ static DownloadAsset[] ResolveNativeAssets(string rid)
                 ArchiveEntry: bassPath,
                 OutputFileName: "libbass.so"),
             new DownloadAsset(
+                VersionStamp: "bassenc24-linux-2026-01-02",
+                DownloadUrl: "https://www.un4seen.com/files/bassenc24-linux.zip",
+                ArchiveEntry: bassEncPath,
+                OutputFileName: "libbassenc.so"),
+            new DownloadAsset(
                 VersionStamp: "bassmidi24-linux-2025-10-28",
                 DownloadUrl: "https://www.un4seen.com/files/bassmidi24-linux.zip",
                 ArchiveEntry: bassMidiPath,
-                OutputFileName: "libbassmidi.so")
+                OutputFileName: "libbassmidi.so"),
+            new DownloadAsset(
+                VersionStamp: "bassenc-flac24-linux-2026-01-06",
+                DownloadUrl: "https://www.un4seen.com/files/bassenc_flac24-linux.zip",
+                ArchiveEntry: bassEncFlacPath,
+                OutputFileName: "libbassenc_flac.so"),
+            new DownloadAsset(
+                VersionStamp: "bassenc-opus24-linux-2026-01-02",
+                DownloadUrl: "https://www.un4seen.com/files/bassenc_opus24-linux.zip",
+                ArchiveEntry: bassEncOpusPath,
+                OutputFileName: "libbassenc_opus.so")
         ];
     }
 
@@ -315,6 +372,54 @@ static DownloadAsset[] ResolveNativeAssets(string rid)
             _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSMIDI native assets: {architecture}.")
         };
 
+        var bassEncUrl = architecture switch
+        {
+            "x64" => "https://www.un4seen.com/files/bassenc24.zip",
+            "x86" => "https://www.un4seen.com/files/bassenc24.zip",
+            "arm64" => string.Empty,
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSenc native assets: {architecture}.")
+        };
+
+        var bassEncPath = architecture switch
+        {
+            "x64" => "x64/bassenc.dll",
+            "x86" => "bassenc.dll",
+            "arm64" => string.Empty,
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSenc native assets: {architecture}.")
+        };
+
+        var bassEncFlacUrl = architecture switch
+        {
+            "x64" => "https://www.un4seen.com/files/bassenc_flac24.zip",
+            "x86" => "https://www.un4seen.com/files/bassenc_flac24.zip",
+            "arm64" => string.Empty,
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSenc FLAC native assets: {architecture}.")
+        };
+
+        var bassEncFlacPath = architecture switch
+        {
+            "x64" => "x64/bassenc_flac.dll",
+            "x86" => "bassenc_flac.dll",
+            "arm64" => string.Empty,
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSenc FLAC native assets: {architecture}.")
+        };
+
+        var bassEncOpusUrl = architecture switch
+        {
+            "x64" => "https://www.un4seen.com/files/bassenc_opus24.zip",
+            "x86" => "https://www.un4seen.com/files/bassenc_opus24.zip",
+            "arm64" => string.Empty,
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSenc Opus native assets: {architecture}.")
+        };
+
+        var bassEncOpusPath = architecture switch
+        {
+            "x64" => "x64/bassenc_opus.dll",
+            "x86" => "bassenc_opus.dll",
+            "arm64" => string.Empty,
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSenc Opus native assets: {architecture}.")
+        };
+
         var bassVersionStamp = architecture switch
         {
             "x64" => "bass24-windows-2026-01-16",
@@ -331,19 +436,64 @@ static DownloadAsset[] ResolveNativeAssets(string rid)
             _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSMIDI native assets: {architecture}.")
         };
 
-        return
-        [
-            new DownloadAsset(
+        var bassEncVersionStamp = architecture switch
+        {
+            "x64" => "bassenc24-windows-2026-01-02",
+            "x86" => "bassenc24-windows-2026-01-02",
+            "arm64" => string.Empty,
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSenc native assets: {architecture}.")
+        };
+
+        var bassEncFlacVersionStamp = architecture switch
+        {
+            "x64" => "bassenc-flac24-windows-2026-01-06",
+            "x86" => "bassenc-flac24-windows-2026-01-06",
+            "arm64" => string.Empty,
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSenc FLAC native assets: {architecture}.")
+        };
+
+        var bassEncOpusVersionStamp = architecture switch
+        {
+            "x64" => "bassenc-opus24-windows-2026-01-02",
+            "x86" => "bassenc-opus24-windows-2026-01-02",
+            "arm64" => string.Empty,
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSenc Opus native assets: {architecture}.")
+        };
+
+        var assets = new List<DownloadAsset>
+        {
+            new(
                 VersionStamp: bassVersionStamp,
                 DownloadUrl: bassUrl,
                 ArchiveEntry: bassPath,
                 OutputFileName: "bass.dll"),
-            new DownloadAsset(
+            new(
                 VersionStamp: bassMidiVersionStamp,
                 DownloadUrl: bassMidiUrl,
                 ArchiveEntry: bassMidiPath,
                 OutputFileName: "bassmidi.dll")
-        ];
+        };
+
+        if (architecture != "arm64")
+        {
+            assets.Add(new DownloadAsset(
+                VersionStamp: bassEncVersionStamp,
+                DownloadUrl: bassEncUrl,
+                ArchiveEntry: bassEncPath,
+                OutputFileName: "bassenc.dll"));
+            assets.Add(new DownloadAsset(
+                VersionStamp: bassEncFlacVersionStamp,
+                DownloadUrl: bassEncFlacUrl,
+                ArchiveEntry: bassEncFlacPath,
+                OutputFileName: "bassenc_flac.dll"));
+            assets.Add(new DownloadAsset(
+                VersionStamp: bassEncOpusVersionStamp,
+                DownloadUrl: bassEncOpusUrl,
+                ArchiveEntry: bassEncOpusPath,
+                OutputFileName: "bassenc_opus.dll"));
+        }
+
+        return [.. assets];
     }
 
     throw new NotSupportedException($"Unsupported runtime identifier: {rid}.");

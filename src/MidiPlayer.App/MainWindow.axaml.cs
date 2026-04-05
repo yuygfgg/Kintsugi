@@ -304,7 +304,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool CanExport => _player.HasStream && !_isExporting;
 
-    public string ExportButtonText => _isExporting ? "EXPORTING..." : "EXPORT WAV";
+    public string ExportButtonText => _isExporting ? "EXPORTING..." : "EXPORT AUDIO";
 
     public string CurrentBpmText => FormatBpm(_player.GetCurrentBpm());
 
@@ -654,12 +654,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SetExportingState(true);
-        StatusText = $"Exporting WAV at {dialog.ExportOptions.SampleRate / 1000d:0.###} kHz...";
+        StatusText = $"Exporting {GetExportFormatLabel(dialog.ExportOptions.Format)} at {dialog.ExportOptions.SampleRate / 1000d:0.###} kHz...";
 
         try
         {
-            await Task.Run(() => _player.ExportCurrentMidiToWav(dialog.ExportOptions));
-            StatusText = $"WAV exported: {Path.GetFileName(dialog.ExportOptions.OutputPath)}";
+            await Task.Run(() => _player.ExportCurrentMidiToAudio(dialog.ExportOptions));
+            StatusText = $"{GetExportFormatLabel(dialog.ExportOptions.Format)} exported: {Path.GetFileName(dialog.ExportOptions.OutputPath)}";
         }
         catch (Exception ex)
         {
@@ -1166,7 +1166,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (_isExporting)
         {
             e.Cancel = true;
-            StatusText = "Wait for the WAV export to finish.";
+            StatusText = "Wait for the audio export to finish.";
             return;
         }
 
@@ -1624,6 +1624,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _mediaControls.UpdateNowPlaying(MidiDisplayName, "Kintsugi Midi Player", DurationSeconds, PositionSeconds);
         _mediaControls.UpdatePlaybackState(_player.IsPlaying, PositionSeconds);
     }
+
+    private static string GetExportFormatLabel(AudioExportFormat format)
+        => format switch
+        {
+            AudioExportFormat.Flac => "FLAC",
+            AudioExportFormat.Opus => "Opus",
+            _ => "WAV"
+        };
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {

@@ -44,7 +44,7 @@
   </Window.Styles>
 
   <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="18" Margin="28">
-    <TextBlock Text="Export WAV" FontSize="24" FontWeight="SemiBold" />
+    <TextBlock Text="Export Audio" FontSize="24" FontWeight="SemiBold" />
 
     <Border Grid.Row="1" Classes="panel" Padding="16">
       <StackPanel Spacing="8">
@@ -57,40 +57,45 @@
     </Border>
 
     <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="16">
-      <StackPanel Spacing="8">
-        <TextBlock Text="Sample Rate" FontWeight="SemiBold" />
-        <ComboBox x:Name="SampleRateComboBox" SelectionChanged="OnFormatChanged" Background="#303030" BorderThickness="0" Foreground="#E0E0E0">
-          <ComboBoxItem Content="44100 Hz" />
-          <ComboBoxItem Content="48000 Hz" />
-          <ComboBoxItem Content="88200 Hz" />
-          <ComboBoxItem Content="96000 Hz" />
-        </ComboBox>
+      <StackPanel x:Name="FormatPanel" Spacing="8">
+        <TextBlock Text="Format" FontWeight="SemiBold" />
+        <ComboBox x:Name="FormatComboBox" SelectionChanged="OnFormatChanged" Background="#303030" BorderThickness="0" Foreground="#E0E0E0" />
       </StackPanel>
 
-      <StackPanel Grid.Column="1" Spacing="8">
-        <TextBlock Text="Bit Depth" FontWeight="SemiBold" />
-        <ComboBox x:Name="BitDepthComboBox" SelectionChanged="OnFormatChanged" Background="#303030" BorderThickness="0" Foreground="#E0E0E0">
-          <ComboBoxItem Content="16-bit PCM" />
-          <ComboBoxItem Content="24-bit PCM" />
-          <ComboBoxItem Content="32-bit Float" />
-        </ComboBox>
+      <StackPanel x:Name="SampleRatePanel" Grid.Column="1" Spacing="8">
+        <TextBlock Text="Sample Rate" FontWeight="SemiBold" />
+        <ComboBox x:Name="SampleRateComboBox" SelectionChanged="OnFormatChanged" Background="#303030" BorderThickness="0" Foreground="#E0E0E0" />
       </StackPanel>
     </Grid>
 
-    <StackPanel Grid.Row="3" Spacing="14">
-      <StackPanel Spacing="8">
-        <TextBlock Text="Destination" FontWeight="SemiBold" />
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-          <TextBox Text="{Binding OutputPathDisplay}" IsReadOnly="True" Background="#303030" BorderThickness="0" Foreground="#E0E0E0" />
-          <Button Grid.Column="1" Classes="compact" Content="Change..." Click="OnBrowseOutputClicked" />
+    <Grid Grid.Row="3" RowDefinitions="Auto,Auto" RowSpacing="14">
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+        <StackPanel x:Name="BitDepthPanel" Spacing="8">
+          <TextBlock Text="Bit Depth" FontWeight="SemiBold" />
+          <ComboBox x:Name="BitDepthComboBox" SelectionChanged="OnFormatChanged" Background="#303030" BorderThickness="0" Foreground="#E0E0E0" />
+        </StackPanel>
+
+        <StackPanel x:Name="OpusBitratePanel" Grid.Column="1" Spacing="8" IsVisible="False">
+          <TextBlock Text="Opus Bitrate (kbps)" FontWeight="SemiBold" />
+          <TextBox Text="{Binding OpusBitrateDisplay}" Background="#303030" BorderThickness="0" Foreground="#E0E0E0" />
+        </StackPanel>
+      </Grid>
+
+      <StackPanel Grid.Row="1" Spacing="14">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Destination" FontWeight="SemiBold" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <TextBox Text="{Binding OutputPathDisplay}" IsReadOnly="True" Background="#303030" BorderThickness="0" Foreground="#E0E0E0" />
+            <Button Grid.Column="1" Classes="compact" Content="Change..." Click="OnBrowseOutputClicked" />
+          </Grid>
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+          <Border />
+          <Button Grid.Column="1" Classes="secondary" Content="Cancel" Width="88" Click="OnCancelClicked" />
+          <Button Grid.Column="2" Classes="primary" Content="Export" Width="96" Click="OnExportClicked" />
         </Grid>
       </StackPanel>
-
-      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
-        <Border />
-        <Button Grid.Column="1" Classes="secondary" Content="Cancel" Width="88" Click="OnCancelClicked" />
-        <Button Grid.Column="2" Classes="primary" Content="Export" Width="96" Click="OnExportClicked" />
-      </Grid>
-    </StackPanel>
+    </Grid>
   </Grid>
 </Window>

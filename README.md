@@ -1,6 +1,6 @@
 # Kintsugi Midi Player
 
-Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI loading, live visualizers, an interactive EQ, transport controls, tempo override, global transpose, per-channel mixing, and offline WAV export.
+Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI loading, live visualizers, an interactive EQ, transport controls, tempo override, global transpose, per-channel mixing, and offline audio export.
 
 ## Build
 
@@ -20,15 +20,17 @@ On macOS, you can produce an `.app` bundle with:
 scripts/publish-macos-app.sh
 ```
 
+This bundle includes the native BASS/BASSMIDI/BASSenc libraries needed for playback plus `WAV`, `FLAC`, and `Opus` export on macOS.
+
 ## User Manual
 
-Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, drag-and-drop MIDI loading, live note and spectrum visualization, an interactive EQ, per-channel mixing, tempo override, global transpose, and offline WAV export.
+Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, drag-and-drop MIDI loading, live note and spectrum visualization, an interactive EQ, per-channel mixing, tempo override, global transpose, and offline audio export.
 
 ### 1. Supported Files
 
 - MIDI input: `.mid`, `.midi`, `.kar`, `.rmi`
 - SoundFont input: `.sf2`, `.sfz`
-- Export output: `.wav`
+- Export output: `.wav`, `.flac`, `.opus`
 
 ### 2. Quick Start
 
@@ -36,7 +38,7 @@ Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, dra
 2. Open a MIDI file. The bundled `GeneralUser-GS.sf2` default SoundFont loads automatically in packaged builds. All other MIDI files in the same directory will automatically be imported into the Playlist.
 3. Optional: click the gear button and replace it with your own SoundFont (`.sf2` or `.sfz`).
 4. Use the transport controls at the bottom to play, pause, seek, or loop the track.
-5. Click `EXPORT WAV` if you want to render the current track to a WAV file.
+5. Click `EXPORT AUDIO` if you want to render the current track to an audio file.
 
 ### 3. Main Window Overview
 
@@ -52,7 +54,7 @@ The header shows:
 - The current MIDI file name
 - A status badge such as `Ready to play`, `Playing`, `Paused`, `Finished`, or an error message
 - `OPEN FILE`
-- `EXPORT WAV`
+- `EXPORT AUDIO`
 - The settings button
 
 #### Channel Activity
@@ -262,7 +264,7 @@ If you later want to switch back, click `Use Bundled` to restore the packaged `G
 This is required for:
 
 - Playback
-- WAV export
+- Audio export
 
 The currently loaded SoundFont is applied to the current MIDI file. Custom selections are remembered for later launches.
 
@@ -287,9 +289,9 @@ Available sample rates:
 - `88200 Hz`
 - `96000 Hz`
 
-### 8. Exporting WAV
+### 8. Exporting Audio
 
-Click `EXPORT WAV` to render the current MIDI file to a WAV file.
+Click `EXPORT AUDIO` to render the current MIDI file to an audio file.
 
 The export button is enabled only when a MIDI file is loaded.
 
@@ -297,26 +299,42 @@ If no SoundFont can be loaded, export does not start. Load a SoundFont first.
 
 <img width="480" height="402" alt="截屏2026-04-05 10 57 45" src="https://github.com/user-attachments/assets/e3af57d5-43e3-4f10-b394-b35eba11042f" />
 
+Available export formats:
+
+- `WAV`
+- `FLAC`
+- `Opus`
+
+On platforms where compressed export is not available, the dialog only shows `WAV`.
+
 #### Export Dialog
 
 The export dialog lets you choose:
 
+- Format
 - Sample rate: `44100`, `48000`, `88200`, or `96000 Hz`
 - Bit depth: `16-bit PCM`, `24-bit PCM`, or `32-bit Float`
 - Destination path
 
-By default, the app suggests a WAV file in the same folder as the MIDI file, using the same base name.
+Format-specific behavior:
+
+- `WAV`: supports `16-bit PCM`, `24-bit PCM`, and `32-bit Float`
+- `FLAC`: supports `16-bit PCM` and `24-bit PCM`
+- `Opus`: supports a configurable bitrate, always exports at `48 kHz`
+
+By default, the app suggests an output file in the same folder as the MIDI file, using the same base name and the selected format's extension.
 
 If that file already exists, the app suggests a numbered filename instead.
 
 #### What the Export Uses
 
-WAV export uses the current playback state for rendering:
+Audio export uses the current playback state for rendering:
 
 - Current SoundFont
 - Current MIDI system mode
 - Current tempo override
 - Current global transpose
+- Current EQ state
 - Current master mix
 - Current reverb and chorus return settings
 - Current per-channel volume, reverb, and chorus settings
@@ -360,13 +378,23 @@ Mix recall is path-based. If you move or rename a MIDI file, the app treats it a
 
 Most often, the bundled default was removed or a custom SoundFont path is no longer valid. Open `Settings`, load an `.sf2` or `.sfz`, then press Play again.
 
-#### Export WAV does not start
+#### Export Audio does not start
 
 Check these points:
 
 - A MIDI file is loaded
 - A SoundFont is loaded
 - The destination path is writable
+
+#### Opus export sounds too slow or too long
+
+Opus export is fixed to `48 kHz`. If you are testing an older app bundle, rebuild it with:
+
+```bash
+scripts/publish-macos-app.sh
+```
+
+The current build forces `48 kHz` for Opus internally and no longer allows higher Opus sample rates in the export dialog.
 
 #### The wrong mix loads for a file
 
@@ -378,21 +406,21 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 
 ### 11. Control Summary
 
-| Action               | Result                          |
-| -------------------- | ------------------------------- |
-| `OPEN FILE`          | Load a MIDI file                |
-| `◀` tab (Right Edge) | Slide out the Playlist drawer   |
-| `EXPORT WAV`         | Render the current track to WAV |
-| `Space`              | Play or pause                   |
-| `⏮` / `⏭`            | Previous / Next track           |
-| Channel single-click | Mute/unmute channel             |
-| Channel double-click | Solo/unsolo channel             |
-| Channel right-click  | Open per-channel mixer          |
-| Channel hover        | Show channel instrument name    |
-| `MIX`                | Open global mixer               |
-| Loop button          | Toggle looping                  |
-| `BPM`                | Open tempo override popup       |
-| `KEY -` / `KEY +`    | Transpose down or up            |
-| EQ power button      | Bypass or enable the EQ         |
+| Action                         | Result                                             |
+| ------------------------------ | -------------------------------------------------- |
+| `OPEN FILE`                    | Load a MIDI file                                   |
+| `◀` tab (Right Edge)           | Slide out the Playlist drawer                      |
+| `EXPORT AUDIO`                 | Render the current track to WAV, FLAC, or Opus     |
+| `Space`                        | Play or pause                                      |
+| `⏮` / `⏭`                      | Previous / Next track                              |
+| Channel single-click           | Mute/unmute channel                                |
+| Channel double-click           | Solo/unsolo channel                                |
+| Channel right-click            | Open per-channel mixer                             |
+| Channel hover                  | Show channel instrument name                       |
+| `MIX`                          | Open global mixer                                  |
+| Loop button                    | Toggle looping                                     |
+| `BPM`                          | Open tempo override popup                          |
+| `KEY -` / `KEY +`              | Transpose down or up                               |
+| EQ power button                | Bypass or enable the EQ                            |
 | EQ drag / wheel / double-click | Edit EQ bands / adjust width or slope / reset band |
-| Slider double-click  | Reset that control              |
+| Slider double-click            | Reset that control                                 |

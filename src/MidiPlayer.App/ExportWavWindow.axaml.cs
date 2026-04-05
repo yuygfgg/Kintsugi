@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -10,14 +11,50 @@ namespace MidiPlayer.App;
 
 public partial class ExportWavWindow : Window, INotifyPropertyChanged
 {
+    private static readonly ExportChoice<AudioExportFormat>[] AllFormatChoices =
+    [
+        new(AudioExportFormat.Wav, "WAV"),
+        new(AudioExportFormat.Flac, "FLAC"),
+        new(AudioExportFormat.Opus, "Opus")
+    ];
+
+    private static readonly ExportChoice<AudioExportFormat>[] WavOnlyFormatChoices =
+    [
+        new(AudioExportFormat.Wav, "WAV")
+    ];
+
+    private static readonly ExportChoice<int>[] SampleRateChoices =
+    [
+        new(44100, "44100 Hz"),
+        new(48000, "48000 Hz"),
+        new(88200, "88200 Hz"),
+        new(96000, "96000 Hz")
+    ];
+
+    private static readonly ExportChoice<AudioBitDepth>[] WavBitDepthChoices =
+    [
+        new(AudioBitDepth.Pcm16, "16-bit PCM"),
+        new(AudioBitDepth.Pcm24, "24-bit PCM"),
+        new(AudioBitDepth.Float32, "32-bit Float")
+    ];
+
+    private static readonly ExportChoice<AudioBitDepth>[] FlacBitDepthChoices =
+    [
+        new(AudioBitDepth.Pcm16, "16-bit PCM"),
+        new(AudioBitDepth.Pcm24, "24-bit PCM")
+    ];
+
     private string _formatSummary = string.Empty;
     private string _playbackModifiersSummary = string.Empty;
     private string _outputPathDisplay;
+    private string _opusBitrateDisplay = BassMidiPlayer.DefaultOpusBitrateKbps.ToString();
+    private readonly ExportChoice<AudioExportFormat>[] _availableFormatChoices;
 
     public ExportWavWindow()
     {
         InitializeComponent();
         DataContext = this;
+        _availableFormatChoices = BassMidiPlayer.SupportsCompressedAudioExport ? AllFormatChoices : WavOnlyFormatChoices;
 
         TrackDisplayName = "No Track Loaded";
         SoundFontDisplayName = "SoundFont · Not loaded";
@@ -25,9 +62,16 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
             BassMidiPlayer.DefaultPlaybackSpeedPercent,
             BassMidiPlayer.DefaultTransposeSemitones);
         _outputPathDisplay = Path.Combine(Directory.GetCurrentDirectory(), "export.wav");
-        SampleRateComboBox.SelectedIndex = 0;
-        BitDepthComboBox.SelectedIndex = 1;
-        UpdateFormatSummary();
+
+        FormatComboBox.ItemsSource = _availableFormatChoices;
+        SampleRateComboBox.ItemsSource = SampleRateChoices;
+        FormatComboBox.SelectedItem = _availableFormatChoices[0];
+        SampleRateComboBox.SelectedItem = SampleRateChoices[0];
+        UpdateBitDepthChoices(AudioExportFormat.Wav, preserveSelection: false);
+        FormatPanel.IsVisible = _availableFormatChoices.Length > 1;
+        SampleRatePanel.SetValue(Grid.ColumnProperty, _availableFormatChoices.Length > 1 ? 1 : 0);
+        SampleRatePanel.SetValue(Grid.ColumnSpanProperty, _availableFormatChoices.Length > 1 ? 1 : 2);
+        UpdateFormatControls(rewriteOutputPath: false);
     }
 
     public ExportWavWindow(
@@ -42,27 +86,20 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
             ? "SoundFont · Not loaded"
             : $"SoundFont · {Path.GetFileName(soundFontPath)}";
         PlaybackModifiersSummary = FormatPlaybackModifiersSummary(playbackSpeedPercent, transposeSemitones);
-        OutputPathDisplay = SuggestOutputPath(midiPath);
-
-        SampleRateComboBox.SelectedIndex = defaultSampleRate switch
-        {
-            48000 => 1,
-            88200 => 2,
-            96000 => 3,
-            _ => 0
-        };
+        SampleRateComboBox.SelectedItem = SampleRateChoices.FirstOrDefault(choice => choice.Value == defaultSampleRate) ?? SampleRateChoices[0];
+        OutputPathDisplay = SuggestOutputPath(midiPath, SelectedFormat);
 
         OnPropertyChanged(nameof(TrackDisplayName));
         OnPropertyChanged(nameof(SoundFontDisplayName));
         OnPropertyChanged(nameof(PlaybackModifiersSummary));
-        UpdateFormatSummary();
+        UpdateFormatControls(rewriteOutputPath: false);
     }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
     public bool WasConfirmed { get; private set; }
 
-    public WavExportOptions? ExportOptions { get; private set; }
+    public AudioExportOptions? ExportOptions { get; private set; }
 
     public string TrackDisplayName { get; private set; }
 
@@ -116,20 +153,30 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
 
     public string ExportReadyText => $"Output · {Path.GetFileName(OutputPathDisplay)}";
 
-    private int SelectedSampleRate => SampleRateComboBox.SelectedIndex switch
+    public string OpusBitrateDisplay
     {
-        1 => 48000,
-        2 => 88200,
-        3 => 96000,
-        _ => 44100
-    };
+        get => _opusBitrateDisplay;
+        set
+        {
+            if (_opusBitrateDisplay == value)
+            {
+                return;
+            }
 
-    private WavBitDepth SelectedBitDepth => BitDepthComboBox.SelectedIndex switch
-    {
-        0 => WavBitDepth.Pcm16,
-        2 => WavBitDepth.Float32,
-        _ => WavBitDepth.Pcm24
-    };
+            _opusBitrateDisplay = value;
+            OnPropertyChanged();
+            UpdateFormatSummary();
+        }
+    }
+
+    private AudioExportFormat SelectedFormat
+        => (FormatComboBox.SelectedItem as ExportChoice<AudioExportFormat>)?.Value ?? AudioExportFormat.Wav;
+
+    private int SelectedSampleRate
+        => (SampleRateComboBox.SelectedItem as ExportChoice<int>)?.Value ?? 44100;
+
+    private AudioBitDepth SelectedBitDepth
+        => (BitDepthComboBox.SelectedItem as ExportChoice<AudioBitDepth>)?.Value ?? AudioBitDepth.Pcm24;
 
     private async void OnBrowseOutputClicked(object? sender, RoutedEventArgs e)
     {
@@ -138,19 +185,14 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        var selectedFormat = SelectedFormat;
+        var fileType = CreateFilePickerType(selectedFormat);
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Export WAV",
+            Title = $"Export {GetFormatLabel(selectedFormat)}",
             SuggestedFileName = Path.GetFileName(OutputPathDisplay),
-            DefaultExtension = "wav",
-            FileTypeChoices =
-            [
-                new FilePickerFileType("WAV Audio")
-                {
-                    Patterns = ["*.wav"],
-                    MimeTypes = ["audio/wav"]
-                }
-            ]
+            DefaultExtension = GetFileExtension(selectedFormat).TrimStart('.'),
+            FileTypeChoices = [fileType]
         });
 
         var path = file?.TryGetLocalPath();
@@ -162,7 +204,7 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
 
     private void OnFormatChanged(object? sender, SelectionChangedEventArgs e)
     {
-        UpdateFormatSummary();
+        UpdateFormatControls(rewriteOutputPath: true);
     }
 
     private void OnCancelClicked(object? sender, RoutedEventArgs e)
@@ -177,22 +219,97 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        ExportOptions = new WavExportOptions(OutputPathDisplay, SelectedSampleRate, SelectedBitDepth);
+        var opusBitrateKbps = BassMidiPlayer.DefaultOpusBitrateKbps;
+
+        if (SelectedFormat == AudioExportFormat.Opus && !TryGetOpusBitrate(out opusBitrateKbps))
+        {
+            FormatSummary = $"Enter an Opus bitrate between {BassMidiPlayer.MinOpusBitrateKbps} and {BassMidiPlayer.MaxOpusBitrateKbps} kbps.";
+            return;
+        }
+
+        ExportOptions = new AudioExportOptions(
+            OutputPathDisplay,
+            GetEffectiveSampleRate(),
+            SelectedFormat,
+            SelectedBitDepth,
+            opusBitrateKbps);
         WasConfirmed = true;
         Close();
     }
 
     private void UpdateFormatSummary()
     {
-        FormatSummary = $"{SelectedSampleRate / 1000d:0.###} kHz / {GetBitDepthLabel(SelectedBitDepth)}";
+        FormatSummary = SelectedFormat switch
+        {
+            AudioExportFormat.Wav => $"WAV · {GetEffectiveSampleRate() / 1000d:0.###} kHz / {GetBitDepthLabel(SelectedBitDepth)}",
+            AudioExportFormat.Flac => $"FLAC · {GetEffectiveSampleRate() / 1000d:0.###} kHz / {GetBitDepthLabel(SelectedBitDepth)}",
+            AudioExportFormat.Opus when TryGetOpusBitrate(out var bitrate)
+                => $"Opus · {BassMidiPlayer.OpusExportSampleRate / 1000d:0.###} kHz / {bitrate} kbps",
+            _ => $"Opus · {BassMidiPlayer.OpusExportSampleRate / 1000d:0.###} kHz"
+        };
     }
 
-    private static string GetBitDepthLabel(WavBitDepth bitDepth)
+    private void UpdateFormatControls(bool rewriteOutputPath)
+    {
+        var selectedFormat = SelectedFormat;
+        UpdateBitDepthChoices(selectedFormat, preserveSelection: true);
+        BitDepthPanel.IsVisible = selectedFormat != AudioExportFormat.Opus;
+        OpusBitratePanel.IsVisible = selectedFormat == AudioExportFormat.Opus;
+        SampleRateComboBox.IsEnabled = selectedFormat != AudioExportFormat.Opus;
+
+        if (selectedFormat == AudioExportFormat.Opus)
+        {
+            SampleRateComboBox.SelectedItem = SampleRateChoices.First(choice => choice.Value == BassMidiPlayer.OpusExportSampleRate);
+        }
+
+        if (rewriteOutputPath)
+        {
+            OutputPathDisplay = ReplaceKnownExportExtension(OutputPathDisplay, GetFileExtension(selectedFormat));
+        }
+
+        UpdateFormatSummary();
+    }
+
+    private void UpdateBitDepthChoices(AudioExportFormat format, bool preserveSelection)
+    {
+        var currentSelection = preserveSelection ? (BitDepthComboBox.SelectedItem as ExportChoice<AudioBitDepth>)?.Value : null;
+        var choices = format == AudioExportFormat.Flac ? FlacBitDepthChoices : WavBitDepthChoices;
+        BitDepthComboBox.ItemsSource = choices;
+
+        var selectedChoice = currentSelection is AudioBitDepth bitDepth
+            ? choices.FirstOrDefault(choice => choice.Value == bitDepth)
+            : null;
+
+        BitDepthComboBox.SelectedItem = selectedChoice ?? choices[Math.Min(1, choices.Length - 1)];
+    }
+
+    private bool TryGetOpusBitrate(out int bitrateKbps)
+    {
+        if (!int.TryParse(OpusBitrateDisplay, out bitrateKbps))
+        {
+            bitrateKbps = BassMidiPlayer.DefaultOpusBitrateKbps;
+            return false;
+        }
+
+        if (bitrateKbps < BassMidiPlayer.MinOpusBitrateKbps || bitrateKbps > BassMidiPlayer.MaxOpusBitrateKbps)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private int GetEffectiveSampleRate()
+        => SelectedFormat == AudioExportFormat.Opus
+            ? BassMidiPlayer.OpusExportSampleRate
+            : SelectedSampleRate;
+
+    private static string GetBitDepthLabel(AudioBitDepth bitDepth)
         => bitDepth switch
         {
-            WavBitDepth.Pcm16 => "16-bit PCM",
-            WavBitDepth.Pcm24 => "24-bit PCM",
-            WavBitDepth.Float32 => "32-bit Float",
+            AudioBitDepth.Pcm16 => "16-bit PCM",
+            AudioBitDepth.Pcm24 => "24-bit PCM",
+            AudioBitDepth.Float32 => "32-bit Float",
             _ => "24-bit PCM"
         };
 
@@ -204,12 +321,13 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
         return $"Playback · {playbackSpeedPercent}% / {transposeText} st";
     }
 
-    private static string SuggestOutputPath(string midiPath)
+    private static string SuggestOutputPath(string midiPath, AudioExportFormat format)
     {
         var directory = Path.GetDirectoryName(midiPath);
         var fileName = Path.GetFileNameWithoutExtension(midiPath);
         var baseDirectory = string.IsNullOrWhiteSpace(directory) ? Directory.GetCurrentDirectory() : directory;
-        var candidate = Path.Combine(baseDirectory, fileName + ".wav");
+        var extension = GetFileExtension(format);
+        var candidate = Path.Combine(baseDirectory, fileName + extension);
 
         if (!File.Exists(candidate))
         {
@@ -219,7 +337,7 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
         int index = 1;
         while (true)
         {
-            candidate = Path.Combine(baseDirectory, $"{fileName} ({index}).wav");
+            candidate = Path.Combine(baseDirectory, $"{fileName} ({index}){extension}");
             if (!File.Exists(candidate))
             {
                 return candidate;
@@ -227,6 +345,65 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
 
             index++;
         }
+    }
+
+    private static string ReplaceKnownExportExtension(string path, string targetExtension)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return Path.Combine(Directory.GetCurrentDirectory(), "export" + targetExtension);
+        }
+
+        var currentExtension = Path.GetExtension(path);
+        if (!string.Equals(currentExtension, ".wav", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(currentExtension, ".flac", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(currentExtension, ".opus", StringComparison.OrdinalIgnoreCase))
+        {
+            return path;
+        }
+
+        return Path.ChangeExtension(path, targetExtension);
+    }
+
+    private static string GetFileExtension(AudioExportFormat format)
+        => format switch
+        {
+            AudioExportFormat.Flac => ".flac",
+            AudioExportFormat.Opus => ".opus",
+            _ => ".wav"
+        };
+
+    private static string GetFormatLabel(AudioExportFormat format)
+        => format switch
+        {
+            AudioExportFormat.Flac => "FLAC",
+            AudioExportFormat.Opus => "Opus",
+            _ => "WAV"
+        };
+
+    private static FilePickerFileType CreateFilePickerType(AudioExportFormat format)
+        => format switch
+        {
+            AudioExportFormat.Flac => new FilePickerFileType("FLAC Audio")
+            {
+                Patterns = ["*.flac"],
+                MimeTypes = ["audio/flac"]
+            },
+            AudioExportFormat.Opus => new FilePickerFileType("Opus Audio")
+            {
+                Patterns = ["*.opus"],
+                MimeTypes = ["audio/opus"]
+            },
+            _ => new FilePickerFileType("WAV Audio")
+            {
+                Patterns = ["*.wav"],
+                MimeTypes = ["audio/wav"]
+            }
+        };
+
+    private sealed record ExportChoice<T>(T Value, string Label)
+    {
+        public override string ToString() => Label;
     }
 
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
