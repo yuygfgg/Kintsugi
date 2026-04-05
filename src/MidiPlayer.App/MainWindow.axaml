@@ -215,19 +215,24 @@
     <Border Grid.Row="2" Background="#181818" BorderBrush="#333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,16" ClipToBounds="True">
       <Grid RowDefinitions="*,Auto">
         <!-- Spectrum Analyzer -->
-        <Grid Margin="8" RowDefinitions="Auto,*" RowSpacing="6">
+        <Grid Margin="8">
+          <controls:SpectrumControl
+              Player="{Binding Player}"
+              IsEqEnabled="{Binding IsEqEnabled}" />
+
           <Button
-              Grid.Row="0"
               HorizontalAlignment="Right"
               VerticalAlignment="Top"
               Width="36"
               Height="36"
+              Margin="0,12,16,0"
               Padding="0"
               Click="OnEqToggleClicked"
               Background="{Binding EqButtonBackground}"
               BorderBrush="{Binding EqButtonBorderBrush}"
               Foreground="{Binding EqButtonForeground}"
               CornerRadius="18"
+              ZIndex="10"
               ToolTip.Tip="{Binding EqButtonToolTip}">
             <Grid Width="18" Height="18">
               <Path
@@ -242,11 +247,6 @@
                   StrokeLineCap="Round" />
             </Grid>
           </Button>
-
-          <controls:SpectrumControl
-              Grid.Row="1"
-              Player="{Binding Player}"
-              IsEqEnabled="{Binding IsEqEnabled}" />
         </Grid>
         
         <!-- Piano Keyboard -->

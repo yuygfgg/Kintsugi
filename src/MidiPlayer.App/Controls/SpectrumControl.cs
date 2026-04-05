@@ -15,14 +15,17 @@ public class SpectrumControl : Control
     private const double MaxDisplayFrequency = 20000.0;
     private const double MinGainDb = -15.0;
     private const double MaxGainDb = 15.0;
-    private const double TopGlyphAreaHeight = 30.0;
-    private const double BottomReadoutAreaHeight = 96.0;
-    private const double SidePadding = 36.0;
+    private const double TopOverlayReservedHeight = 12.0;
+    private const double TopGlyphAreaHeight = 36.0;
+    private const double BottomReadoutAreaHeight = 68.0;
+    private const double SidePadding = 72.0;
     private const double PlotTopPadding = 12.0;
     private const double PlotBottomPadding = 12.0;
     private const double HandleRadius = 7.0;
     private const double ReadoutHorizontalInset = 12.0;
     private const double ReadoutVerticalInset = 8.0;
+    private const double AdjacentBandSpacingRatio = 1.08;
+    private const double EdgeCutSpacingRatio = 1.3;
 
     private static readonly Typeface UiTypeface = new("Segoe UI");
     private static readonly Typeface MonoTypeface = new("Cascadia Mono");
@@ -277,24 +280,48 @@ public class SpectrumControl : Control
 
     private double ClampBandFrequency(int index, double frequency)
     {
-        var min = MinDisplayFrequency;
-        var max = MaxDisplayFrequency;
+        var min = GetMinimumBandFrequency(index);
+        var max = GetMaximumBandFrequency(index);
 
-        if (index == 0)
+        if (min > max)
         {
-            max = Math.Min(max, _bands[1].Frequency / 1.3);
-        }
-        else if (index == _bands.Length - 1)
-        {
-            min = Math.Max(min, _bands[^2].Frequency * 1.3);
-        }
-        else
-        {
-            min = Math.Max(min, _bands[index - 1].Frequency * 1.08);
-            max = Math.Min(max, _bands[index + 1].Frequency / 1.08);
+            // If an invalid state is loaded from elsewhere, keep the band stable instead of
+            // letting Math.Clamp throw during pointer drag.
+            return Math.Clamp(_bands[index].Frequency, MinDisplayFrequency, MaxDisplayFrequency);
         }
 
         return Math.Clamp(frequency, min, max);
+    }
+
+    private double GetMinimumBandFrequency(int index)
+    {
+        if (index <= 0)
+        {
+            return MinDisplayFrequency;
+        }
+
+        var previousBand = _bands[index - 1];
+        return Math.Max(MinDisplayFrequency, previousBand.Frequency * GetBandSpacingRatio(index - 1, index));
+    }
+
+    private double GetMaximumBandFrequency(int index)
+    {
+        if (index >= _bands.Length - 1)
+        {
+            return MaxDisplayFrequency;
+        }
+
+        var nextBand = _bands[index + 1];
+        return Math.Min(MaxDisplayFrequency, nextBand.Frequency / GetBandSpacingRatio(index, index + 1));
+    }
+
+    private double GetBandSpacingRatio(int leftIndex, int rightIndex)
+    {
+        var leftKind = _bands[leftIndex].Kind;
+        var rightKind = _bands[rightIndex].Kind;
+        return leftKind == EqBandKind.LowCut || rightKind == EqBandKind.HighCut
+            ? EdgeCutSpacingRatio
+            : AdjacentBandSpacingRatio;
     }
 
     private int HitTestHandle(Point point, Rect plotRect)
@@ -539,7 +566,7 @@ public class SpectrumControl : Control
 
     private void RenderGlyphs(DrawingContext context, Rect bounds, Rect plotRect)
     {
-        var glyphCenterY = bounds.Top + 14.0;
+        var glyphCenterY = bounds.Top + TopOverlayReservedHeight + TopGlyphAreaHeight / 2.0;
         for (var i = 0; i < _bands.Length; i++)
         {
             var band = _bands[i];
@@ -576,13 +603,13 @@ public class SpectrumControl : Control
 
             if (i == _selectedBandIndex && IsEqEnabled)
             {
-                var highlight = new Rect(cell.X + 6.0, cell.Y + 6.0, cell.Width - 12.0, cell.Height - 12.0);
+                var highlight = new Rect(cell.X + 4.0, cell.Y, cell.Width - 8.0, cell.Height + 2.0);
                 context.DrawRectangle(new SolidColorBrush(Color.FromArgb(58, band.Color.R, band.Color.G, band.Color.B)), null, highlight, 6, 6);
             }
 
-            DrawText(context, FormatReadoutFrequency(band.Frequency), MonoTypeface, 13, valueBrush, new Point(centerX, cell.Y + 12.0), TextAlignment.Center);
-            DrawText(context, GetBandMiddleReadout(band), MonoTypeface, 11, valueBrush, new Point(centerX, cell.Y + 38.0), TextAlignment.Center);
-            DrawText(context, GetBandBottomReadout(band), MonoTypeface, 10, secondaryBrush, new Point(centerX, cell.Y + 62.0), TextAlignment.Center);
+            DrawText(context, FormatReadoutFrequency(band.Frequency), MonoTypeface, 12, valueBrush, new Point(centerX, cell.Y + 4.0), TextAlignment.Center);
+            DrawText(context, GetBandMiddleReadout(band), MonoTypeface, 11, valueBrush, new Point(centerX, cell.Y + 22.0), TextAlignment.Center);
+            DrawText(context, GetBandBottomReadout(band), MonoTypeface, 10, secondaryBrush, new Point(centerX, cell.Y + 38.0), TextAlignment.Center);
         }
     }
 
@@ -649,9 +676,9 @@ public class SpectrumControl : Control
     private Rect GetPlotRect(Rect bounds)
     {
         var x = bounds.Left + SidePadding;
-        var y = bounds.Top + TopGlyphAreaHeight + PlotTopPadding;
+        var y = bounds.Top + TopOverlayReservedHeight + TopGlyphAreaHeight + PlotTopPadding;
         var width = Math.Max(80.0, bounds.Width - SidePadding * 2.0);
-        var height = Math.Max(80.0, bounds.Height - TopGlyphAreaHeight - BottomReadoutAreaHeight - PlotTopPadding - PlotBottomPadding);
+        var height = Math.Max(80.0, bounds.Height - TopOverlayReservedHeight - TopGlyphAreaHeight - BottomReadoutAreaHeight - PlotTopPadding - PlotBottomPadding);
         return new Rect(x, y, width, height);
     }
 
