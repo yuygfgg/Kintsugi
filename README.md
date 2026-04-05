@@ -32,7 +32,7 @@ Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, liv
 4. Use the transport controls at the bottom to play, pause, seek, or loop the track.
 5. Click `EXPORT WAV` if you want to render the current track to a WAV file.
 
-<img width="1512" height="982" alt="截屏2026-04-05 10 55 10" src="https://github.com/user-attachments/assets/c82f55a5-2a5a-464d-b423-28d14ab56386" />
+<img width="1512" height="982" alt="截屏2026-04-05 12 48 38 1" src="https://github.com/user-attachments/assets/d37db25c-5444-4a5a-ba24-bb801367df2d" />
 
 ### 3. Main Window Overview
 
@@ -112,6 +112,8 @@ When loop is off, the status changes to `Finished` when the song reaches the end
 #### Tempo Override
 
 Click the `BPM` badge to open the tempo override popup.
+
+<img width="241" height="146" alt="截屏2026-04-05 12 49 50" src="https://github.com/user-attachments/assets/235d437c-47f9-4935-854e-781069b8409d" />
 
 - Range: `25%` to `400%`
 - `100%` keeps the MIDI file's original tempo map
