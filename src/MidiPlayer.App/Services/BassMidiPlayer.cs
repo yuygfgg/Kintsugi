@@ -510,6 +510,8 @@ public sealed class BassMidiPlayer : IDisposable
         {
             throw CreateBassException("Failed to apply playback speed");
         }
+
+        UpdateLoopRangeSync();
     }
 
     private void ApplyTranspose()
@@ -707,6 +709,13 @@ public sealed class BassMidiPlayer : IDisposable
 
     private SyncProcedure[]? _syncProcs;
     private SyncProcedure? _loopSyncProc;
+    private SyncProcedure? _loopRangeSyncProc;
+    private int _loopRangeSyncHandle;
+    private bool _hasCustomLoopRange;
+    private long _loopStartTicks;
+    private long _loopEndTicks;
+    private double _loopStartSeconds;
+    private double _loopEndSeconds;
 
     public string? MidiPath { get; private set; }
 
@@ -737,6 +746,59 @@ public sealed class BassMidiPlayer : IDisposable
     {
         get => _isLooping;
         set => _isLooping = value;
+    }
+
+    public bool HasCustomLoopRange => _hasCustomLoopRange;
+
+    public double GetLoopStartSeconds()
+        => _hasCustomLoopRange
+            ? GetStoredLoopStartSeconds()
+            : 0;
+
+    public double GetLoopEndSeconds()
+        => _hasCustomLoopRange
+            ? GetStoredLoopEndSeconds()
+            : GetDurationSeconds();
+
+    public void SetLoopRange(double startSeconds, double endSeconds)
+    {
+        double duration = GetDurationSeconds();
+        if (_streamHandle == 0 || duration <= 0)
+        {
+            ClearLoopRange();
+            return;
+        }
+
+        double boundedStart = Math.Clamp(Math.Min(startSeconds, endSeconds), 0, duration);
+        double boundedEnd = Math.Clamp(Math.Max(startSeconds, endSeconds), 0, duration);
+        if (boundedEnd - boundedStart <= 0)
+        {
+            ClearLoopRange();
+            return;
+        }
+
+        _hasCustomLoopRange = true;
+        _loopStartSeconds = boundedStart;
+        _loopEndSeconds = boundedEnd;
+        _loopStartTicks = _streamLengthTicks > 0 ? SecondsToTicks(boundedStart) : 0;
+        _loopEndTicks = _streamLengthTicks > 0 ? SecondsToTicks(boundedEnd) : 0;
+
+        if (_streamLengthTicks > 0 && _loopEndTicks <= _loopStartTicks)
+        {
+            _loopEndTicks = Math.Min(_streamLengthTicks, _loopStartTicks + 1);
+        }
+
+        UpdateLoopRangeSync();
+    }
+
+    public void ClearLoopRange()
+    {
+        _hasCustomLoopRange = false;
+        _loopStartTicks = 0;
+        _loopEndTicks = 0;
+        _loopStartSeconds = 0;
+        _loopEndSeconds = 0;
+        UpdateLoopRangeSync();
     }
 
     public bool[,] ActiveNotes { get; } = new bool[16, 128];
@@ -847,18 +909,25 @@ public sealed class BassMidiPlayer : IDisposable
                 return;
             }
 
-            _channelMixer.ResetTrackedValues();
-            Bass.ChannelSetPosition(_streamHandle, 0, PositionFlags.MIDITick);
-            ReapplySystemModeOverride();
-            ApplyPlaybackModifiers();
-            ReapplyMixerState();
-            ClearNotes();
+            SeekToLoopStartInternal();
         };
 
         if (Bass.ChannelSetSync(_streamHandle, SyncFlags.End | SyncFlags.Mixtime, 0, _loopSyncProc) == 0)
         {
             throw CreateBassException("Failed to register playback loop");
         }
+
+        _loopRangeSyncProc = (_, _, _, _) =>
+        {
+            if (!_isLooping || _streamHandle == 0 || !_hasCustomLoopRange)
+            {
+                return;
+            }
+
+            SeekToLoopStartInternal();
+        };
+
+        UpdateLoopRangeSync();
     }
 
     private void RegisterMidiEventSync(MidiEventType eventType, SyncProcedure syncProc)
@@ -1096,6 +1165,17 @@ public sealed class BassMidiPlayer : IDisposable
             throw new InvalidOperationException("Please load a SoundFont before playing.");
         }
 
+        if (_isLooping && _hasCustomLoopRange)
+        {
+            double loopStart = GetLoopStartSeconds();
+            double loopEnd = GetLoopEndSeconds();
+            double currentPosition = GetPositionSeconds();
+            if (currentPosition < loopStart || currentPosition >= Math.Max(loopStart, loopEnd - 0.01))
+            {
+                Seek(loopStart);
+            }
+        }
+
         if (!Bass.ChannelPlay(_streamHandle, false))
         {
             throw CreateBassException("Failed to start playback");
@@ -1123,28 +1203,8 @@ public sealed class BassMidiPlayer : IDisposable
             return;
         }
 
-        var boundedSeconds = Math.Clamp(seconds, 0, GetDurationSeconds());
-        _channelMixer.ResetTrackedValues();
-        bool positioned = false;
-        if (_streamLengthTicks > 0)
-        {
-            var tickPosition = SecondsToTicks(boundedSeconds);
-            positioned = Bass.ChannelSetPosition(_streamHandle, tickPosition, PositionFlags.MIDITick);
-        }
-
-        if (!positioned)
-        {
-            var bytePosition = Bass.ChannelSeconds2Bytes(_streamHandle, boundedSeconds);
-            if (!Bass.ChannelSetPosition(_streamHandle, bytePosition, PositionFlags.Bytes))
-            {
-                throw CreateBassException("Failed to seek");
-            }
-        }
-
-        ReapplySystemModeOverride();
-        ApplyPlaybackModifiers();
-        ReapplyMixerState();
-        ClearNotes();
+        SetPlaybackPosition(seconds);
+        ReapplySeekState();
     }
 
     public double GetDurationSeconds()
@@ -1399,6 +1459,13 @@ public sealed class BassMidiPlayer : IDisposable
 
         _syncProcs = null;
         _loopSyncProc = null;
+        RemoveLoopRangeSync();
+        _loopRangeSyncProc = null;
+        _hasCustomLoopRange = false;
+        _loopStartTicks = 0;
+        _loopEndTicks = 0;
+        _loopStartSeconds = 0;
+        _loopEndSeconds = 0;
         _tempoMap = [new(0, 60_000_000d / DefaultTempoMicrosecondsPerQuarterNote)];
         _timeBase = MidiTimeBase.Default;
         _streamLengthTicks = 0;
@@ -1420,6 +1487,94 @@ public sealed class BassMidiPlayer : IDisposable
     private static Exception CreateBassException(string message)
     {
         return new InvalidOperationException($"{message} ({Bass.LastError}).");
+    }
+
+    private double GetStoredLoopStartSeconds()
+        => _streamLengthTicks > 0
+            ? TicksToSeconds(_loopStartTicks)
+            : _loopStartSeconds;
+
+    private double GetStoredLoopEndSeconds()
+        => _streamLengthTicks > 0
+            ? TicksToSeconds(_loopEndTicks)
+            : _loopEndSeconds;
+
+    private void SeekToLoopStartInternal()
+    {
+        SetPlaybackPosition(_hasCustomLoopRange ? GetStoredLoopStartSeconds() : 0);
+        ReapplySeekState();
+    }
+
+    private void SetPlaybackPosition(double seconds)
+    {
+        var boundedSeconds = Math.Clamp(seconds, 0, GetDurationSeconds());
+        _channelMixer.ResetTrackedValues();
+        bool positioned = false;
+        if (_streamLengthTicks > 0)
+        {
+            var tickPosition = SecondsToTicks(boundedSeconds);
+            positioned = Bass.ChannelSetPosition(_streamHandle, tickPosition, PositionFlags.MIDITick);
+        }
+
+        if (!positioned)
+        {
+            var bytePosition = Bass.ChannelSeconds2Bytes(_streamHandle, boundedSeconds);
+            if (!Bass.ChannelSetPosition(_streamHandle, bytePosition, PositionFlags.Bytes))
+            {
+                throw CreateBassException("Failed to seek");
+            }
+        }
+    }
+
+    private void ReapplySeekState()
+    {
+        ReapplySystemModeOverride();
+        ApplyPlaybackModifiers();
+        ReapplyMixerState();
+        ClearNotes();
+    }
+
+    private void UpdateLoopRangeSync()
+    {
+        if (_streamHandle == 0)
+        {
+            _loopRangeSyncHandle = 0;
+            return;
+        }
+
+        RemoveLoopRangeSync();
+        if (!_hasCustomLoopRange || _loopRangeSyncProc is null)
+        {
+            return;
+        }
+
+        long loopEndBytes = Bass.ChannelSeconds2Bytes(_streamHandle, GetStoredLoopEndSeconds());
+        if (loopEndBytes <= 0)
+        {
+            return;
+        }
+
+        _loopRangeSyncHandle = Bass.ChannelSetSync(
+            _streamHandle,
+            SyncFlags.Position | SyncFlags.Mixtime,
+            loopEndBytes,
+            _loopRangeSyncProc);
+        if (_loopRangeSyncHandle == 0)
+        {
+            throw CreateBassException("Failed to register loop range");
+        }
+    }
+
+    private void RemoveLoopRangeSync()
+    {
+        if (_streamHandle == 0 || _loopRangeSyncHandle == 0)
+        {
+            _loopRangeSyncHandle = 0;
+            return;
+        }
+
+        Bass.ChannelRemoveSync(_streamHandle, _loopRangeSyncHandle);
+        _loopRangeSyncHandle = 0;
     }
 
     private static ChannelSendMode NormalizeMode(ChannelSendMode mode, ChannelSendMode defaultMode)

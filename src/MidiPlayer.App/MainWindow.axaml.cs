@@ -22,9 +22,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static readonly IBrush LoopEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#214B75"));
     private static readonly IBrush LoopEnabledBorderBrush = new SolidColorBrush(Color.Parse("#4A90E2"));
     private static readonly IBrush LoopEnabledForegroundBrush = new SolidColorBrush(Color.Parse("#DCEEFF"));
+    private static readonly IBrush LoopPreparedBackgroundBrush = new SolidColorBrush(Color.Parse("#16293B"));
+    private static readonly IBrush LoopPreparedBorderBrush = new SolidColorBrush(Color.Parse("#3B6288"));
+    private static readonly IBrush LoopPreparedForegroundBrush = new SolidColorBrush(Color.Parse("#B8D3EC"));
     private static readonly IBrush LoopDisabledBackgroundBrush = Brushes.Transparent;
     private static readonly IBrush LoopDisabledBorderBrush = new SolidColorBrush(Color.Parse("#333333"));
     private static readonly IBrush LoopDisabledForegroundBrush = new SolidColorBrush(Color.Parse("#A0A0A0"));
+    private static readonly IBrush LoopBadgeEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#13283E"));
+    private static readonly IBrush LoopBadgeEnabledBorderBrush = new SolidColorBrush(Color.Parse("#4A90E2"));
+    private static readonly IBrush LoopBadgeEnabledForegroundBrush = new SolidColorBrush(Color.Parse("#DCEEFF"));
+    private static readonly IBrush LoopBadgeStandbyBackgroundBrush = new SolidColorBrush(Color.Parse("#161F29"));
+    private static readonly IBrush LoopBadgeStandbyBorderBrush = new SolidColorBrush(Color.Parse("#3B6288"));
+    private static readonly IBrush LoopBadgeStandbyForegroundBrush = new SolidColorBrush(Color.Parse("#B8D3EC"));
     private static readonly IBrush MixerEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#214B75"));
     private static readonly IBrush MixerEnabledBorderBrush = new SolidColorBrush(Color.Parse("#4A90E2"));
     private static readonly IBrush MixerEnabledForegroundBrush = new SolidColorBrush(Color.Parse("#DCEEFF"));
@@ -109,8 +118,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _positionTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => RefreshTransport());
         _positionTimer.Start();
 
-        SeekSlider.AddHandler(PointerPressedEvent, OnSeekPointerPressed, RoutingStrategies.Tunnel);
-        SeekSlider.AddHandler(PointerReleasedEvent, OnSeekPointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerPressedEvent, OnWindowPointerPressed, RoutingStrategies.Bubble, true);
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnWindowDragOver);
@@ -474,11 +481,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _ => "Absolute chorus return level"
     };
 
-    public IBrush LoopButtonBackground => _player.IsLooping ? LoopEnabledBackgroundBrush : LoopDisabledBackgroundBrush;
+    public bool IsLoopEnabled => _player.IsLooping;
 
-    public IBrush LoopButtonBorderBrush => _player.IsLooping ? LoopEnabledBorderBrush : LoopDisabledBorderBrush;
+    public bool HasCustomLoopRange => _player.HasCustomLoopRange;
 
-    public IBrush LoopButtonForeground => _player.IsLooping ? LoopEnabledForegroundBrush : LoopDisabledForegroundBrush;
+    public double LoopRangeStartSeconds => _player.GetLoopStartSeconds();
+
+    public double LoopRangeEndSeconds => _player.GetLoopEndSeconds();
+
+    public bool IsLoopBadgeVisible => CanSeek && (_player.IsLooping || _player.HasCustomLoopRange);
+
+    public string LoopRangeSummaryText => _player.HasCustomLoopRange
+        ? $"{(_player.IsLooping ? "LOOP A-B" : "A-B READY")} {FormatTime(LoopRangeStartSeconds)} - {FormatTime(LoopRangeEndSeconds)}"
+        : "LOOP FULL TRACK";
+
+    public string LoopButtonToolTip => _player.HasCustomLoopRange
+        ? (_player.IsLooping
+            ? "Loop the selected A-B range. Drag the upper timeline lane to adjust it."
+            : "A-B range selected. Click to loop it.")
+        : (_player.IsLooping
+            ? "Looping the full track. Drag the upper timeline lane to create an A-B range instead."
+            : "Loop playback. Drag the upper timeline lane to create an A-B range.");
+
+    public IBrush LoopButtonBackground => _player.IsLooping
+        ? LoopEnabledBackgroundBrush
+        : _player.HasCustomLoopRange
+            ? LoopPreparedBackgroundBrush
+            : LoopDisabledBackgroundBrush;
+
+    public IBrush LoopButtonBorderBrush => _player.IsLooping
+        ? LoopEnabledBorderBrush
+        : _player.HasCustomLoopRange
+            ? LoopPreparedBorderBrush
+            : LoopDisabledBorderBrush;
+
+    public IBrush LoopButtonForeground => _player.IsLooping
+        ? LoopEnabledForegroundBrush
+        : _player.HasCustomLoopRange
+            ? LoopPreparedForegroundBrush
+            : LoopDisabledForegroundBrush;
+
+    public IBrush LoopBadgeBackground => _player.IsLooping ? LoopBadgeEnabledBackgroundBrush : LoopBadgeStandbyBackgroundBrush;
+
+    public IBrush LoopBadgeBorderBrush => _player.IsLooping ? LoopBadgeEnabledBorderBrush : LoopBadgeStandbyBorderBrush;
+
+    public IBrush LoopBadgeForeground => _player.IsLooping ? LoopBadgeEnabledForegroundBrush : LoopBadgeStandbyForegroundBrush;
 
     public IBrush GlobalMixerButtonBackground => IsGlobalMixerPopupOpen ? MixerEnabledBackgroundBrush : MixerDisabledBackgroundBrush;
 
@@ -615,9 +662,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IsGlobalMixerPopupOpen = false;
         IsSpeedPopupOpen = false;
         _player.IsLooping = !_player.IsLooping;
-        OnPropertyChanged(nameof(LoopButtonBackground));
-        OnPropertyChanged(nameof(LoopButtonBorderBrush));
-        OnPropertyChanged(nameof(LoopButtonForeground));
+
+        if (_player.IsLooping && _player.HasCustomLoopRange)
+        {
+            double loopStart = _player.GetLoopStartSeconds();
+            double loopEnd = _player.GetLoopEndSeconds();
+            if (PositionSeconds < loopStart || PositionSeconds >= loopEnd)
+            {
+                _player.Seek(loopStart);
+                RefreshTransport();
+            }
+        }
+
+        StatusText = _player.IsLooping
+            ? (_player.HasCustomLoopRange
+                ? $"Looping {FormatTime(_player.GetLoopStartSeconds())} - {FormatTime(_player.GetLoopEndSeconds())}"
+                : "Looping full track")
+            : (_player.HasCustomLoopRange ? "A-B range kept" : "Loop off");
+        RefreshLoopBindings();
+    }
+
+    private void OnClearLoopRangeClicked(object? sender, RoutedEventArgs e)
+    {
+        ClearLoopRange();
+        e.Handled = true;
     }
 
     private void OnGlobalMixerClicked(object? sender, RoutedEventArgs e)
@@ -766,7 +834,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         e.Handled = true;
     }
 
-    private void OnSeekPointerPressed(object? sender, PointerPressedEventArgs e)
+    private void OnTimelineSeekStarted(object? sender, EventArgs e)
     {
         CloseChannelMixerPopup();
         IsGlobalMixerPopupOpen = false;
@@ -775,20 +843,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             return;
         }
+
         _isScrubbing = true;
     }
 
-    private void OnSeekPointerReleased(object? sender, PointerReleasedEventArgs e)
+    private void OnTimelineSeekChanged(object? sender, TimelineSeekChangedEventArgs e)
+    {
+        if (!CanSeek)
+        {
+            return;
+        }
+
+        PositionSeconds = e.Value;
+    }
+
+    private void OnTimelineSeekCompleted(object? sender, TimelineSeekChangedEventArgs e)
     {
         if (!_isScrubbing || !CanSeek)
         {
             return;
         }
+
         _isScrubbing = false;
-        
+
         try
         {
-            _player.Seek(PositionSeconds);
+            _player.Seek(e.Value);
             RefreshTransport();
         }
         catch (Exception ex)
@@ -796,6 +876,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             StatusText = "Error: " + ex.Message;
         }
     }
+
+    private void OnTimelineLoopRangeChanged(object? sender, TimelineLoopRangeChangedEventArgs e)
+    {
+        CloseChannelMixerPopup();
+        IsGlobalMixerPopupOpen = false;
+        IsSpeedPopupOpen = false;
+        if (!CanSeek)
+        {
+            return;
+        }
+
+        try
+        {
+            _player.SetLoopRange(e.StartSeconds, e.EndSeconds);
+            if (e.IsFinal)
+            {
+                _player.IsLooping = true;
+                double loopStart = _player.GetLoopStartSeconds();
+                double loopEnd = _player.GetLoopEndSeconds();
+                if (PositionSeconds < loopStart || PositionSeconds >= loopEnd)
+                {
+                    _player.Seek(loopStart);
+                    RefreshTransport();
+                }
+
+                StatusText = $"Looping {FormatTime(loopStart)} - {FormatTime(loopEnd)}";
+            }
+
+            RefreshLoopBindings();
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Error: " + ex.Message;
+        }
+    }
+
+    private void OnTimelineLoopRangeCleared(object? sender, EventArgs e)
+        => ClearLoopRange();
 
     private void OnWindowPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -887,9 +1005,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(PlayPauseIcon));
         OnPropertyChanged(nameof(PlayPauseIconMargin));
         OnPropertyChanged(nameof(CurrentBpmText));
-        OnPropertyChanged(nameof(LoopButtonBackground));
-        OnPropertyChanged(nameof(LoopButtonBorderBrush));
-        OnPropertyChanged(nameof(LoopButtonForeground));
+        RefreshLoopBindings();
     }
 
     private async Task<string?> PickSingleFileAsync(FilePickerFileType fileType)
@@ -1085,6 +1201,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(PlaybackSpeedPercentText));
         OnPropertyChanged(nameof(TransposeSemitones));
         OnPropertyChanged(nameof(TransposeSemitonesText));
+        RefreshLoopBindings();
+    }
+
+    private void RefreshLoopBindings()
+    {
+        OnPropertyChanged(nameof(IsLoopEnabled));
+        OnPropertyChanged(nameof(HasCustomLoopRange));
+        OnPropertyChanged(nameof(LoopRangeStartSeconds));
+        OnPropertyChanged(nameof(LoopRangeEndSeconds));
+        OnPropertyChanged(nameof(IsLoopBadgeVisible));
+        OnPropertyChanged(nameof(LoopRangeSummaryText));
+        OnPropertyChanged(nameof(LoopButtonToolTip));
+        OnPropertyChanged(nameof(LoopButtonBackground));
+        OnPropertyChanged(nameof(LoopButtonBorderBrush));
+        OnPropertyChanged(nameof(LoopButtonForeground));
+        OnPropertyChanged(nameof(LoopBadgeBackground));
+        OnPropertyChanged(nameof(LoopBadgeBorderBrush));
+        OnPropertyChanged(nameof(LoopBadgeForeground));
+    }
+
+    private void ClearLoopRange()
+    {
+        _player.ClearLoopRange();
+        StatusText = _player.IsLooping ? "Looping full track" : "Loop range cleared";
+        RefreshLoopBindings();
     }
 
     private void RefreshChannelMixRows()
