@@ -1,6 +1,6 @@
 # Kintsugi Midi Player
 
-Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI loading, live visualizers, transport controls, tempo override, global transpose, per-channel mixing, and offline WAV export.
+Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI loading, live visualizers, an interactive EQ, transport controls, tempo override, global transpose, per-channel mixing, and offline WAV export.
 
 ## Build
 
@@ -22,7 +22,7 @@ scripts/publish-macos-app.sh
 
 ## User Manual
 
-Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, drag-and-drop MIDI loading, live note and spectrum visualization, per-channel mixing, tempo override, global transpose, and offline WAV export.
+Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, drag-and-drop MIDI loading, live note and spectrum visualization, an interactive EQ, per-channel mixing, tempo override, global transpose, and offline WAV export.
 
 ### 1. Supported Files
 
@@ -71,11 +71,12 @@ Hovering a channel shows the current instrument or drum kit name for that channe
 
 The center panel contains:
 
-- A real-time spectrum analyzer
+- A real-time spectrum analyzer with an integrated EQ curve
+- A draggable multi-band EQ with a power toggle
 - A piano keyboard that lights up with active notes
 - `KEY -` and `KEY +` buttons for global transpose in semitones
 
-Colors match MIDI channels, so you can see which channel is playing which notes. When transpose is active, the piano display shifts with it.
+Colors match MIDI channels, so you can see which channel is playing which notes. When transpose is active, the piano display shifts with it. EQ changes are reflected immediately in both live playback and the analyzer background.
 
 #### Playlist Drawer
 
@@ -159,6 +160,19 @@ Use the `KEY -` and `KEY +` buttons on the left and right sides of the piano key
 - Range: `-24` to `+24` semitones
 - The transpose readout is shown above the piano keyboard
 - The piano note display moves with the transpose setting
+
+#### EQ
+
+The spectrum panel also works as a live EQ editor.
+
+- Default state is flat: all bell bands start at `0.0 dB`, and the cut bands are effectively off
+- Drag a band handle left or right to change its center or cutoff frequency
+- Drag a bell band up or down to boost or cut that band
+- Nearby bands move visually with the curve, so the response stays continuous while you edit
+- Use the mouse wheel on the selected band to adjust `Q` for bell bands or `dB/Oct` slope for the low-cut and high-cut bands
+- Double-click the selected band to reset it to its default position
+- Click the EQ power button to bypass or enable the entire EQ
+- EQ currently affects live playback and the analyzer display in real time
 
 ### 5. Channel Activity and Per-Channel Mixer
 
@@ -379,4 +393,6 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 | Loop button          | Toggle looping                  |
 | `BPM`                | Open tempo override popup       |
 | `KEY -` / `KEY +`    | Transpose down or up            |
+| EQ power button      | Bypass or enable the EQ         |
+| EQ drag / wheel / double-click | Edit EQ bands / adjust width or slope / reset band |
 | Slider double-click  | Reset that control              |

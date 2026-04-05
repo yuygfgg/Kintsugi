@@ -162,7 +162,6 @@ public sealed class LoopTimelineControl : Control
                 rangeRect,
                 SelectionCornerRadius,
                 SelectionCornerRadius);
-            DrawHandles(context, rangeRect);
         }
         else if (IsLoopEnabled)
         {
@@ -176,6 +175,11 @@ public sealed class LoopTimelineControl : Control
         }
 
         DrawPlayhead(context, trackRect);
+
+        if (hasCustomRange)
+        {
+            DrawHandles(context, GetSelectionRect(trackRect, SelectionVerticalInset));
+        }
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)

@@ -10,18 +10,32 @@ namespace MidiPlayer.App.Services;
 public sealed class BassMidiPlayer : IDisposable
 {
     private const int DefaultTempoMicrosecondsPerQuarterNote = 500000;
+    private const double EqMinFrequency = 20.0;
+    private const double EqMaxFrequency = 20000.0;
+    private const int EqPeakBandOffset = 1;
+    private const int EqPeakBandCount = 6;
+    private const int EqMaxCutStages = 4;
+    private const int EqChannelCount = 2;
 
     private int _streamHandle;
     private int _soundFontHandle;
+    private int _eqDspHandle;
     private bool _bassInitialized;
     private bool _isLooping;
+    private bool _isEqEnabled = true;
     private MidiSystem _systemMode = MidiSystem.Default;
     private int _sampleRate = 44100;
     private TempoPoint[] _tempoMap = [new(0, 60_000_000d / DefaultTempoMicrosecondsPerQuarterNote)];
     private MidiFilterProcedure? _midiFilter;
+    private DSPProcedure? _eqDspProc;
     private readonly bool[] _channelMuted = new bool[16];
     private readonly bool[] _soloRestoreMuted = new bool[16];
     private readonly ChannelMixerState _channelMixer = new();
+    private readonly object _eqLock = new();
+    private readonly EqBandState[] _eqBands = CreateDefaultEqBands();
+    private readonly StereoBiquadFilter[] _eqPeakFilters = CreateFilterArray(EqPeakBandCount);
+    private readonly StereoBiquadFilter[] _eqLowCutFilters = CreateFilterArray(EqMaxCutStages);
+    private readonly StereoBiquadFilter[] _eqHighCutFilters = CreateFilterArray(EqMaxCutStages);
     private int _soloChannel = -1;
     private bool _hasSoloState;
     private static readonly string[] GeneralMidiInstrumentNames =
@@ -723,6 +737,36 @@ public sealed class BassMidiPlayer : IDisposable
 
     public bool HasStream => _streamHandle != 0;
 
+    public bool IsEqEnabled
+    {
+        get => _isEqEnabled;
+        set
+        {
+            if (_isEqEnabled == value)
+            {
+                return;
+            }
+
+            _isEqEnabled = value;
+            RebuildEqFilters(resetState: true);
+        }
+    }
+
+    public void SetEqBand(int index, double frequency, double gainDb, double q, int slopeDbPerOct)
+    {
+        if ((uint)index >= _eqBands.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        var band = _eqBands[index];
+        band.Frequency = Math.Clamp(frequency, EqMinFrequency, EqMaxFrequency);
+        band.GainDb = Math.Clamp(gainDb, -24.0, 24.0);
+        band.Q = Math.Clamp(q, 0.0, 2.5);
+        band.SlopeDbPerOct = Math.Clamp(slopeDbPerOct, 0, 48);
+        RebuildEqFilters(resetState: false);
+    }
+
     public bool IsPlaying => HasStream && Bass.ChannelIsActive(_streamHandle) == PlaybackState.Playing;
 
     public string GetChannelInstrumentName(int channel)
@@ -855,6 +899,7 @@ public sealed class BassMidiPlayer : IDisposable
         _channelMixer.ResetTrackedValues();
         ApplyPlaybackModifiers();
         ReapplyMixerState();
+        ConfigureEqDsp();
     }
 
     private void RegisterMidiSyncs()
@@ -1327,6 +1372,7 @@ public sealed class BassMidiPlayer : IDisposable
             throw CreateBassException("Failed to initialize BASS");
         }
 
+        Bass.FloatingPointDSP = true;
         BassMidi.AutoFont = 0;
         _bassInitialized = true;
     }
@@ -1362,6 +1408,205 @@ public sealed class BassMidiPlayer : IDisposable
         }
 
         ApplySystemMode(_streamHandle, _systemMode);
+    }
+
+    private void ConfigureEqDsp()
+    {
+        RemoveEqDsp();
+        if (_streamHandle == 0)
+        {
+            return;
+        }
+
+        _eqDspProc ??= ProcessEqDsp;
+        _eqDspHandle = Bass.ChannelSetDSP(_streamHandle, _eqDspProc, IntPtr.Zero, 0);
+        if (_eqDspHandle == 0)
+        {
+            throw CreateBassException("Failed to install EQ DSP");
+        }
+
+        RebuildEqFilters(resetState: true);
+    }
+
+    private void RemoveEqDsp()
+    {
+        if (_streamHandle != 0 && _eqDspHandle != 0)
+        {
+            Bass.ChannelRemoveDSP(_streamHandle, _eqDspHandle);
+        }
+
+        _eqDspHandle = 0;
+        ResetEqFilterStates();
+    }
+
+    private void RebuildEqFilters(bool resetState)
+    {
+        lock (_eqLock)
+        {
+            foreach (var filter in _eqPeakFilters)
+            {
+                filter.Disable();
+            }
+
+            foreach (var filter in _eqLowCutFilters)
+            {
+                filter.Disable();
+            }
+
+            foreach (var filter in _eqHighCutFilters)
+            {
+                filter.Disable();
+            }
+
+            if (_isEqEnabled)
+            {
+                for (var i = 0; i < EqPeakBandCount; i++)
+                {
+                    var band = _eqBands[EqPeakBandOffset + i];
+                    if (Math.Abs(band.GainDb) < 0.01)
+                    {
+                        continue;
+                    }
+
+                    _eqPeakFilters[i].SetPeak(
+                        _sampleRate,
+                        band.Frequency,
+                        band.GainDb,
+                        MapUiQToFilterQ(band.Q));
+                }
+
+                ConfigureCutFilters(_eqBands[0], isHighPass: true, _eqLowCutFilters);
+                ConfigureCutFilters(_eqBands[^1], isHighPass: false, _eqHighCutFilters);
+            }
+
+            if (resetState)
+            {
+                ResetEqFilterStatesUnsafe();
+            }
+        }
+    }
+
+    private void ConfigureCutFilters(EqBandState band, bool isHighPass, StereoBiquadFilter[] filters)
+    {
+        var stageCount = GetCutStageCount(band.SlopeDbPerOct);
+        for (var stage = 0; stage < stageCount && stage < filters.Length; stage++)
+        {
+            if (isHighPass)
+            {
+                filters[stage].SetHighPass(_sampleRate, band.Frequency, 0.7071067811865476);
+            }
+            else
+            {
+                filters[stage].SetLowPass(_sampleRate, band.Frequency, 0.7071067811865476);
+            }
+        }
+    }
+
+    private void ResetEqFilterStates()
+    {
+        lock (_eqLock)
+        {
+            ResetEqFilterStatesUnsafe();
+        }
+    }
+
+    private void ResetEqFilterStatesUnsafe()
+    {
+        foreach (var filter in _eqPeakFilters)
+        {
+            filter.Reset();
+        }
+
+        foreach (var filter in _eqLowCutFilters)
+        {
+            filter.Reset();
+        }
+
+        foreach (var filter in _eqHighCutFilters)
+        {
+            filter.Reset();
+        }
+    }
+
+    private unsafe void ProcessEqDsp(int handle, int channel, IntPtr buffer, int length, IntPtr user)
+    {
+        if (!_isEqEnabled || length <= 0)
+        {
+            return;
+        }
+
+        var sampleCount = length / sizeof(float);
+        if (sampleCount < EqChannelCount)
+        {
+            return;
+        }
+
+        var samples = (float*)buffer;
+        lock (_eqLock)
+        {
+            for (var index = 0; index + 1 < sampleCount; index += EqChannelCount)
+            {
+                var left = samples[index];
+                var right = samples[index + 1];
+
+                foreach (var filter in _eqLowCutFilters)
+                {
+                    filter.Process(ref left, ref right);
+                }
+
+                foreach (var filter in _eqPeakFilters)
+                {
+                    filter.Process(ref left, ref right);
+                }
+
+                foreach (var filter in _eqHighCutFilters)
+                {
+                    filter.Process(ref left, ref right);
+                }
+
+                samples[index] = left;
+                samples[index + 1] = right;
+            }
+        }
+    }
+
+    private static double MapUiQToFilterQ(double value)
+        => Math.Clamp(0.5 + value * 3.5, 0.5, 10.0);
+
+    private static int GetCutStageCount(int slopeDbPerOct)
+        => slopeDbPerOct switch
+        {
+            <= 0 => 0,
+            <= 12 => 1,
+            <= 24 => 2,
+            <= 36 => 3,
+            _ => 4
+        };
+
+    private static EqBandState[] CreateDefaultEqBands()
+    {
+        return
+        [
+            new EqBandState(EqMinFrequency, 0.0, 0.0, 0),
+            new EqBandState(75.0, 0.0, 0.0, 0),
+            new EqBandState(100.0, 0.0, 0.0, 0),
+            new EqBandState(250.0, 0.0, 0.0, 0),
+            new EqBandState(1040.0, 0.0, 0.0, 0),
+            new EqBandState(2460.0, 0.0, 0.0, 0),
+            new EqBandState(7500.0, 0.0, 0.0, 0),
+            new EqBandState(EqMaxFrequency, 0.0, 0.0, 0)
+        ];
+    }
+
+    private static StereoBiquadFilter[] CreateFilterArray(int count)
+    {
+        var filters = new StereoBiquadFilter[count];
+        for (var i = 0; i < count; i++)
+        {
+            filters[i] = new StereoBiquadFilter();
+        }
+
+        return filters;
     }
 
     private static void ApplySystemMode(int streamHandle, MidiSystem systemMode)
@@ -1457,6 +1702,7 @@ public sealed class BassMidiPlayer : IDisposable
             return;
         }
 
+        RemoveEqDsp();
         _syncProcs = null;
         _loopSyncProc = null;
         RemoveLoopRangeSync();
@@ -1531,6 +1777,7 @@ public sealed class BassMidiPlayer : IDisposable
         ReapplySystemModeOverride();
         ApplyPlaybackModifiers();
         ReapplyMixerState();
+        ResetEqFilterStates();
         ClearNotes();
     }
 
@@ -2576,6 +2823,159 @@ public sealed class BassMidiPlayer : IDisposable
             };
 
         private readonly record struct ChannelMixState(int Channel, int VolumeValue, int ReverbValue, int ChorusValue);
+    }
+
+    private sealed class StereoBiquadFilter
+    {
+        private double _b0;
+        private double _b1;
+        private double _b2;
+        private double _a1;
+        private double _a2;
+        private double _z1Left;
+        private double _z2Left;
+        private double _z1Right;
+        private double _z2Right;
+
+        public bool IsActive { get; private set; }
+
+        public void Disable()
+        {
+            IsActive = false;
+            Reset();
+        }
+
+        public void Reset()
+        {
+            _z1Left = 0;
+            _z2Left = 0;
+            _z1Right = 0;
+            _z2Right = 0;
+        }
+
+        public void SetPeak(int sampleRate, double frequency, double gainDb, double q)
+        {
+            if (Math.Abs(gainDb) < 0.001 || frequency <= 0 || sampleRate <= 0)
+            {
+                Disable();
+                return;
+            }
+
+            var w0 = 2.0 * Math.PI * Math.Clamp(frequency, EqMinFrequency, sampleRate * 0.48) / sampleRate;
+            var cos = Math.Cos(w0);
+            var sin = Math.Sin(w0);
+            var a = Math.Pow(10.0, gainDb / 40.0);
+            var alpha = sin / (2.0 * Math.Max(0.05, q));
+
+            var b0 = 1.0 + alpha * a;
+            var b1 = -2.0 * cos;
+            var b2 = 1.0 - alpha * a;
+            var a0 = 1.0 + alpha / a;
+            var a1 = -2.0 * cos;
+            var a2 = 1.0 - alpha / a;
+
+            SetNormalizedCoefficients(b0, b1, b2, a0, a1, a2);
+        }
+
+        public void SetLowPass(int sampleRate, double frequency, double q)
+        {
+            SetPass(sampleRate, frequency, q, highPass: false);
+        }
+
+        public void SetHighPass(int sampleRate, double frequency, double q)
+        {
+            SetPass(sampleRate, frequency, q, highPass: true);
+        }
+
+        public void Process(ref float left, ref float right)
+        {
+            if (!IsActive)
+            {
+                return;
+            }
+
+            var processedLeft = _b0 * left + _z1Left;
+            _z1Left = _b1 * left - _a1 * processedLeft + _z2Left;
+            _z2Left = _b2 * left - _a2 * processedLeft;
+
+            var processedRight = _b0 * right + _z1Right;
+            _z1Right = _b1 * right - _a1 * processedRight + _z2Right;
+            _z2Right = _b2 * right - _a2 * processedRight;
+
+            left = (float)processedLeft;
+            right = (float)processedRight;
+        }
+
+        private void SetPass(int sampleRate, double frequency, double q, bool highPass)
+        {
+            if (frequency <= 0 || sampleRate <= 0)
+            {
+                Disable();
+                return;
+            }
+
+            var w0 = 2.0 * Math.PI * Math.Clamp(frequency, EqMinFrequency, sampleRate * 0.48) / sampleRate;
+            var cos = Math.Cos(w0);
+            var sin = Math.Sin(w0);
+            var alpha = sin / (2.0 * Math.Max(0.05, q));
+
+            double b0;
+            double b1;
+            double b2;
+            var a0 = 1.0 + alpha;
+            var a1 = -2.0 * cos;
+            var a2 = 1.0 - alpha;
+
+            if (highPass)
+            {
+                b0 = (1.0 + cos) / 2.0;
+                b1 = -(1.0 + cos);
+                b2 = (1.0 + cos) / 2.0;
+            }
+            else
+            {
+                b0 = (1.0 - cos) / 2.0;
+                b1 = 1.0 - cos;
+                b2 = (1.0 - cos) / 2.0;
+            }
+
+            SetNormalizedCoefficients(b0, b1, b2, a0, a1, a2);
+        }
+
+        private void SetNormalizedCoefficients(double b0, double b1, double b2, double a0, double a1, double a2)
+        {
+            if (Math.Abs(a0) < 1e-9)
+            {
+                Disable();
+                return;
+            }
+
+            _b0 = b0 / a0;
+            _b1 = b1 / a0;
+            _b2 = b2 / a0;
+            _a1 = a1 / a0;
+            _a2 = a2 / a0;
+            IsActive = true;
+        }
+    }
+
+    private sealed class EqBandState
+    {
+        public EqBandState(double frequency, double gainDb, double q, int slopeDbPerOct)
+        {
+            Frequency = frequency;
+            GainDb = gainDb;
+            Q = q;
+            SlopeDbPerOct = slopeDbPerOct;
+        }
+
+        public double Frequency { get; set; }
+
+        public double GainDb { get; set; }
+
+        public double Q { get; set; }
+
+        public int SlopeDbPerOct { get; set; }
     }
 
     private readonly record struct TempoPoint(long Tick, double Bpm);

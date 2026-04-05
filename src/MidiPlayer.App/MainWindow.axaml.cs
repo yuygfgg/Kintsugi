@@ -77,6 +77,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isChannelMixerPopupOpen;
     private bool _isGlobalMixerPopupOpen;
     private bool _isSpeedPopupOpen;
+    private bool _isEqEnabled = true;
     private int _selectedChannelIndex = -1;
 
     public ObservableCollection<PlaylistItem> Playlist { get; } = new();
@@ -308,6 +309,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string CurrentBpmText => FormatBpm(_player.GetCurrentBpm());
 
     public bool CanAdjustPlaybackModifiers => _player.HasStream;
+
+    public bool IsEqEnabled
+    {
+        get => _isEqEnabled;
+        set
+        {
+            if (SetField(ref _isEqEnabled, value))
+            {
+                _player.IsEqEnabled = value;
+                OnPropertyChanged(nameof(EqButtonBackground));
+                OnPropertyChanged(nameof(EqButtonBorderBrush));
+                OnPropertyChanged(nameof(EqButtonForeground));
+                OnPropertyChanged(nameof(EqButtonToolTip));
+            }
+        }
+    }
+
+    public IBrush EqButtonBackground => IsEqEnabled ? SpeedEnabledBackgroundBrush : SpeedDisabledBackgroundBrush;
+
+    public IBrush EqButtonBorderBrush => IsEqEnabled ? SpeedEnabledBorderBrush : SpeedDisabledBorderBrush;
+
+    public IBrush EqButtonForeground => IsEqEnabled ? SpeedEnabledForegroundBrush : SpeedDisabledForegroundBrush;
+
+    public string EqButtonToolTip => IsEqEnabled ? "Turn EQ off" : "Turn EQ on";
 
     public double PlaybackSpeedPercent
     {
@@ -730,6 +755,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CloseChannelMixerPopup();
         IsGlobalMixerPopupOpen = false;
         IsSpeedPopupOpen = !IsSpeedPopupOpen;
+    }
+
+    private void OnEqToggleClicked(object? sender, RoutedEventArgs e)
+    {
+        IsEqEnabled = !IsEqEnabled;
+        e.Handled = true;
     }
 
     private void OnTogglePlaylistClicked(object? sender, RoutedEventArgs e)
