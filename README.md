@@ -32,7 +32,7 @@ Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, liv
 4. Use the transport controls at the bottom to play, pause, seek, or loop the track.
 5. Click `EXPORT WAV` if you want to render the current track to a WAV file.
 
-<!-- Insert screenshot: Main window with one MIDI file loaded and playback active. -->
+<img width="1512" height="982" alt="截屏2026-04-05 10 55 10" src="https://github.com/user-attachments/assets/c82f55a5-2a5a-464d-b423-28d14ab56386" />
 
 ### 3. Main Window Overview
 
@@ -115,7 +115,7 @@ Each channel block in `CHANNEL ACTIVITY` supports three actions:
 - Double-click: solo that channel; double-click the same channel again to leave solo mode
 - Right-click: open the mixer popup for that channel
 
-<!-- Insert screenshot: Channel Activity strip with one channel muted, one soloed, and the channel mixer popup open. -->
+<img width="254" height="250" alt="截屏2026-04-05 10 56 20" src="https://github.com/user-attachments/assets/aa13da1f-ae85-43fa-a3f8-9dbf8a71fd08" />
 
 #### Channel Mixer Controls
 
@@ -151,6 +151,8 @@ Double-click a slider to reset it:
 
 Click `MIX` to open the global mixer.
 
+<img width="247" height="189" alt="截屏2026-04-05 11 01 15" src="https://github.com/user-attachments/assets/b2e80ffc-1689-4402-a6ed-72193574081a" />
+
 The global mixer controls:
 
 - `VOL`: master output level
@@ -177,7 +179,7 @@ Click outside the popup to close it.
 
 Click the gear button to open `Player Settings`.
 
-<!-- Insert screenshot: Settings window showing SoundFont, MIDI System Mode, and Output Sample Rate. -->
+<img width="439" height="480" alt="截屏2026-04-05 10 57 25" src="https://github.com/user-attachments/assets/871a6cec-16e9-42f7-a1fe-f5b7f32534e6" />
 
 #### SoundFont
 
@@ -219,7 +221,7 @@ The export button is enabled only when a MIDI file is loaded.
 
 If no SoundFont is loaded, export does not start. Load a SoundFont first.
 
-<!-- Insert screenshot: Export WAV dialog with format and destination fields filled in. -->
+<img width="480" height="402" alt="截屏2026-04-05 10 57 45" src="https://github.com/user-attachments/assets/e3af57d5-43e3-4f10-b394-b35eba11042f" />
 
 #### Export Dialog
 
