@@ -61,6 +61,8 @@ The header shows:
 
 Click `EVENTS` in the header to open the MIDI Event Browser for the currently loaded file.
 
+<img width="1512" height="982" alt="截屏2026-04-06 00 17 09" src="https://github.com/user-attachments/assets/b46d84b4-382a-4f17-a4d4-52e4e90e207d" />
+
 The Event Browser opens as a separate window, so it can stay visible while you continue using the main player window.
 
 It shows:
@@ -408,16 +410,6 @@ Check these points:
 - A MIDI file is loaded
 - A SoundFont is loaded
 - The destination path is writable
-
-#### Opus export sounds too slow or too long
-
-Opus export is fixed to `48 kHz`. If you are testing an older app bundle, rebuild it with:
-
-```bash
-scripts/publish-macos-app.sh
-```
-
-The current build forces `48 kHz` for Opus internally and no longer allows higher Opus sample rates in the export dialog.
 
 #### The wrong mix loads for a file
 
