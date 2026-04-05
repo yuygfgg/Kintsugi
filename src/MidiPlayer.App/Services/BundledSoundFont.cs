@@ -6,7 +6,7 @@ namespace MidiPlayer.App.Services;
 public static class BundledSoundFont
 {
     public const string DirectoryName = "SoundFonts";
-    public const string FileName = "FluidR3_GM.sf2";
+    public const string FileName = "GeneralUser-GS.sf2";
 
     public static string GetDefaultPath()
         => Path.Combine(AppContext.BaseDirectory, DirectoryName, FileName);

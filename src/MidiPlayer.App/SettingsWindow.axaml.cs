@@ -122,7 +122,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         var bundledPath = BundledSoundFont.ResolvePreferredPath(null);
         if (string.IsNullOrWhiteSpace(bundledPath))
         {
-            SoundFontDisplayName = "Error: bundled FluidR3_GM.sf2 not found";
+            SoundFontDisplayName = $"Error: bundled {BundledSoundFont.FileName} not found";
             return;
         }
 

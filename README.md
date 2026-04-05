@@ -33,7 +33,7 @@ Kintsugi Midi Player is a desktop MIDI player with SoundFont-based playback, dra
 ### 2. Quick Start
 
 1. Open the app.
-2. Open a MIDI file. The bundled `FluidR3_GM.sf2` default SoundFont loads automatically in packaged builds.
+2. Open a MIDI file. The bundled `GeneralUser-GS.sf2` default SoundFont loads automatically in packaged builds.
 3. Optional: click the gear button and replace it with your own SoundFont (`.sf2` or `.sfz`).
 4. Use the transport controls at the bottom to play, pause, seek, or loop the track.
 5. Click `EXPORT WAV` if you want to render the current track to a WAV file.
@@ -95,7 +95,7 @@ The bottom bar contains:
 
 Click `OPEN FILE` and choose a MIDI file, or drag a MIDI file into the window. The app loads the file immediately.
 
-Playback starts automatically when the bundled `FluidR3_GM.sf2` or a previously selected custom SoundFont is available.
+Playback starts automatically when the bundled `GeneralUser-GS.sf2` or a previously selected custom SoundFont is available.
 
 If neither the bundled default nor a custom SoundFont can be loaded, the file still loads, but playback will not start. Open `Settings`, load a SoundFont, then press Play.
 
@@ -225,11 +225,11 @@ Click the gear button to open `Player Settings`.
 
 #### SoundFont
 
-The app ships with a bundled default SoundFont, `FluidR3_GM.sf2`.
+The app ships with a bundled default SoundFont, `GeneralUser-GS.sf2`.
 
 Use `Browse...` if you want to replace it with your own `.sf2` or `.sfz` file.
 
-If you later want to switch back, click `Use Bundled` to restore the packaged `FluidR3_GM.sf2` and clear the saved custom SoundFont path.
+If you later want to switch back, click `Use Bundled` to restore the packaged `GeneralUser-GS.sf2` and clear the saved custom SoundFont path.
 
 This is required for:
 
@@ -313,7 +313,7 @@ The app saves these settings automatically:
 - Output sample rate
 - Mix settings for each MIDI file path
 
-When no saved custom SoundFont is available, the app falls back to the bundled `FluidR3_GM.sf2` when present.
+When no saved custom SoundFont is available, the app falls back to the bundled `GeneralUser-GS.sf2` when present.
 
 Per-file mix recall includes:
 

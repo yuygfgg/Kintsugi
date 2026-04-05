@@ -61,6 +61,7 @@
   </Target>
 
   <Target Name="CopyBundledAssetsToOutput" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <RemoveDir Directories="$(OutDir)SoundFonts" Condition="Exists('$(OutDir)SoundFonts')" />
     <ItemGroup>
       <BundledAssetFiles Include="$(BundledAssetsDir)/**/*.*" Exclude="$(BundledAssetsDir)/.cache/**/*;$(BundledAssetsDir)/.asset-manifest" />
     </ItemGroup>
@@ -75,13 +76,14 @@
   </Target>
 
   <Target Name="CopyBundledAssetsToPublishDir" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true'">
+    <RemoveDir Directories="$(PublishDir)SoundFonts" Condition="Exists('$(PublishDir)SoundFonts')" />
     <ItemGroup>
       <BundledAssetFiles Include="$(BundledAssetsDir)/**/*.*" Exclude="$(BundledAssetsDir)/.cache/**/*;$(BundledAssetsDir)/.asset-manifest" />
     </ItemGroup>
     <Copy SourceFiles="@(BundledAssetFiles)" DestinationFiles="@(BundledAssetFiles -> '$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="CreateMacAppBundle" AfterTargets="CopyNativeDependenciesToPublishDir" Condition="'$(DesignTimeBuild)' != 'true' and '$(CreateMacAppBundle)' == 'true' and $([System.String]::Copy('$(NativeAssetsRid)').StartsWith('osx'))">
+  <Target Name="CreateMacAppBundle" AfterTargets="CopyNativeDependenciesToPublishDir;CopyBundledAssetsToPublishDir" Condition="'$(DesignTimeBuild)' != 'true' and '$(CreateMacAppBundle)' == 'true' and $([System.String]::Copy('$(NativeAssetsRid)').StartsWith('osx'))">
     <PropertyGroup>
       <MacBundleContentsDir>$(MacAppBundleDir)/Contents</MacBundleContentsDir>
       <MacBundleMacOSDir>$(MacBundleContentsDir)/MacOS</MacBundleMacOSDir>
@@ -127,6 +129,13 @@
     <Copy SourceFiles="@(PublishedBundleFiles)" DestinationFiles="@(PublishedBundleFiles -> '$(MacBundleMacOSDir)/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
     <WriteLinesToFile File="$(MacInfoPlistPath)" Lines="@(MacInfoPlistLines)" Overwrite="true" Encoding="UTF-8" />
     <Message Importance="High" Text="Created macOS app bundle at $(MacAppBundleDir)" />
+  </Target>
+
+  <Target Name="CopyBundledAssetsToMacAppBundle" AfterTargets="CreateMacAppBundle" Condition="'$(DesignTimeBuild)' != 'true' and '$(CreateMacAppBundle)' == 'true' and $([System.String]::Copy('$(NativeAssetsRid)').StartsWith('osx'))">
+    <ItemGroup>
+      <BundledAssetFiles Include="$(BundledAssetsDir)/**/*.*" Exclude="$(BundledAssetsDir)/.cache/**/*;$(BundledAssetsDir)/.asset-manifest" />
+    </ItemGroup>
+    <Copy SourceFiles="@(BundledAssetFiles)" DestinationFiles="@(BundledAssetFiles -> '$(MacBundleMacOSDir)/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>

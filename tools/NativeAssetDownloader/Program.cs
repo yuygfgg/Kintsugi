@@ -55,6 +55,8 @@ foreach (var asset in assets)
     MaterializeAsset(downloadedAssetPath, asset, Path.Combine(outputDirectory, asset.OutputFileName));
 }
 
+DeleteStaleAssetFiles(outputDirectory, cacheDirectory, manifestPath, assets);
+
 File.WriteAllText(manifestPath, manifest);
 Console.WriteLine(
     string.IsNullOrWhiteSpace(rid)
@@ -104,6 +106,69 @@ static void ExtractZipEntry(string archivePath, string archiveEntryPath, string 
     entry.ExtractToFile(destinationPath, overwrite: true);
 }
 
+static void DeleteStaleAssetFiles(string outputDirectory, string cacheDirectory, string manifestPath, DownloadAsset[] assets)
+{
+    var expectedFiles = assets
+        .Select(asset => Path.GetFullPath(Path.Combine(outputDirectory, asset.OutputFileName)))
+        .ToHashSet(GetPathComparer());
+
+    foreach (var existingFile in Directory.EnumerateFiles(outputDirectory, "*", SearchOption.AllDirectories))
+    {
+        var fullPath = Path.GetFullPath(existingFile);
+        if (string.Equals(fullPath, manifestPath, GetPathComparison()))
+        {
+            continue;
+        }
+
+        if (IsPathInsideDirectory(fullPath, cacheDirectory))
+        {
+            continue;
+        }
+
+        if (!expectedFiles.Contains(fullPath))
+        {
+            File.Delete(fullPath);
+        }
+    }
+
+    DeleteEmptyDirectories(outputDirectory, cacheDirectory);
+}
+
+static void DeleteEmptyDirectories(string rootDirectory, string cacheDirectory)
+{
+    foreach (var directory in Directory.EnumerateDirectories(rootDirectory, "*", SearchOption.AllDirectories)
+        .OrderByDescending(path => path.Length))
+    {
+        var fullPath = Path.GetFullPath(directory);
+        if (string.Equals(fullPath, Path.GetFullPath(cacheDirectory), GetPathComparison()))
+        {
+            continue;
+        }
+
+        if (!Directory.EnumerateFileSystemEntries(fullPath).Any())
+        {
+            Directory.Delete(fullPath);
+        }
+    }
+}
+
+static bool IsPathInsideDirectory(string path, string directory)
+{
+    var normalizedPath = Path.GetFullPath(path)
+        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    var normalizedDirectory = Path.GetFullPath(directory)
+        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+        + Path.DirectorySeparatorChar;
+
+    return normalizedPath.StartsWith(normalizedDirectory, GetPathComparison());
+}
+
+static StringComparer GetPathComparer()
+    => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+static StringComparison GetPathComparison()
+    => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
 static void TrySetUnixPermissions(string path)
 {
     if (OperatingSystem.IsWindows())
@@ -146,17 +211,17 @@ static DownloadAsset[] ResolveBundledAssets()
     return
     [
         new DownloadAsset(
-            VersionStamp: "fluidr3-gm-sf2-3.1",
-            DownloadUrl: "https://github.com/pianobooster/fluid-soundfont/releases/download/v3.1/FluidR3_GM.sf2",
-            OutputFileName: "SoundFonts/FluidR3_GM.sf2"),
+            VersionStamp: "generaluser-gs-sf2-2.0.3",
+            DownloadUrl: "https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/main/GeneralUser-GS.sf2",
+            OutputFileName: "SoundFonts/GeneralUser-GS.sf2"),
         new DownloadAsset(
-            VersionStamp: "fluidr3-gm-readme-3.1",
-            DownloadUrl: "https://raw.githubusercontent.com/pianobooster/fluid-soundfont/v3.1/README",
-            OutputFileName: "SoundFonts/FluidR3_GM.README.txt"),
+            VersionStamp: "generaluser-gs-readme-2.0.3",
+            DownloadUrl: "https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/main/README.md",
+            OutputFileName: "SoundFonts/GeneralUser-GS.README.md"),
         new DownloadAsset(
-            VersionStamp: "fluidr3-gm-copying-3.1",
-            DownloadUrl: "https://raw.githubusercontent.com/pianobooster/fluid-soundfont/v3.1/COPYING",
-            OutputFileName: "SoundFonts/FluidR3_GM.COPYING.txt")
+            VersionStamp: "generaluser-gs-license-2.0.3",
+            DownloadUrl: "https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/main/documentation/LICENSE.txt",
+            OutputFileName: "SoundFonts/GeneralUser-GS.LICENSE.txt")
     ];
 }
 
