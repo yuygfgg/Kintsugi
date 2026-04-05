@@ -12,8 +12,22 @@ internal static class Program
 
     public static AppBuilder BuildAvaloniaApp()
     {
-        return AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .LogToTrace();
+        var builder = AppBuilder.Configure<App>()
+            .UsePlatformDetect();
+
+        if (OperatingSystem.IsMacOS())
+        {
+            builder = builder.With(new AvaloniaNativePlatformOptions
+            {
+                RenderingMode =
+                [
+                    AvaloniaNativeRenderingMode.Metal,
+                    AvaloniaNativeRenderingMode.OpenGl,
+                    AvaloniaNativeRenderingMode.Software
+                ]
+            });
+        }
+
+        return builder.LogToTrace();
     }
 }
