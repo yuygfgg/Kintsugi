@@ -2,8 +2,11 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework Condition="!$([MSBuild]::IsOSPlatform('Windows'))">net10.0</TargetFramework>
-    <TargetFramework Condition="$([MSBuild]::IsOSPlatform('Windows'))">net10.0-windows10.0.19041.0</TargetFramework>
+    <IsWindowsTarget Condition="'$(RuntimeIdentifier)' != '' and $([System.String]::Copy('$(RuntimeIdentifier)').ToLowerInvariant().StartsWith('win'))">true</IsWindowsTarget>
+    <IsWindowsTarget Condition="'$(IsWindowsTarget)' == '' and '$([MSBuild]::IsOSPlatform(`Windows`))' == 'true'">true</IsWindowsTarget>
+    <IsWindowsTarget Condition="'$(IsWindowsTarget)' == ''">false</IsWindowsTarget>
+    <TargetFramework Condition="'$(IsWindowsTarget)' == 'true'">net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework Condition="'$(TargetFramework)' == ''">net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>Kintsugi.MidiPlayer</AssemblyName>
@@ -14,10 +17,12 @@
     <Description>A desktop MIDI player with SoundFont playback, visualization, and WAV export.</Description>
     <PackageId>Kintsugi.MidiPlayer</PackageId>
     <UseAppHost>true</UseAppHost>
-    <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(DefineConstants);WINDOWS</DefineConstants>
+    <DefineConstants Condition="'$(IsWindowsTarget)' == 'true'">$(DefineConstants);WINDOWS</DefineConstants>
     <NativeAssetsRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</NativeAssetsRid>
     <NativeAssetsRid Condition="'$(NativeAssetsRid)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</NativeAssetsRid>
     <NativeAssetsDir>$(MSBuildThisFileDirectory)../../.native-assets/$(NativeAssetsRid)</NativeAssetsDir>
+    <MacNativeArch Condition="$([System.String]::Copy('$(NativeAssetsRid)').ToLowerInvariant().EndsWith('-arm64'))">arm64</MacNativeArch>
+    <MacNativeArch Condition="$([System.String]::Copy('$(NativeAssetsRid)').ToLowerInvariant().EndsWith('-x64'))">x86_64</MacNativeArch>
     <CreateMacAppBundle Condition="'$(CreateMacAppBundle)' == ''">false</CreateMacAppBundle>
     <MacAppBundleName>Kintsugi Midi Player.app</MacAppBundleName>
     <MacAppBundleDir>$(MSBuildThisFileDirectory)../../artifacts/macos/$(Configuration)/$(NativeAssetsRid)/$(MacAppBundleName)</MacAppBundleDir>
@@ -39,7 +44,7 @@
   <Target Name="CompileMacMediaControls" BeforeTargets="Build;Publish" Condition="'$(DesignTimeBuild)' != 'true' and '$([MSBuild]::IsOSPlatform(`OSX`))' == 'true' and $([System.String]::Copy('$(NativeAssetsRid)').StartsWith('osx'))">
     <Message Importance="High" Text="Compiling native Mac media controls..." />
     <MakeDir Directories="$(NativeAssetsDir)" />
-    <Exec Command="clang -dynamiclib -fobjc-arc -framework Foundation -framework MediaPlayer &quot;$(MSBuildThisFileDirectory)../native/macos/MediaControls.m&quot; -o &quot;$(NativeAssetsDir)/libMediaControls.dylib&quot;" />
+    <Exec Command="clang -dynamiclib -fobjc-arc -arch $(MacNativeArch) -mmacosx-version-min=12.0 -framework Foundation -framework MediaPlayer &quot;$(MSBuildThisFileDirectory)../native/macos/MediaControls.m&quot; -o &quot;$(NativeAssetsDir)/libMediaControls.dylib&quot;" />
   </Target>
 
   <Target Name="CopyNativeDependenciesToOutput" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">

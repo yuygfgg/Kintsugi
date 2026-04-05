@@ -159,30 +159,64 @@ static NativeAsset[] ResolveAssets(string rid)
     if (rid.StartsWith("win", StringComparison.OrdinalIgnoreCase))
     {
         var architecture = NormalizeArchitecture(rid);
+        var bassUrl = architecture switch
+        {
+            "x64" => "https://www.un4seen.com/files/bass24.zip",
+            "x86" => "https://www.un4seen.com/files/bass24.zip",
+            "arm64" => "https://www.un4seen.com/files/bass24-arm64.zip",
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASS native assets: {architecture}.")
+        };
+
         var bassPath = architecture switch
         {
             "x64" => "x64/bass.dll",
             "x86" => "bass.dll",
+            "arm64" => "arm64/bass.dll",
             _ => throw new NotSupportedException($"Unsupported Windows architecture for BASS native assets: {architecture}.")
+        };
+
+        var bassMidiUrl = architecture switch
+        {
+            "x64" => "https://www.un4seen.com/files/bassmidi24.zip",
+            "x86" => "https://www.un4seen.com/files/bassmidi24.zip",
+            "arm64" => "https://www.un4seen.com/files/bass24-arm64.zip",
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSMIDI native assets: {architecture}.")
         };
 
         var bassMidiPath = architecture switch
         {
             "x64" => "x64/bassmidi.dll",
             "x86" => "bassmidi.dll",
+            "arm64" => "arm64/bassmidi.dll",
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSMIDI native assets: {architecture}.")
+        };
+
+        var bassVersionStamp = architecture switch
+        {
+            "x64" => "bass24-windows-2026-01-16",
+            "x86" => "bass24-windows-2026-01-16",
+            "arm64" => "bass24-windows-arm64-2025-12-16",
+            _ => throw new NotSupportedException($"Unsupported Windows architecture for BASS native assets: {architecture}.")
+        };
+
+        var bassMidiVersionStamp = architecture switch
+        {
+            "x64" => "bassmidi24-windows-2025-10-28",
+            "x86" => "bassmidi24-windows-2025-10-28",
+            "arm64" => "bassmidi24-windows-arm64-2024-11-01",
             _ => throw new NotSupportedException($"Unsupported Windows architecture for BASSMIDI native assets: {architecture}.")
         };
 
         return
         [
             new NativeAsset(
-                VersionStamp: "bass24-windows-2026-01-16",
-                DownloadUrl: "https://www.un4seen.com/files/bass24.zip",
+                VersionStamp: bassVersionStamp,
+                DownloadUrl: bassUrl,
                 ArchiveEntry: bassPath,
                 OutputFileName: "bass.dll"),
             new NativeAsset(
-                VersionStamp: "bassmidi24-windows-2025-10-28",
-                DownloadUrl: "https://www.un4seen.com/files/bassmidi24.zip",
+                VersionStamp: bassMidiVersionStamp,
+                DownloadUrl: bassMidiUrl,
                 ArchiveEntry: bassMidiPath,
                 OutputFileName: "bassmidi.dll")
         ];
@@ -247,6 +281,7 @@ static string DetectRuntimeIdentifier()
         {
             Architecture.X64 => "win-x64",
             Architecture.X86 => "win-x86",
+            Architecture.Arm64 => "win-arm64",
             _ => throw new NotSupportedException($"Unsupported Windows architecture: {RuntimeInformation.ProcessArchitecture}.")
         };
     }

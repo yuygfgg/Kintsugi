@@ -8,6 +8,12 @@ Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSM
 dotnet build src/MidiPlayer.App/MidiPlayer.App.csproj
 ```
 
+For a self-contained release package for a specific desktop RID:
+
+```bash
+dotnet publish src/MidiPlayer.App/MidiPlayer.App.csproj -c Release -r <RID> --self-contained true
+```
+
 On macOS, you can produce an `.app` bundle with:
 
 ```bash

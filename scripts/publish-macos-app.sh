@@ -20,7 +20,7 @@ dotnet publish "$PROJECT" \
   -c Release \
   -r "$RID" \
   -p:CreateMacAppBundle=true \
-  --self-contained false
+  --self-contained true
 
 echo
 echo "App bundle created under:"
