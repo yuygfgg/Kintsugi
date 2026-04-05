@@ -297,7 +297,7 @@ The export button is enabled only when a MIDI file is loaded.
 
 If no SoundFont can be loaded, export does not start. Load a SoundFont first.
 
-<img width="480" height="402" alt="截屏2026-04-05 10 57 45" src="https://github.com/user-attachments/assets/e3af57d5-43e3-4f10-b394-b35eba11042f" />
+<img width="478" height="479" alt="截屏2026-04-05 21 01 44" src="https://github.com/user-attachments/assets/80807717-3852-4953-a58e-f939eec1733d" />
 
 Available export formats:
 
