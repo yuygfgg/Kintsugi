@@ -46,6 +46,8 @@ public sealed class MidiMixSettings
 
     public int[] ChannelChorusSendBiasValues { get; set; } = CreateIntArray(DefaultBiasValue);
 
+    public MidiEqSettings EqSettings { get; set; } = new();
+
     public void Normalize()
     {
         PlaybackSpeedPercent = NormalizeValue(PlaybackSpeedPercent, BassMidiPlayer.DefaultPlaybackSpeedPercent);
@@ -65,6 +67,8 @@ public sealed class MidiMixSettings
         ChannelChorusSendAbsoluteValues = NormalizeIntArray(ChannelChorusSendAbsoluteValues, BassMidiPlayer.DefaultChannelChorus);
         ChannelReverbSendBiasValues = NormalizeIntArray(ChannelReverbSendBiasValues, DefaultBiasValue);
         ChannelChorusSendBiasValues = NormalizeIntArray(ChannelChorusSendBiasValues, DefaultBiasValue);
+        EqSettings ??= new MidiEqSettings();
+        EqSettings.Normalize();
     }
 
     public MidiMixSettings Clone()
@@ -89,7 +93,8 @@ public sealed class MidiMixSettings
             ChannelReverbSendAbsoluteValues = [.. ChannelReverbSendAbsoluteValues],
             ChannelChorusSendAbsoluteValues = [.. ChannelChorusSendAbsoluteValues],
             ChannelReverbSendBiasValues = [.. ChannelReverbSendBiasValues],
-            ChannelChorusSendBiasValues = [.. ChannelChorusSendBiasValues]
+            ChannelChorusSendBiasValues = [.. ChannelChorusSendBiasValues],
+            EqSettings = (EqSettings ?? new MidiEqSettings()).Clone()
         };
 
     private static int[] CreateIntArray(int defaultValue)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text.Json;
 using ManagedBass.Midi;
 
@@ -11,7 +12,7 @@ public class AppSettings
     public string? SoundFontPath { get; set; }
     public MidiSystem SystemMode { get; set; } = MidiSystem.Default;
     public int SampleRate { get; set; } = 44100;
-    public Dictionary<string, MidiMixSettings> MidiMixSettingsByPath { get; set; } = [];
+    public Dictionary<string, MidiMixSettings> MidiMixSettingsByHash { get; set; } = [];
 
     private static string GetConfigPath()
     {
@@ -59,26 +60,48 @@ public class AppSettings
         return new AppSettings();
     }
 
-    public MidiMixSettings? GetMidiMixSettings(string midiPath)
+    public MidiMixSettings? GetMidiMixSettings(string midiPath, out string midiKey)
     {
-        var key = NormalizeMidiPath(midiPath);
-        if (string.IsNullOrEmpty(key))
+        midiKey = GetMidiMixSettingsKey(midiPath);
+        if (string.IsNullOrEmpty(midiKey))
         {
             return null;
         }
 
-        return MidiMixSettingsByPath.TryGetValue(key, out var settings)
-            ? settings.Clone()
-            : null;
+        if (MidiMixSettingsByHash.TryGetValue(midiKey, out var settings))
+        {
+            return settings.Clone();
+        }
+
+        return null;
     }
 
-    public void SetMidiMixSettings(string midiPath, MidiMixSettings settings)
+    public string GetMidiMixSettingsKey(string midiPath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(midiPath);
+        var normalizedPath = NormalizeMidiPath(midiPath);
+        if (string.IsNullOrEmpty(normalizedPath))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            using var stream = File.OpenRead(normalizedPath);
+            return Convert.ToHexString(SHA256.HashData(stream));
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    public void SetMidiMixSettings(string midiKey, MidiMixSettings settings)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(midiKey);
         ArgumentNullException.ThrowIfNull(settings);
 
         settings.Normalize();
-        MidiMixSettingsByPath[NormalizeMidiPath(midiPath)] = settings.Clone();
+        MidiMixSettingsByHash[NormalizeMidiHash(midiKey)] = settings.Clone();
     }
 
     public void Save()
@@ -97,11 +120,11 @@ public class AppSettings
 
     private void Normalize()
     {
-        MidiMixSettingsByPath ??= [];
-        var normalized = new Dictionary<string, MidiMixSettings>();
-        foreach (var pair in MidiMixSettingsByPath)
+        MidiMixSettingsByHash ??= [];
+        var normalizedByHash = new Dictionary<string, MidiMixSettings>();
+        foreach (var pair in MidiMixSettingsByHash)
         {
-            var key = NormalizeMidiPath(pair.Key);
+            var key = NormalizeMidiHash(pair.Key);
             if (string.IsNullOrEmpty(key))
             {
                 continue;
@@ -109,10 +132,10 @@ public class AppSettings
 
             var settings = pair.Value ?? new MidiMixSettings();
             settings.Normalize();
-            normalized[key] = settings;
+            normalizedByHash[key] = settings;
         }
 
-        MidiMixSettingsByPath = normalized;
+        MidiMixSettingsByHash = normalizedByHash;
     }
 
     private static string NormalizeMidiPath(string? midiPath)
@@ -134,4 +157,9 @@ public class AppSettings
             return midiPath;
         }
     }
+
+    private static string NormalizeMidiHash(string? midiHash)
+        => string.IsNullOrWhiteSpace(midiHash)
+            ? string.Empty
+            : midiHash.Trim().ToUpperInvariant();
 }

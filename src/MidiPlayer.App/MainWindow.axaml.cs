@@ -88,6 +88,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int _selectedChannelIndex = -1;
     private VisualizerView _selectedVisualizerView = VisualizerView.Eq;
     private PianoRollNote[] _pianoRollNotes = Array.Empty<PianoRollNote>();
+    private bool _isLoadingSavedMidiMix;
+    private string _currentMidiMixKey = string.Empty;
 
     public ObservableCollection<PlaylistItem> Playlist { get; } = new();
     private bool _isPlaylistSortAscending = true;
@@ -120,6 +122,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ChannelMonitorView.SizeChanged += (_, _) => UpdateChannelMixerPopupPosition();
 
         _settings = AppSettings.Load();
+        _player.EqStateChanged += OnPlayerEqStateChanged;
 
         _player.SampleRate = _settings.SampleRate;
 
@@ -1247,6 +1250,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _mediaControls.Dispose();
+        _player.EqStateChanged -= OnPlayerEqStateChanged;
         _player.Dispose();
     }
 
@@ -1361,9 +1365,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void LoadMixSettingsForMidi(string midiPath)
     {
-        _player.ApplyMixSettings(_settings.GetMidiMixSettings(midiPath));
-        RefreshMixBindings();
-        RefreshChannelMixRows();
+        _isLoadingSavedMidiMix = true;
+
+        try
+        {
+            _player.ApplyMixSettings(_settings.GetMidiMixSettings(midiPath, out _currentMidiMixKey));
+            RefreshEqBindings();
+            RefreshMixBindings();
+            RefreshChannelMixRows();
+        }
+        finally
+        {
+            _isLoadingSavedMidiMix = false;
+        }
     }
 
     private void PersistCurrentMidiMix()
@@ -1373,7 +1387,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        _settings.SetMidiMixSettings(_player.MidiPath, _player.CaptureMixSettings());
+        if (string.IsNullOrWhiteSpace(_currentMidiMixKey))
+        {
+            _currentMidiMixKey = _settings.GetMidiMixSettingsKey(_player.MidiPath);
+        }
+
+        if (string.IsNullOrWhiteSpace(_currentMidiMixKey))
+        {
+            return;
+        }
+
+        _settings.SetMidiMixSettings(_currentMidiMixKey, _player.CaptureMixSettings());
         _settings.Save();
     }
 
@@ -1451,6 +1475,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(GlobalChorusReturnModeToolTip));
     }
 
+    private void RefreshEqBindings()
+    {
+        if (_isEqEnabled != _player.IsEqEnabled)
+        {
+            _isEqEnabled = _player.IsEqEnabled;
+            OnPropertyChanged(nameof(IsEqEnabled));
+        }
+
+        OnPropertyChanged(nameof(EqButtonBackground));
+        OnPropertyChanged(nameof(EqButtonBorderBrush));
+        OnPropertyChanged(nameof(EqButtonForeground));
+        OnPropertyChanged(nameof(EqButtonToolTip));
+    }
+
+    private void OnPlayerEqStateChanged(object? sender, EventArgs e)
+    {
+        RefreshEqBindings();
+
+        if (!_isLoadingSavedMidiMix)
+        {
+            PersistCurrentMidiMix();
+        }
+    }
+
     private void SetVisualizerView(VisualizerView view)
     {
         if (_selectedVisualizerView == view)
@@ -1524,6 +1572,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CloseChannelMixerPopup();
         IsGlobalMixerPopupOpen = false;
         IsSpeedPopupOpen = false;
+        _currentMidiMixKey = string.Empty;
 
         try
         {
@@ -1561,6 +1610,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
+            _currentMidiMixKey = string.Empty;
             PianoRollNotes = Array.Empty<PianoRollNote>();
             StatusText = "Error: " + ex.Message;
         }

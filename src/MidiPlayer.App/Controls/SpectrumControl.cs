@@ -97,14 +97,23 @@ public class SpectrumControl : Control
     {
         base.OnPropertyChanged(change);
 
-        if (change.Property == PlayerProperty && change.NewValue is BassMidiPlayer player)
+        if (change.Property == PlayerProperty)
         {
-            ApplyAllBandsToPlayer(player);
-            player.IsEqEnabled = IsEqEnabled;
+            if (change.OldValue is BassMidiPlayer oldPlayer)
+            {
+                oldPlayer.EqStateChanged -= OnPlayerEqStateChanged;
+            }
+
+            if (change.NewValue is BassMidiPlayer player)
+            {
+                player.EqStateChanged += OnPlayerEqStateChanged;
+                SyncFromPlayer(player);
+            }
         }
         else if (change.Property == IsEqEnabledProperty && Player is not null)
         {
             Player.IsEqEnabled = IsEqEnabled;
+            InvalidateVisual();
         }
     }
 
@@ -833,13 +842,34 @@ public class SpectrumControl : Control
         return clone;
     }
 
-    private void ApplyAllBandsToPlayer(BassMidiPlayer player)
+    private void OnPlayerEqStateChanged(object? sender, EventArgs e)
     {
-        for (var i = 0; i < _bands.Length; i++)
+        if (sender is BassMidiPlayer player)
         {
-            var band = _bands[i];
-            player.SetEqBand(i, band.Frequency, band.GainDb, band.Q, band.SlopeDbPerOct);
+            SyncFromPlayer(player);
         }
+    }
+
+    private void SyncFromPlayer(BassMidiPlayer player)
+    {
+        var settings = player.CaptureEqSettings();
+
+        for (var i = 0; i < _bands.Length && i < settings.Bands.Length; i++)
+        {
+            var source = settings.Bands[i];
+            var band = _bands[i];
+            band.Frequency = source.Frequency;
+            band.GainDb = source.GainDb;
+            band.Q = source.Q;
+            band.SlopeDbPerOct = source.SlopeDbPerOct;
+        }
+
+        if (IsEqEnabled != settings.IsEnabled)
+        {
+            SetCurrentValue(IsEqEnabledProperty, settings.IsEnabled);
+        }
+
+        InvalidateVisual();
     }
 
     private void ApplyBandToPlayer(int bandIndex)

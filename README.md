@@ -395,7 +395,7 @@ The app saves these settings automatically:
 - Last selected custom SoundFont
 - MIDI system mode
 - Output sample rate
-- Mix settings for each MIDI file path
+- Per-file playback, mix, and EQ settings for each MIDI file hash
 
 When no saved custom SoundFont is available, the app falls back to the bundled `GeneralUser-GS.sf2` when present.
 
@@ -404,11 +404,13 @@ Per-file mix recall includes:
 - Tempo override
 - Global transpose
 - Master volume
+- EQ enabled state
+- EQ band frequencies, gains, widths, and cut slopes
 - Global reverb and chorus return settings
 - Per-channel volume
 - Per-channel reverb and chorus settings
 
-Mix recall is path-based. If you move or rename a MIDI file, the app treats it as a different file and starts with a fresh mix.
+Mix recall is hash-based. Moving or renaming the same MIDI file keeps the saved settings. Copies with identical file contents also reuse the same saved settings. If the MIDI file contents change, the app treats it as a new file and starts with a fresh mix and EQ state.
 
 ### 10. Troubleshooting
 
@@ -423,10 +425,6 @@ Check these points:
 - A MIDI file is loaded
 - A SoundFont is loaded
 - The destination path is writable
-
-#### The wrong mix loads for a file
-
-Mix settings are stored by full file path. If the file was copied, moved, or renamed, it will not reuse the old mix entry.
 
 #### Playback changed after switching sample rate
 

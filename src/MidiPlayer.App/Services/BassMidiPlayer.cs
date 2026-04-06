@@ -41,6 +41,8 @@ public sealed class BassMidiPlayer : IDisposable
     private int _soloChannel = -1;
     private bool _hasSoloState;
 
+    public event EventHandler? EqStateChanged;
+
     public bool IsChannelMuted(int channel)
     {
         if ((uint)channel >= 16) return false;
@@ -421,7 +423,8 @@ public sealed class BassMidiPlayer : IDisposable
     }
 
     public MidiMixSettings CaptureMixSettings()
-        => _channelMixer.CreateMixSettings(
+    {
+        var settings = _channelMixer.CreateMixSettings(
             _playbackSpeedPercent,
             _transposeSemitones,
             _masterVolumePercent,
@@ -433,6 +436,9 @@ public sealed class BassMidiPlayer : IDisposable
             _chorusReturnScalePercent,
             _chorusReturnPercent,
             _chorusReturnBiasValue);
+        settings.EqSettings = CaptureEqSettings();
+        return settings;
+    }
 
     public void ApplyMixSettings(MidiMixSettings? settings)
     {
@@ -453,6 +459,7 @@ public sealed class BassMidiPlayer : IDisposable
 
         ApplyGlobalMixSettings();
         ApplyPlaybackModifiers();
+        ApplyEqSettings(mixSettings.EqSettings);
         _channelMixer.SetChannelMixSettings(
             mixSettings.ChannelVolumePercents,
             mixSettings.ChannelReverbSendPercents,
@@ -724,6 +731,7 @@ public sealed class BassMidiPlayer : IDisposable
 
             _isEqEnabled = value;
             RebuildEqFilters(resetState: true);
+            OnEqStateChanged();
         }
     }
 
@@ -740,6 +748,50 @@ public sealed class BassMidiPlayer : IDisposable
         band.Q = Math.Clamp(q, 0.0, 2.5);
         band.SlopeDbPerOct = Math.Clamp(slopeDbPerOct, 0, 48);
         RebuildEqFilters(resetState: false);
+        OnEqStateChanged();
+    }
+
+    public MidiEqSettings CaptureEqSettings()
+    {
+        lock (_eqLock)
+        {
+            return new MidiEqSettings
+            {
+                IsEnabled = _isEqEnabled,
+                Bands = _eqBands
+                    .Select(band => new MidiEqBandSettings
+                    {
+                        Frequency = band.Frequency,
+                        GainDb = band.GainDb,
+                        Q = band.Q,
+                        SlopeDbPerOct = band.SlopeDbPerOct
+                    })
+                    .ToArray()
+            };
+        }
+    }
+
+    public void ApplyEqSettings(MidiEqSettings? settings)
+    {
+        var eqSettings = settings?.Clone() ?? new MidiEqSettings();
+        eqSettings.Normalize();
+
+        lock (_eqLock)
+        {
+            _isEqEnabled = eqSettings.IsEnabled;
+            for (var i = 0; i < _eqBands.Length && i < eqSettings.Bands.Length; i++)
+            {
+                var source = eqSettings.Bands[i];
+                var target = _eqBands[i];
+                target.Frequency = source.Frequency;
+                target.GainDb = source.GainDb;
+                target.Q = source.Q;
+                target.SlopeDbPerOct = source.SlopeDbPerOct;
+            }
+        }
+
+        RebuildEqFilters(resetState: true);
+        OnEqStateChanged();
     }
 
     public bool IsPlaying => HasStream && Bass.ChannelIsActive(_streamHandle) == PlaybackState.Playing;
@@ -1468,6 +1520,9 @@ public sealed class BassMidiPlayer : IDisposable
         _eqDspHandle = 0;
         ResetEqFilterStates();
     }
+
+    private void OnEqStateChanged()
+        => EqStateChanged?.Invoke(this, EventArgs.Empty);
 
     private void RebuildEqFilters(bool resetState)
     {
