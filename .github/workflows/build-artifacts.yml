@@ -64,7 +64,7 @@ jobs:
             package_ext: tar.gz
             mac_app_bundle: true
           - label: macOS Apple Silicon
-            runner: macos-14
+            runner: macos-15
             rid: osx-arm64
             package_name: Kintsugi.MidiPlayer-osx-arm64
             package_ext: tar.gz
@@ -78,6 +78,21 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+
+      - name: Install JUCE Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libfontconfig1-dev \
+            libfreetype-dev \
+            libx11-dev \
+            libxcomposite-dev \
+            libxcursor-dev \
+            libxext-dev \
+            libxinerama-dev \
+            libxrandr-dev \
+            libxrender-dev
 
       - name: Restore
         run: dotnet restore src/MidiPlayer.App/MidiPlayer.App.csproj --runtime ${{ matrix.rid }}
