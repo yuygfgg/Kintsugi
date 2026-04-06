@@ -26,8 +26,6 @@
   <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="20" RowSpacing="16">
     <StackPanel Spacing="6">
       <TextBlock Text="Load VST3 / Audio Unit" FontSize="24" FontWeight="SemiBold" />
-      <TextBlock Classes="hint"
-                 Text="macOS treats plug-in bundles as packages, so this browser scans the standard VST3 and Components folders instead of relying on the system file picker. VST2 bundles are not scanned in this build." />
     </StackPanel>
 
     <StackPanel Grid.Row="1" Spacing="8">
