@@ -21,11 +21,9 @@ public class ChannelMonitorControl : Control
     }
 
     private static readonly IPen OutlinePen = new Pen(new SolidColorBrush(Color.Parse("#111")), 1);
-    private readonly DispatcherTimer _pendingMuteTimer;
-    private int _pendingMuteChannel = -1;
     private int _hoveredChannel = -1;
 
-    public event EventHandler<ChannelMixerRequestedEventArgs>? ChannelMixerRequested;
+    
 
     public ChannelMonitorControl()
     {
@@ -33,9 +31,6 @@ public class ChannelMonitorControl : Control
         Cursor = new Cursor(StandardCursorType.Hand);
         ToolTip.SetShowDelay(this, 0);
         ToolTip.SetBetweenShowDelay(this, 0);
-
-        _pendingMuteTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
-        _pendingMuteTimer.Tick += OnPendingMuteTimerTick;
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -55,30 +50,18 @@ public class ChannelMonitorControl : Control
 
         if (currentPoint.Properties.IsRightButtonPressed)
         {
-            CancelPendingMute(channel.Value);
-            ChannelMixerRequested?.Invoke(this, new ChannelMixerRequestedEventArgs(channel.Value));
-            e.Handled = true;
-            return;
-        }
-
-        if (!currentPoint.Properties.IsLeftButtonPressed)
-        {
-            return;
-        }
-
-        if (e.ClickCount == 1)
-        {
-            QueuePendingMute(channel.Value, currentPoint.Pointer.Type);
-            e.Handled = true;
-            return;
-        }
-
-        if (e.ClickCount == 2)
-        {
-            CancelPendingMute(channel.Value);
             player.ToggleChannelSolo(channel.Value);
             InvalidateVisual();
             e.Handled = true;
+            return;
+        }
+
+        if (currentPoint.Properties.IsLeftButtonPressed)
+        {
+            player.ToggleChannelMute(channel.Value);
+            InvalidateVisual();
+            e.Handled = true;
+            return;
         }
     }
 
@@ -137,20 +120,6 @@ public class ChannelMonitorControl : Control
         return channel is >= 0 and < 16 ? channel : null;
     }
 
-    private void QueuePendingMute(int channel, PointerType pointerType)
-    {
-        if (_pendingMuteChannel >= 0 && _pendingMuteChannel != channel)
-        {
-            CommitPendingMute();
-        }
-
-        _pendingMuteChannel = channel;
-        _pendingMuteTimer.Stop();
-        _pendingMuteTimer.Interval = TopLevel.GetTopLevel(this)?.PlatformSettings?.GetDoubleTapTime(pointerType)
-            ?? TimeSpan.FromMilliseconds(250);
-        _pendingMuteTimer.Start();
-    }
-
     private void UpdateHoveredChannel(Point point)
     {
         int hoveredChannel = Player is { HasStream: true }
@@ -177,38 +146,6 @@ public class ChannelMonitorControl : Control
         _hoveredChannel = -1;
         ToolTip.SetIsOpen(this, false);
         ToolTip.SetTip(this, null);
-    }
-
-    private void CancelPendingMute(int channel)
-    {
-        if (_pendingMuteChannel != channel)
-        {
-            return;
-        }
-
-        _pendingMuteTimer.Stop();
-        _pendingMuteChannel = -1;
-    }
-
-    private void OnPendingMuteTimerTick(object? sender, EventArgs e)
-    {
-        _pendingMuteTimer.Stop();
-        CommitPendingMute();
-    }
-
-    private void CommitPendingMute()
-    {
-        var player = Player;
-        if (player == null || _pendingMuteChannel < 0)
-        {
-            _pendingMuteChannel = -1;
-            return;
-        }
-
-        int channel = _pendingMuteChannel;
-        _pendingMuteChannel = -1;
-        player.ToggleChannelMute(channel);
-        InvalidateVisual();
     }
 
     private void RefreshToolTip()

@@ -46,8 +46,6 @@ This bundle includes the native BASS/BASSMIDI/BASSenc libraries needed for playb
 
 ### 3. Main Window Overview
 
-<img width="1512" height="982" alt="截屏2026-04-05 22 18 55" src="https://github.com/user-attachments/assets/0bf8d6f6-505e-4de3-bea9-3fdf5dc4a544" />
-
 The main window is divided into four primary areas, along with a slide-out drawer.
 
 #### Header
@@ -57,19 +55,12 @@ The header shows:
 - The app title
 - The current MIDI file name
 - A status badge such as `Ready to play`, `Playing`, `Paused`, `Finished`, or an error message
-- `OPEN FILE`
-- `EXPORT AUDIO`
-- `EVENTS`
-- `LOAD FX` or `REPLACE FX`
-- `FX UI`
-- `FX OFF`
+- An `ACTIONS ▾` menu containing file, event, and effect plug-in operations
 - The settings button
 
 #### Event Browser
 
 Click `EVENTS` in the header to open the MIDI Event Browser for the currently loaded file.
-
-<img width="1512" height="982" alt="截屏2026-04-06 00 17 09" src="https://github.com/user-attachments/assets/b46d84b4-382a-4f17-a4d4-52e4e90e207d" />
 
 The Event Browser opens as a separate window, so it can stay visible while you continue using the main player window.
 
@@ -106,9 +97,10 @@ Hovering a channel shows the current instrument or drum kit name for that channe
 
 The center panel contains:
 
-- A switchable `EQ` / `ROLL` visualizer header
+- A switchable `EQ` / `ROLL` / `MIX` visualizer header
 - An `EQ` view with a real-time spectrum analyzer and integrated EQ curve
 - A `ROLL` view with a piano-roll waterfall made of channel-colored falling note blocks
+- A `MIX` view providing a vertical mixer strip for all 16 channels
 - A piano keyboard that lights up with active notes
 - `KEY -` and `KEY +` buttons for global transpose in semitones
 
@@ -123,7 +115,7 @@ Click the `◀` tab located on the right edge of the main window to slide out th
 - Track durations are parsed instantly in the background.
 - Playlist files keep their original order and show `LIST` in the sort button. Click it once to switch back to alphabetical sorting.
 - Click `↓ A-Z` or `↑ Z-A` to toggle alphabetical sorting after leaving `LIST` mode.
-- Click `▶` in the drawer's header to cleanly retract it.
+- Click `▶` on the drawer's tab to cleanly retract it.
 
 #### Transport Bar
 
@@ -142,7 +134,7 @@ The bottom bar contains:
 
 #### Open a File
 
-Click `OPEN FILE` and choose a MIDI or playlist file, or drag one into the window. The app loads it immediately.
+Click `Open File...` in the `ACTIONS ▾` menu and choose a MIDI or playlist file, or drag one into the window. The app loads it immediately.
 
 When opening a playlist file, Kintsugi starts with the first valid MIDI entry in that list.
 
@@ -185,8 +177,6 @@ You can also turn loop off while keeping the A-B range selected, then click the 
 #### Tempo Override
 
 Click the `BPM` badge to open the tempo override popup.
-
-<img width="241" height="146" alt="截屏2026-04-05 12 49 50" src="https://github.com/user-attachments/assets/235d437c-47f9-4935-854e-781069b8409d" />
 
 - Range: `25%` to `400%`
 - `100%` keeps the MIDI file's original tempo map
@@ -239,30 +229,25 @@ This same order is used for both live playback and offline export, so the render
 
 Click `ROLL` in the center visualizer header to switch from the EQ editor to the piano-roll waterfall.
 
-<img width="1512" height="982" alt="截屏2026-04-06 01 09 38" src="https://github.com/user-attachments/assets/8a68c3b7-eb3d-498b-a975-fdd7455a5b66" />
-
 - Notes appear as falling colored blocks
 - Channel colors match the `CHANNEL ACTIVITY` strip and the piano keyboard highlights
 - The waterfall lanes align directly with the piano below
 - The bottom hit area shows where notes land on the keyboard
 - Playback speed and transpose both affect the waterfall display
 
-### 5. Channel Activity and Per-Channel Mixer
+### 5. Channel Activity and the MIX View
 
-Each channel block in `CHANNEL ACTIVITY` supports three actions:
+Each channel block in `CHANNEL ACTIVITY` supports the following actions:
 
-- Single-click: mute or unmute that channel
-- Double-click: solo that channel; double-click the same channel again to leave solo mode
-- Right-click: open the mixer popup for that channel
+- Left-click: mute or unmute that channel instantly
+- Right-click: solo or unsolo that channel instantly
 - Hover: show the current instrument or drum kit name for that channel
 
 The hover label follows the channel's current MIDI state, so it updates when the file switches program, bank, or drum mode.
 
-<img width="254" height="250" alt="截屏2026-04-05 10 56 20" src="https://github.com/user-attachments/assets/aa13da1f-ae85-43fa-a3f8-9dbf8a71fd08" />
-
 #### Channel Mixer Controls
 
-The channel mixer popup has three controls:
+Switch to the `MIX` tab in the center visualizer to access the per-channel mixer. Each vertical strip in the `MIX` view has three controls:
 
 - `VOL`: channel volume
 - `REV`: channel reverb send
@@ -294,8 +279,6 @@ Double-click a slider to reset it:
 
 Click `MIX` to open the global mixer.
 
-<img width="247" height="189" alt="截屏2026-04-05 11 01 15" src="https://github.com/user-attachments/assets/b2e80ffc-1689-4402-a6ed-72193574081a" />
-
 The global mixer controls:
 
 - `VOL`: master output level
@@ -321,8 +304,6 @@ Click outside the popup to close it.
 ### 7. Settings
 
 Click the gear button to open `Player Settings`.
-
-<img width="442" height="479" alt="截屏2026-04-05 17 16 23" src="https://github.com/user-attachments/assets/58b8e191-df51-421d-a647-ee6329247a85" />
 
 #### SoundFont
 
@@ -367,8 +348,6 @@ Click `EXPORT AUDIO` to render the current MIDI file to an audio file.
 The export button is enabled only when a MIDI file is loaded.
 
 If no SoundFont can be loaded, export does not start. Load a SoundFont first.
-
-<img width="478" height="479" alt="截屏2026-04-05 21 01 44" src="https://github.com/user-attachments/assets/80807717-3852-4953-a58e-f939eec1733d" />
 
 Available export formats:
 
@@ -468,20 +447,20 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 
 | Action                         | Result                                             |
 | ------------------------------ | -------------------------------------------------- |
-| `OPEN FILE`                    | Load a MIDI file                                   |
-| `EVENTS`                       | Open the MIDI Event Browser                        |
-| `◀` tab (Right Edge)           | Slide out the Playlist drawer                      |
-| `EXPORT AUDIO`                 | Render the current track to WAV, FLAC, or Opus     |
-| `LOAD FX` / `REPLACE FX`       | Load or replace the current insert effect plug-in  |
-| `FX UI`                        | Open the current effect plug-in editor window      |
-| `FX OFF`                       | Unload the current effect plug-in                  |
+| `ACTIONS` > `Open File...`     | Load a MIDI file                                   |
+| `ACTIONS` > `Browse Events...` | Open the MIDI Event Browser                        |
+| `◀` / `▶` toggle button        | Slide out or retract the Playlist drawer           |
+| `ACTIONS` > `Export Audio...`  | Render the current track to WAV, FLAC, or Opus     |
+| `ACTIONS` > `Load FX...`       | Load or replace the current insert effect plug-in  |
+| `ACTIONS` > `FX UI...`         | Open the current effect plug-in editor window      |
+| `ACTIONS` > `Unload FX`        | Unload the current effect plug-in                  |
 | `Space`                        | Play or pause                                      |
 | `⏮` / `⏭`                      | Previous / Next track                              |
-| Channel single-click           | Mute/unmute channel                                |
-| Channel double-click           | Solo/unsolo channel                                |
-| Channel right-click            | Open per-channel mixer                             |
+| Channel left-click             | Mute/unmute channel                                |
+| Channel right-click            | Solo/unsolo channel                                |
 | Channel hover                  | Show channel instrument name                       |
-| `MIX`                          | Open global mixer                                  |
+| `MIX` (Transport)              | Open global mixer popup                            |
+| `MIX` (Visualizer)             | Switch to the per-channel mixer view               |
 | Loop button                    | Toggle looping                                     |
 | `BPM`                          | Open tempo override popup                          |
 | `EQ` / `ROLL`                  | Switch the center visualizer view                  |
@@ -489,3 +468,5 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 | EQ power button                | Bypass or enable the EQ                            |
 | EQ drag / wheel / double-click | Edit EQ bands / adjust width or slope / reset band |
 | Slider double-click            | Reset that control                                 |
+|                                |
+| control                        |

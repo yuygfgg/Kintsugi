@@ -26,7 +26,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private enum VisualizerView
     {
         Eq,
-        PianoRoll
+        PianoRoll,
+        Mix
     }
 
     private static readonly IBrush LoopEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#214B75"));
@@ -84,7 +85,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _channelMixerPopupOutlinePathData = string.Empty;
     private ChannelMixStrip? _selectedChannelMixStrip;
     private bool _isChannelMixerPopupOpen;
-    private bool _isGlobalMixerPopupOpen;
     private bool _isSpeedPopupOpen;
     private bool _isEqEnabled = true;
     private int _selectedChannelIndex = -1;
@@ -113,8 +113,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool IsPlaylistVisible
     {
         get => _isPlaylistVisible;
-        set => SetField(ref _isPlaylistVisible, value);
+        set
+        {
+            if (SetField(ref _isPlaylistVisible, value))
+            {
+                OnPropertyChanged(nameof(PlaylistToggleMargin));
+                OnPropertyChanged(nameof(PlaylistToggleIcon));
+            }
+        }
     }
+
+    public Thickness PlaylistToggleMargin => IsPlaylistVisible ? new Thickness(0, 0, 300, 0) : new Thickness(0, 0, 0, 0);
+    public string PlaylistToggleIcon => IsPlaylistVisible ? "▶" : "◀";
     
     private CancellationTokenSource? _playlistParseCts;
 
@@ -226,19 +236,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         private set => SetField(ref _channelMixerPopupOutlinePathData, value);
     }
 
-    public bool IsGlobalMixerPopupOpen
-    {
-        get => _isGlobalMixerPopupOpen;
-        private set
-        {
-            if (SetField(ref _isGlobalMixerPopupOpen, value))
-            {
-                OnPropertyChanged(nameof(GlobalMixerButtonBackground));
-                OnPropertyChanged(nameof(GlobalMixerButtonBorderBrush));
-                OnPropertyChanged(nameof(GlobalMixerButtonForeground));
-            }
-        }
-    }
 
     public bool IsSpeedPopupOpen
     {
@@ -388,6 +385,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool IsPianoRollViewSelected => _selectedVisualizerView == VisualizerView.PianoRoll;
 
+    public bool IsMixViewSelected => _selectedVisualizerView == VisualizerView.Mix;
+
     public IBrush EqViewButtonBackground => GetVisualizerViewButtonBackground(VisualizerView.Eq);
 
     public IBrush EqViewButtonBorderBrush => GetVisualizerViewButtonBorderBrush(VisualizerView.Eq);
@@ -399,6 +398,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public IBrush PianoRollViewButtonBorderBrush => GetVisualizerViewButtonBorderBrush(VisualizerView.PianoRoll);
 
     public IBrush PianoRollViewButtonForeground => GetVisualizerViewButtonForeground(VisualizerView.PianoRoll);
+
+    public IBrush MixViewButtonBackground => GetVisualizerViewButtonBackground(VisualizerView.Mix);
+
+    public IBrush MixViewButtonBorderBrush => GetVisualizerViewButtonBorderBrush(VisualizerView.Mix);
+
+    public IBrush MixViewButtonForeground => GetVisualizerViewButtonForeground(VisualizerView.Mix);
 
     public double PlaybackSpeedPercent
     {
@@ -648,11 +653,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public IBrush LoopBadgeForeground => _player.IsLooping ? LoopBadgeEnabledForegroundBrush : LoopBadgeStandbyForegroundBrush;
 
-    public IBrush GlobalMixerButtonBackground => IsGlobalMixerPopupOpen ? MixerEnabledBackgroundBrush : MixerDisabledBackgroundBrush;
 
-    public IBrush GlobalMixerButtonBorderBrush => IsGlobalMixerPopupOpen ? MixerEnabledBorderBrush : MixerDisabledBorderBrush;
 
-    public IBrush GlobalMixerButtonForeground => IsGlobalMixerPopupOpen ? MixerEnabledForegroundBrush : MixerDisabledForegroundBrush;
 
     public IBrush SpeedButtonBackground => IsSpeedPopupOpen ? SpeedEnabledBackgroundBrush : SpeedDisabledBackgroundBrush;
 
@@ -875,7 +877,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnLoopClicked(object? sender, RoutedEventArgs e)
     {
         CloseChannelMixerPopup();
-        IsGlobalMixerPopupOpen = false;
         IsSpeedPopupOpen = false;
         _player.IsLooping = !_player.IsLooping;
 
@@ -904,17 +905,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         e.Handled = true;
     }
 
-    private void OnGlobalMixerClicked(object? sender, RoutedEventArgs e)
-    {
-        CloseChannelMixerPopup();
-        IsSpeedPopupOpen = false;
-        IsGlobalMixerPopupOpen = !IsGlobalMixerPopupOpen;
-    }
 
     private void OnSpeedButtonClicked(object? sender, RoutedEventArgs e)
     {
         CloseChannelMixerPopup();
-        IsGlobalMixerPopupOpen = false;
         IsSpeedPopupOpen = !IsSpeedPopupOpen;
     }
 
@@ -933,6 +927,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnShowPianoRollViewClicked(object? sender, RoutedEventArgs e)
     {
         SetVisualizerView(VisualizerView.PianoRoll);
+        e.Handled = true;
+    }
+
+    private void OnShowMixViewClicked(object? sender, RoutedEventArgs e)
+    {
+        SetVisualizerView(VisualizerView.Mix);
         e.Handled = true;
     }
 
@@ -1020,7 +1020,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _selectedChannelIndex = e.Channel;
         SelectedChannelMixStrip = ChannelMixRows[e.Channel];
         IsChannelMixerPopupOpen = true;
-        IsGlobalMixerPopupOpen = false;
         IsSpeedPopupOpen = false;
         UpdateChannelMixerPopupPosition();
     }
@@ -1144,7 +1143,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnTimelineSeekStarted(object? sender, EventArgs e)
     {
         CloseChannelMixerPopup();
-        IsGlobalMixerPopupOpen = false;
         IsSpeedPopupOpen = false;
         if (!CanSeek)
         {
@@ -1187,7 +1185,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnTimelineLoopRangeChanged(object? sender, TimelineLoopRangeChangedEventArgs e)
     {
         CloseChannelMixerPopup();
-        IsGlobalMixerPopupOpen = false;
         IsSpeedPopupOpen = false;
         if (!CanSeek)
         {
@@ -1226,17 +1223,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         var sourceVisual = e.Source as Visual;
         bool clickedChannelMixer = IsWithinVisual(sourceVisual, ChannelMonitorView) || IsWithinVisual(sourceVisual, ChannelMixerPopupHost);
-        bool clickedGlobalMixer = IsWithinVisual(sourceVisual, GlobalMixerButtonHost);
         bool clickedSpeedPopup = IsWithinVisual(sourceVisual, SpeedButtonHost);
 
         if (!clickedChannelMixer)
         {
             CloseChannelMixerPopup();
-        }
-
-        if (!clickedGlobalMixer)
-        {
-            IsGlobalMixerPopupOpen = false;
         }
 
         if (!clickedSpeedPopup)
@@ -1327,7 +1318,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private async Task<string?> PickSingleFileAsync(FilePickerFileType fileType)
     {
         CloseChannelMixerPopup();
-        IsGlobalMixerPopupOpen = false;
         IsSpeedPopupOpen = false;
         if (StorageProvider is null || !StorageProvider.CanOpen)
         {
@@ -1368,7 +1358,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         CloseChannelMixerPopup();
-        IsGlobalMixerPopupOpen = false;
         IsSpeedPopupOpen = false;
         var dialog = new AudioPluginPickerWindow();
         await dialog.ShowDialog(this);
@@ -1668,12 +1657,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _selectedVisualizerView = view;
         OnPropertyChanged(nameof(IsEqViewSelected));
         OnPropertyChanged(nameof(IsPianoRollViewSelected));
+        OnPropertyChanged(nameof(IsMixViewSelected));
         OnPropertyChanged(nameof(EqViewButtonBackground));
         OnPropertyChanged(nameof(EqViewButtonBorderBrush));
         OnPropertyChanged(nameof(EqViewButtonForeground));
         OnPropertyChanged(nameof(PianoRollViewButtonBackground));
         OnPropertyChanged(nameof(PianoRollViewButtonBorderBrush));
         OnPropertyChanged(nameof(PianoRollViewButtonForeground));
+        OnPropertyChanged(nameof(MixViewButtonBackground));
+        OnPropertyChanged(nameof(MixViewButtonBorderBrush));
+        OnPropertyChanged(nameof(MixViewButtonForeground));
     }
 
     private IBrush GetVisualizerViewButtonBackground(VisualizerView view)
@@ -1729,7 +1722,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     internal void LoadMidiFromPath(string path, bool isFromPlaylist = false, int playlistSourceIndex = -1)
     {
         CloseChannelMixerPopup();
-        IsGlobalMixerPopupOpen = false;
         IsSpeedPopupOpen = false;
         _currentMidiMixKey = string.Empty;
 
