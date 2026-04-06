@@ -50,6 +50,51 @@
     <Style Selector="Button.actionBtn:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="#214B75" />
     </Style>
+    <Style Selector="Button.chainBtn">
+      <Setter Property="Background" Value="#1C1C1C" />
+      <Setter Property="BorderBrush" Value="#333333" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="#E0E0E0" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.chainBtn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#263241" />
+    </Style>
+    <Style Selector="Button.chainBtn:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="#314254" />
+    </Style>
+    <Style Selector="Button.chainPrimaryBtn">
+      <Setter Property="Background" Value="#202A36" />
+      <Setter Property="BorderBrush" Value="#3A74B0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="#DCEEFF" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.chainPrimaryBtn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#274364" />
+    </Style>
+    <Style Selector="Button.chainPrimaryBtn:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="#32567E" />
+    </Style>
+    <Style Selector="Button.chainDangerBtn">
+      <Setter Property="Background" Value="#261516" />
+      <Setter Property="BorderBrush" Value="#7A3B42" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="#F1D1D3" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.chainDangerBtn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#3A1C1E" />
+    </Style>
+    <Style Selector="Button.chainDangerBtn:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="#4B2428" />
+    </Style>
     <Style Selector="Button.viewChip">
       <Setter Property="Background" Value="#171717" />
       <Setter Property="BorderThickness" Value="1" />
@@ -72,8 +117,8 @@
   <Panel>
     <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
       <!-- Header -->
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,16">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalAlignment="Center" ClipToBounds="True" Margin="0,0,12,0">
+      <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalAlignment="Center" ClipToBounds="True" Margin="0,0,12,0">
         <TextBlock Text="KINTSUGI MIDI PLAYER" FontSize="16" FontWeight="Bold" Foreground="#4A90E2" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1"
                    Text="{Binding MidiDisplayName}"
@@ -97,21 +142,6 @@
                      TextTrimming="CharacterEllipsis"
                      ToolTip.Tip="{Binding StatusText}" />
         </Border>
-        <Border Grid.Column="3"
-                Background="#171717"
-                BorderBrush="#2F2F2F"
-                BorderThickness="1"
-                CornerRadius="999"
-                Padding="8,3"
-                VerticalAlignment="Center">
-          <TextBlock Text="{Binding AudioPluginSummaryText}"
-                     FontSize="11"
-                     Foreground="#5D88B4"
-                     VerticalAlignment="Center"
-                     MaxWidth="180"
-                     TextTrimming="CharacterEllipsis"
-                     ToolTip.Tip="{Binding AudioPluginSummaryText}" />
-        </Border>
       </Grid>
         <Button Grid.Column="1" Classes="iconBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0">
           <TextBlock Text="ACTIONS ▾" Foreground="#C8D7E6" />
@@ -120,10 +150,6 @@
               <MenuItem Header="Open File..." Click="OnOpenMidiClicked" IsEnabled="{Binding CanOpenMidi}" />
               <MenuItem Header="Export Audio..." Click="OnExportWavClicked" IsEnabled="{Binding CanExport}" />
               <MenuItem Header="Browse Events..." Click="OnBrowseMidiEventsClicked" IsEnabled="{Binding CanBrowseMidiEvents}" />
-              <MenuItem Header="-" />
-              <MenuItem Header="Load FX..." Click="OnLoadAudioPluginClicked" IsEnabled="{Binding CanLoadAudioPlugin}" />
-              <MenuItem Header="FX UI..." Click="OnShowAudioPluginEditorClicked" IsEnabled="{Binding CanOpenAudioPluginEditor}" />
-              <MenuItem Header="Unload FX" Click="OnUnloadAudioPluginClicked" IsEnabled="{Binding CanUnloadAudioPlugin}" />
             </MenuFlyout>
           </Button.Flyout>
         </Button>
@@ -288,6 +314,15 @@
                     Foreground="{Binding MixViewButtonForeground}">
                   <TextBlock Text="MIX" Foreground="{Binding MixViewButtonForeground}" />
                 </Button>
+                <Button
+                    Classes="viewChip"
+                    MinWidth="72"
+                    Click="OnShowEffectsViewClicked"
+                    Background="{Binding EffectsViewButtonBackground}"
+                    BorderBrush="{Binding EffectsViewButtonBorderBrush}"
+                    Foreground="{Binding EffectsViewButtonForeground}">
+                  <TextBlock Text="FX" Foreground="{Binding EffectsViewButtonForeground}" />
+                </Button>
               </StackPanel>
             </Border>
 
@@ -421,6 +456,146 @@
                       </StackPanel>
                     </Grid>
                   </Border>
+                </Grid>
+
+                <Grid IsVisible="{Binding IsEffectsViewSelected}" Margin="12" RowDefinitions="Auto,*" RowSpacing="12">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="4">
+                      <TextBlock Text="FX CHAIN" FontSize="12" FontWeight="Bold" Foreground="#4A90E2" />
+                      <TextBlock Text="{Binding EffectChainStatusText}" FontSize="12" Foreground="#A0A0A0" />
+                      <TextBlock Text="Signal flows from top to bottom. EQ can be moved like any plug-in." FontSize="11" Foreground="#6D7C8C" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                      <Button
+                          Classes="actionBtn"
+                          Content="Add FX"
+                          Click="OnLoadAudioPluginClicked"
+                          IsEnabled="{Binding CanLoadAudioPlugin}"
+                          Padding="14,8" />
+                      <Button
+                          Background="#1C1C1C"
+                          Foreground="#E0E0E0"
+                          BorderBrush="#333333"
+                          BorderThickness="1"
+                          Content="Clear FX"
+                          Click="OnUnloadAudioPluginClicked"
+                          IsEnabled="{Binding CanUnloadAudioPlugin}"
+                          Padding="14,8" />
+                    </StackPanel>
+                  </Grid>
+
+                  <ScrollViewer Grid.Row="1"
+                                VerticalScrollBarVisibility="Visible"
+                                HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding EffectChainItems}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="models:AudioEffectChainItem">
+                          <Border Margin="0,0,0,10"
+                                  Padding="14"
+                                  Background="#111111"
+                                  BorderBrush="#263241"
+                                  BorderThickness="1"
+                                  CornerRadius="8">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                              <Border Background="#13283E"
+                                      BorderBrush="#3A74B0"
+                                      BorderThickness="1"
+                                      CornerRadius="999"
+                                      Padding="10,4"
+                                      VerticalAlignment="Top">
+                                <TextBlock Text="{Binding FormatLabel}"
+                                           FontSize="11"
+                                           FontWeight="Bold"
+                                           Foreground="#DCEEFF" />
+                              </Border>
+
+                              <StackPanel Grid.Column="1" Spacing="4">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                  <TextBlock Text="{Binding DisplayName}"
+                                             FontSize="15"
+                                             FontWeight="SemiBold"
+                                             Foreground="#DCEEFF"
+                                             TextTrimming="CharacterEllipsis" />
+                                  <Border Grid.Column="1"
+                                          Background="#171F29"
+                                          BorderBrush="#314254"
+                                          BorderThickness="1"
+                                          CornerRadius="999"
+                                          Padding="10,3">
+                                    <TextBlock Text="{Binding StatusLabel}"
+                                               FontSize="10"
+                                               FontWeight="Bold"
+                                               Foreground="#B6D6F8" />
+                                  </Border>
+                                </Grid>
+
+                                <TextBlock Text="{Binding Description}"
+                                           FontSize="11"
+                                           Foreground="#8BA1B7" />
+
+                                <TextBlock Text="{Binding Path}"
+                                           IsVisible="{Binding HasPath}"
+                                           FontSize="11"
+                                           Foreground="#6D7C8C"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding Path}" />
+                              </StackPanel>
+
+                              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <Button
+                                    Classes="chainPrimaryBtn"
+                                    MinWidth="58"
+                                    Padding="10,6"
+                                    Content="TOGGLE"
+                                    Click="OnToggleEqFromEffectsViewClicked"
+                                    IsVisible="{Binding IsEq}"
+                                    ToolTip.Tip="Enable or bypass the built-in EQ." />
+                                <Button
+                                    Classes="chainPrimaryBtn"
+                                    MinWidth="40"
+                                    Padding="10,6"
+                                    Content="UI"
+                                    Tag="{Binding ItemId}"
+                                    Click="OnOpenEffectChainItemEditorClicked"
+                                    IsVisible="{Binding HasEditor}"
+                                    ToolTip.Tip="Open the plug-in editor." />
+                                <Button
+                                    Classes="chainBtn"
+                                    Width="34"
+                                    Height="34"
+                                    Padding="0"
+                                    Content="↑"
+                                    Tag="{Binding ItemId}"
+                                    Click="OnMoveEffectChainItemUpClicked"
+                                    IsEnabled="{Binding CanMoveUp}"
+                                    ToolTip.Tip="Move earlier in the signal chain." />
+                                <Button
+                                    Classes="chainBtn"
+                                    Width="34"
+                                    Height="34"
+                                    Padding="0"
+                                    Content="↓"
+                                    Tag="{Binding ItemId}"
+                                    Click="OnMoveEffectChainItemDownClicked"
+                                    IsEnabled="{Binding CanMoveDown}"
+                                    ToolTip.Tip="Move later in the signal chain." />
+                                <Button
+                                    Classes="chainDangerBtn"
+                                    MinWidth="64"
+                                    Padding="10,6"
+                                    Content="REMOVE"
+                                    Tag="{Binding ItemId}"
+                                    Click="OnRemoveEffectChainItemClicked"
+                                    IsVisible="{Binding CanRemove}"
+                                    ToolTip.Tip="Remove this plug-in from the chain." />
+                              </StackPanel>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
                 </Grid>
               </Grid>
             </Border>

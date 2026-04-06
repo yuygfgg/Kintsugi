@@ -6,11 +6,13 @@ using System.Runtime.InteropServices;
 using ManagedBass;
 using ManagedBass.Enc;
 using ManagedBass.Midi;
+using MidiPlayer.App.Models;
 
 namespace MidiPlayer.App.Services;
 
 public sealed class BassMidiPlayer : IDisposable
 {
+    private static readonly Guid EqEffectItemId = Guid.Empty;
     private const int DefaultTempoMicrosecondsPerQuarterNote = 500000;
     private const double EqMinFrequency = 20.0;
     private const double EqMaxFrequency = 20000.0;
@@ -22,8 +24,7 @@ public sealed class BassMidiPlayer : IDisposable
 
     private int _streamHandle;
     private int _soundFontHandle;
-    private int _eqDspHandle;
-    private int _pluginDspHandle;
+    private int _effectChainDspHandle;
     private bool _bassInitialized;
     private bool _isLooping;
     private bool _isEqEnabled = true;
@@ -31,18 +32,18 @@ public sealed class BassMidiPlayer : IDisposable
     private int _sampleRate = 44100;
     private TempoPoint[] _tempoMap = [new(0, 60_000_000d / DefaultTempoMicrosecondsPerQuarterNote)];
     private MidiFilterProcedure? _midiFilter;
-    private DSPProcedure? _eqDspProc;
-    private DSPProcedure? _pluginDspProc;
+    private DSPProcedure? _effectChainDspProc;
     private readonly bool[] _channelMuted = new bool[16];
     private readonly bool[] _soloRestoreMuted = new bool[16];
     private readonly ChannelMixerState _channelMixer = new();
     private readonly object _eqLock = new();
-    private readonly AudioEffectPluginHost _effectPluginHost = new();
+    private readonly object _effectChainLock = new();
+    private readonly List<LoadedEffectPlugin> _effectPlugins = [];
+    private readonly List<Guid> _effectChainOrder = [EqEffectItemId];
     private readonly EqBandState[] _eqBands = CreateDefaultEqBands();
     private readonly StereoBiquadFilter[] _eqPeakFilters = CreateFilterArray(EqPeakBandCount);
     private readonly StereoBiquadFilter[] _eqLowCutFilters = CreateFilterArray(EqMaxCutStages);
     private readonly StereoBiquadFilter[] _eqHighCutFilters = CreateFilterArray(EqMaxCutStages);
-    private string _effectPluginPath = string.Empty;
     private int _soloChannel = -1;
     private bool _hasSoloState;
 
@@ -148,11 +149,67 @@ public sealed class BassMidiPlayer : IDisposable
     public static bool IsExportFormatAvailable(AudioExportFormat format)
         => format == AudioExportFormat.Wav || SupportsCompressedAudioExport;
 
-    public bool HasEffectPlugin => _effectPluginHost.HasPlugin;
+    public bool HasEffectPlugin
+    {
+        get
+        {
+            lock (_effectChainLock)
+            {
+                return _effectPlugins.Count > 0;
+            }
+        }
+    }
 
-    public bool EffectPluginHasEditor => _effectPluginHost.HasEditor;
+    public int EffectPluginCount
+    {
+        get
+        {
+            lock (_effectChainLock)
+            {
+                return _effectPlugins.Count;
+            }
+        }
+    }
 
-    public string EffectPluginDisplayName => _effectPluginHost.PluginName;
+    public bool EffectPluginHasEditor
+    {
+        get
+        {
+            lock (_effectChainLock)
+            {
+                foreach (var itemId in _effectChainOrder)
+                {
+                    var plugin = FindLoadedEffectPlugin(itemId);
+                    if (plugin?.HasEditor == true)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+    }
+
+    public string EffectPluginDisplayName
+    {
+        get
+        {
+            lock (_effectChainLock)
+            {
+                foreach (var itemId in _effectChainOrder)
+                {
+                    var plugin = FindLoadedEffectPlugin(itemId);
+                    if (plugin is not null)
+                    {
+                        return plugin.DisplayName;
+                    }
+                }
+
+                return string.Empty;
+            }
+        }
+    }
 
     private int _masterVolumePercent = DefaultMixPercent;
     private int _reverbReturnPercent = DefaultMixPercent;
@@ -938,8 +995,7 @@ public sealed class BassMidiPlayer : IDisposable
         _channelMixer.ResetTrackedValues();
         ApplyPlaybackModifiers();
         ReapplyMixerState();
-        ConfigureEqDsp();
-        ConfigurePluginDsp();
+        ConfigureEffectChainDsp();
     }
 
     private void RegisterMidiSyncs()
@@ -1207,33 +1263,224 @@ public sealed class BassMidiPlayer : IDisposable
     public void LoadEffectPlugin(string path)
     {
         EnsurePathExists(path, "Plug-in");
+        var plugin = new LoadedEffectPlugin(Guid.NewGuid(), path);
 
-        RemovePluginDsp();
-        _effectPluginHost.Unload();
-        _effectPluginPath = string.Empty;
+        try
+        {
+            plugin.Host.Load(path, _sampleRate, DefaultPluginMaxBlockSize, EqChannelCount);
+            plugin.Host.Prepare(_sampleRate, DefaultPluginMaxBlockSize, EqChannelCount);
+        }
+        catch
+        {
+            plugin.Dispose();
+            throw;
+        }
 
-        _effectPluginHost.Load(path, _sampleRate, DefaultPluginMaxBlockSize, EqChannelCount);
-        _effectPluginPath = path;
-        ConfigurePluginDsp();
+        lock (_effectChainLock)
+        {
+            _effectPlugins.Add(plugin);
+            _effectChainOrder.Add(plugin.Id);
+        }
+
         OnPluginStateChanged();
     }
 
     public void UnloadEffectPlugin()
     {
-        RemovePluginDsp();
-        _effectPluginHost.Unload();
-        _effectPluginPath = string.Empty;
+        LoadedEffectPlugin[] pluginsToDispose;
+        lock (_effectChainLock)
+        {
+            pluginsToDispose = [.. _effectPlugins];
+            _effectPlugins.Clear();
+            _effectChainOrder.Clear();
+            _effectChainOrder.Add(EqEffectItemId);
+        }
+
+        foreach (var plugin in pluginsToDispose)
+        {
+            plugin.Dispose();
+        }
+
         OnPluginStateChanged();
     }
 
     public void ShowEffectPluginEditor()
     {
-        if (!HasEffectPlugin)
+        lock (_effectChainLock)
         {
-            throw new InvalidOperationException("Load a plug-in first.");
+            foreach (var itemId in _effectChainOrder)
+            {
+                var plugin = FindLoadedEffectPlugin(itemId);
+                if (plugin?.HasEditor != true)
+                {
+                    continue;
+                }
+
+                plugin.Host.ShowEditor();
+                return;
+            }
         }
 
-        _effectPluginHost.ShowEditor();
+        throw new InvalidOperationException("Load a plug-in with an editor first.");
+    }
+
+    public void ShowEffectPluginEditor(Guid itemId)
+    {
+        lock (_effectChainLock)
+        {
+            var plugin = FindLoadedEffectPlugin(itemId)
+                ?? throw new InvalidOperationException("The selected plug-in is no longer available.");
+
+            if (!plugin.HasEditor)
+            {
+                throw new InvalidOperationException("The selected plug-in does not expose an editor.");
+            }
+
+            plugin.Host.ShowEditor();
+        }
+    }
+
+    public void RemoveEffectPlugin(Guid itemId)
+    {
+        if (itemId == EqEffectItemId)
+        {
+            throw new InvalidOperationException("The built-in EQ cannot be removed.");
+        }
+
+        LoadedEffectPlugin? pluginToDispose = null;
+
+        lock (_effectChainLock)
+        {
+            for (var i = 0; i < _effectPlugins.Count; i++)
+            {
+                if (_effectPlugins[i].Id != itemId)
+                {
+                    continue;
+                }
+
+                pluginToDispose = _effectPlugins[i];
+                _effectPlugins.RemoveAt(i);
+                _effectChainOrder.Remove(itemId);
+                break;
+            }
+        }
+
+        pluginToDispose?.Dispose();
+        OnPluginStateChanged();
+    }
+
+    public void MoveEffectChainItem(Guid itemId, int offset)
+    {
+        if (offset == 0)
+        {
+            return;
+        }
+
+        lock (_effectChainLock)
+        {
+            var index = _effectChainOrder.IndexOf(itemId);
+            if (index < 0)
+            {
+                return;
+            }
+
+            var targetIndex = Math.Clamp(index + offset, 0, _effectChainOrder.Count - 1);
+            if (targetIndex == index)
+            {
+                return;
+            }
+
+            _effectChainOrder.RemoveAt(index);
+            _effectChainOrder.Insert(targetIndex, itemId);
+        }
+
+        OnPluginStateChanged();
+    }
+
+    public AudioEffectChainItem[] GetEffectChainItems()
+    {
+        lock (_effectChainLock)
+        {
+            var items = new List<AudioEffectChainItem>(_effectChainOrder.Count);
+
+            for (var index = 0; index < _effectChainOrder.Count; index++)
+            {
+                var itemId = _effectChainOrder[index];
+                if (itemId == EqEffectItemId)
+                {
+                    items.Add(new AudioEffectChainItem(
+                        EqEffectItemId,
+                        AudioEffectChainItemKind.Eq,
+                        "Equalizer",
+                        "EQ",
+                        "Built-in 8-band equalizer",
+                        string.Empty,
+                        _isEqEnabled ? "ON" : "OFF",
+                        _isEqEnabled,
+                        false,
+                        index > 0,
+                        index < _effectChainOrder.Count - 1,
+                        false));
+                    continue;
+                }
+
+                var plugin = FindLoadedEffectPlugin(itemId);
+                if (plugin is null)
+                {
+                    continue;
+                }
+
+                items.Add(new AudioEffectChainItem(
+                    plugin.Id,
+                    AudioEffectChainItemKind.Plugin,
+                    plugin.DisplayName,
+                    GetPluginFormatLabel(plugin.Path),
+                    plugin.HasEditor ? "Editor available" : "No editor window",
+                    plugin.Path,
+                    plugin.HasEditor ? "UI" : "HEADLESS",
+                    true,
+                    plugin.HasEditor,
+                    index > 0,
+                    index < _effectChainOrder.Count - 1,
+                    true));
+            }
+
+            return [.. items];
+        }
+    }
+
+    public string GetEffectChainSummary()
+    {
+        lock (_effectChainLock)
+        {
+            var labels = new List<string>(_effectChainOrder.Count);
+
+            foreach (var itemId in _effectChainOrder)
+            {
+                if (itemId == EqEffectItemId)
+                {
+                    if (_isEqEnabled)
+                    {
+                        labels.Add("EQ");
+                    }
+
+                    continue;
+                }
+
+                var plugin = FindLoadedEffectPlugin(itemId);
+                if (plugin is not null)
+                {
+                    labels.Add(plugin.DisplayName);
+                }
+            }
+
+            return labels.Count switch
+            {
+                0 => "CHAIN: OFF",
+                <= 2 => $"CHAIN: {string.Join(" -> ", labels)}",
+                _ => $"CHAIN: {string.Join(" -> ", labels.Take(2))} +{labels.Count - 2}"
+            };
+        }
     }
 
     public void ExportCurrentMidiToAudio(AudioExportOptions options)
@@ -1241,7 +1488,7 @@ public sealed class BassMidiPlayer : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         options = NormalizeExportOptions(options);
         var eqSettings = CaptureEqExportSettings();
-        var effectPluginSettings = CaptureEffectPluginExportSettings();
+        var effectChainSettings = CaptureEffectChainExportSettings();
         EnsureInitialized();
         EnsureStreamLoaded();
 
@@ -1289,7 +1536,7 @@ public sealed class BassMidiPlayer : IDisposable
             _channelMuted,
             CaptureMixSettings(),
             eqSettings,
-            effectPluginSettings);
+            effectChainSettings);
     }
 
     private static AudioExportOptions NormalizeExportOptions(AudioExportOptions options)
@@ -1307,14 +1554,31 @@ public sealed class BassMidiPlayer : IDisposable
         }
     }
 
-    private EffectPluginExportSettings? CaptureEffectPluginExportSettings()
+    private EffectChainExportSettings CaptureEffectChainExportSettings()
     {
-        if (!HasEffectPlugin || string.IsNullOrWhiteSpace(_effectPluginPath))
+        lock (_effectChainLock)
         {
-            return null;
-        }
+            var items = new List<EffectChainExportItemSettings>(_effectChainOrder.Count);
 
-        return new EffectPluginExportSettings(_effectPluginPath, _effectPluginHost.GetState());
+            foreach (var itemId in _effectChainOrder)
+            {
+                if (itemId == EqEffectItemId)
+                {
+                    items.Add(new EffectChainExportItemSettings(true, string.Empty, []));
+                    continue;
+                }
+
+                var plugin = FindLoadedEffectPlugin(itemId);
+                if (plugin is null)
+                {
+                    continue;
+                }
+
+                items.Add(new EffectChainExportItemSettings(false, plugin.Path, plugin.Host.GetState()));
+            }
+
+            return new EffectChainExportSettings([.. items]);
+        }
     }
 
     public void Play()
@@ -1503,7 +1767,7 @@ public sealed class BassMidiPlayer : IDisposable
 
         if (disposingPluginHost)
         {
-            _effectPluginHost.Dispose();
+            DisposeEffectPlugins();
         }
     }
 
@@ -1557,73 +1821,45 @@ public sealed class BassMidiPlayer : IDisposable
         ApplySystemMode(_streamHandle, _systemMode);
     }
 
-    private void ConfigureEqDsp()
-    {
-        RemoveEqDsp();
-        if (_streamHandle == 0)
-        {
-            return;
-        }
-
-        _eqDspProc ??= ProcessEqDsp;
-        _eqDspHandle = Bass.ChannelSetDSP(_streamHandle, _eqDspProc, IntPtr.Zero, 0);
-        if (_eqDspHandle == 0)
-        {
-            throw CreateBassException("Failed to install EQ DSP");
-        }
-
-        RebuildEqFilters(resetState: true);
-    }
-
-    private void RemoveEqDsp()
-    {
-        if (_streamHandle != 0 && _eqDspHandle != 0)
-        {
-            Bass.ChannelRemoveDSP(_streamHandle, _eqDspHandle);
-        }
-
-        _eqDspHandle = 0;
-        ResetEqFilterStates();
-    }
-
     private void OnEqStateChanged()
         => EqStateChanged?.Invoke(this, EventArgs.Empty);
 
     private void OnPluginStateChanged()
         => PluginStateChanged?.Invoke(this, EventArgs.Empty);
 
-    private void ConfigurePluginDsp()
+    private void ConfigureEffectChainDsp()
     {
-        RemovePluginDsp();
-
-        if (_streamHandle == 0 || !_effectPluginHost.HasPlugin)
+        RemoveEffectChainDsp();
+        if (_streamHandle == 0)
         {
             return;
         }
 
-        _effectPluginHost.Prepare(_sampleRate, DefaultPluginMaxBlockSize, EqChannelCount);
+        PrepareEffectPlugins();
+        RebuildEqFilters(resetState: true);
 
-        _pluginDspProc ??= ProcessPluginDsp;
-        _pluginDspHandle = Bass.ChannelSetDSP(_streamHandle, _pluginDspProc, IntPtr.Zero, 1);
-        if (_pluginDspHandle == 0)
+        _effectChainDspProc ??= ProcessEffectChainDsp;
+        _effectChainDspHandle = Bass.ChannelSetDSP(_streamHandle, _effectChainDspProc, IntPtr.Zero, 0);
+        if (_effectChainDspHandle == 0)
         {
-            throw CreateBassException("Failed to install plug-in DSP");
+            throw CreateBassException("Failed to install effect chain DSP");
         }
     }
 
-    private void RemovePluginDsp()
+    private void RemoveEffectChainDsp()
     {
-        if (_streamHandle != 0 && _pluginDspHandle != 0)
+        if (_streamHandle != 0 && _effectChainDspHandle != 0)
         {
-            Bass.ChannelRemoveDSP(_streamHandle, _pluginDspHandle);
+            Bass.ChannelRemoveDSP(_streamHandle, _effectChainDspHandle);
         }
 
-        _pluginDspHandle = 0;
+        _effectChainDspHandle = 0;
+        ResetEqFilterStates();
     }
 
-    private void ProcessPluginDsp(int handle, int channel, IntPtr buffer, int length, IntPtr user)
+    private void ProcessEffectChainDsp(int handle, int channel, IntPtr buffer, int length, IntPtr user)
     {
-        if (!_effectPluginHost.HasPlugin || buffer == IntPtr.Zero || length <= 0)
+        if (buffer == IntPtr.Zero || length <= 0)
         {
             return;
         }
@@ -1634,15 +1870,82 @@ public sealed class BassMidiPlayer : IDisposable
             return;
         }
 
-        try
+        lock (_effectChainLock)
         {
-            _effectPluginHost.ProcessInterleaved(buffer, frames, EqChannelCount);
-        }
-        catch
-        {
-            // Keep playback alive if the host refuses a block.
+            foreach (var itemId in _effectChainOrder)
+            {
+                if (itemId == EqEffectItemId)
+                {
+                    ProcessEqBuffer(buffer, length);
+                    continue;
+                }
+
+                var plugin = FindLoadedEffectPlugin(itemId);
+                if (plugin is null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    plugin.Host.ProcessInterleaved(buffer, frames, EqChannelCount);
+                }
+                catch
+                {
+                    // Keep playback alive if a plug-in refuses a block.
+                }
+            }
         }
     }
+
+    private void PrepareEffectPlugins()
+    {
+        lock (_effectChainLock)
+        {
+            foreach (var plugin in _effectPlugins)
+            {
+                plugin.Host.Prepare(_sampleRate, DefaultPluginMaxBlockSize, EqChannelCount);
+            }
+        }
+    }
+
+    private void DisposeEffectPlugins()
+    {
+        LoadedEffectPlugin[] plugins;
+        lock (_effectChainLock)
+        {
+            plugins = [.. _effectPlugins];
+            _effectPlugins.Clear();
+            _effectChainOrder.Clear();
+            _effectChainOrder.Add(EqEffectItemId);
+        }
+
+        foreach (var plugin in plugins)
+        {
+            plugin.Dispose();
+        }
+    }
+
+    private LoadedEffectPlugin? FindLoadedEffectPlugin(Guid itemId)
+    {
+        if (itemId == EqEffectItemId)
+        {
+            return null;
+        }
+
+        foreach (var plugin in _effectPlugins)
+        {
+            if (plugin.Id == itemId)
+            {
+                return plugin;
+            }
+        }
+
+        return null;
+    }
+
+    private static string GetPluginFormatLabel(string path)
+        => path.EndsWith(".component", StringComparison.OrdinalIgnoreCase) ? "AU" : "VST3";
 
     private void RebuildEqFilters(bool resetState)
     {
@@ -1733,9 +2036,9 @@ public sealed class BassMidiPlayer : IDisposable
         }
     }
 
-    private unsafe void ProcessEqDsp(int handle, int channel, IntPtr buffer, int length, IntPtr user)
+    private unsafe void ProcessEqBuffer(IntPtr buffer, int length)
     {
-        if (!_isEqEnabled || length <= 0)
+        if (!_isEqEnabled || buffer == IntPtr.Zero || length <= 0)
         {
             return;
         }
@@ -1923,8 +2226,7 @@ public sealed class BassMidiPlayer : IDisposable
             return;
         }
 
-        RemovePluginDsp();
-        RemoveEqDsp();
+        RemoveEffectChainDsp();
         _syncProcs = null;
         _loopSyncProc = null;
         RemoveLoopRangeSync();
@@ -2071,12 +2373,11 @@ public sealed class BassMidiPlayer : IDisposable
         bool[]? channelMuted,
         MidiMixSettings mixSettings,
         EqExportSettings eqSettings,
-        EffectPluginExportSettings? effectPluginSettings)
+        EffectChainExportSettings effectChainSettings)
     {
         int exportStreamHandle = 0;
         int exportFontHandle = 0;
-        ExportEqProcessor? exportEq = null;
-        ExportEffectPluginProcessor? exportEffectPlugin = null;
+        ExportEffectChainProcessor? effectChainProcessor = null;
 
         try
         {
@@ -2125,20 +2426,16 @@ public sealed class BassMidiPlayer : IDisposable
             ConfigureExportFilter(exportStreamHandle, systemMode, channelMuted, mixerState, out MidiFilterProcedure filter, out SyncProcedure resetSync);
             ApplyPlaybackModifiers(exportStreamHandle, mixSettings.PlaybackSpeedPercent, mixSettings.PlaybackTransposeSemitones);
             mixerState.ApplyAll(exportStreamHandle);
-            exportEq = new ExportEqProcessor(eqSettings, options.SampleRate, exportStreamHandle);
-            exportEffectPlugin = effectPluginSettings is null
-                ? null
-                : new ExportEffectPluginProcessor(effectPluginSettings, options.SampleRate, exportStreamHandle);
+            effectChainProcessor = new ExportEffectChainProcessor(effectChainSettings, eqSettings, options.SampleRate, exportStreamHandle);
 
             WriteExportFile(exportStreamHandle, options);
-            exportEffectPlugin?.ThrowIfProcessingFailed();
+            effectChainProcessor.ThrowIfProcessingFailed();
             GC.KeepAlive(resetSync);
             GC.KeepAlive(filter);
         }
         finally
         {
-            exportEffectPlugin?.Dispose();
-            exportEq?.Dispose();
+            effectChainProcessor?.Dispose();
 
             if (exportStreamHandle != 0)
             {
@@ -3178,26 +3475,102 @@ public sealed class BassMidiPlayer : IDisposable
 
     private sealed record EqExportSettings(bool IsEnabled, EqBandState[] Bands);
 
-    private sealed record EffectPluginExportSettings(string Path, byte[] State);
+    private sealed record EffectChainExportSettings(EffectChainExportItemSettings[] Items);
 
-    private sealed class ExportEqProcessor : IDisposable
+    private sealed record EffectChainExportItemSettings(bool IsEq, string Path, byte[] State);
+
+    private sealed class ExportEffectChainProcessor : IDisposable
     {
-        private readonly bool _isEnabled;
+        private readonly List<EffectChainProcessorStep> _steps = [];
+        private readonly List<AudioEffectPluginHost> _pluginHosts = [];
         private readonly StereoBiquadFilter[] _peakFilters = CreateFilterArray(EqPeakBandCount);
         private readonly StereoBiquadFilter[] _lowCutFilters = CreateFilterArray(EqMaxCutStages);
         private readonly StereoBiquadFilter[] _highCutFilters = CreateFilterArray(EqMaxCutStages);
         private readonly object _syncRoot = new();
         private readonly DSPProcedure _dspProc;
         private readonly int _streamHandle;
+        private Exception? _processingException;
         private int _dspHandle;
 
-        public ExportEqProcessor(EqExportSettings settings, int sampleRate, int streamHandle)
+        public ExportEffectChainProcessor(EffectChainExportSettings effectChainSettings, EqExportSettings eqSettings, int sampleRate, int streamHandle)
         {
-            _isEnabled = settings.IsEnabled;
             _streamHandle = streamHandle;
             _dspProc = ProcessDsp;
 
-            if (!_isEnabled)
+            try
+            {
+                ConfigureEq(eqSettings, sampleRate);
+
+                foreach (var item in effectChainSettings.Items)
+                {
+                    if (item.IsEq)
+                    {
+                        if (eqSettings.IsEnabled)
+                        {
+                            _steps.Add(new EffectChainProcessorStep(true, null));
+                        }
+
+                        continue;
+                    }
+
+                    var host = new AudioEffectPluginHost();
+                    host.Load(item.Path, sampleRate, DefaultPluginMaxBlockSize, EqChannelCount);
+                    if (item.State.Length > 0)
+                    {
+                        host.SetState(item.State);
+                    }
+
+                    host.Prepare(sampleRate, DefaultPluginMaxBlockSize, EqChannelCount);
+                    _pluginHosts.Add(host);
+                    _steps.Add(new EffectChainProcessorStep(false, host));
+                }
+
+                if (_steps.Count == 0)
+                {
+                    return;
+                }
+
+                _dspHandle = Bass.ChannelSetDSP(streamHandle, _dspProc, IntPtr.Zero, 0);
+                if (_dspHandle == 0)
+                {
+                    throw CreateBassException("Failed to install export effect chain DSP");
+                }
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_streamHandle != 0 && _dspHandle != 0)
+            {
+                Bass.ChannelRemoveDSP(_streamHandle, _dspHandle);
+                _dspHandle = 0;
+            }
+
+            foreach (var host in _pluginHosts)
+            {
+                host.Dispose();
+            }
+
+            _pluginHosts.Clear();
+            _steps.Clear();
+        }
+
+        public void ThrowIfProcessingFailed()
+        {
+            if (_processingException is not null)
+            {
+                throw new InvalidOperationException("The effect chain failed while rendering the export.", _processingException);
+            }
+        }
+
+        private void ConfigureEq(EqExportSettings settings, int sampleRate)
+        {
+            if (!settings.IsEnabled)
             {
                 return;
             }
@@ -3219,111 +3592,6 @@ public sealed class BassMidiPlayer : IDisposable
 
             ConfigureCutFilters(sampleRate, settings.Bands[0], isHighPass: true, _lowCutFilters);
             ConfigureCutFilters(sampleRate, settings.Bands[^1], isHighPass: false, _highCutFilters);
-
-            _dspHandle = Bass.ChannelSetDSP(streamHandle, _dspProc, IntPtr.Zero, 0);
-            if (_dspHandle == 0)
-            {
-                throw CreateBassException("Failed to install export EQ DSP");
-            }
-        }
-
-        public void Dispose()
-        {
-            if (_streamHandle != 0 && _dspHandle != 0)
-            {
-                Bass.ChannelRemoveDSP(_streamHandle, _dspHandle);
-                _dspHandle = 0;
-            }
-        }
-
-        private unsafe void ProcessDsp(int handle, int channel, IntPtr buffer, int length, IntPtr user)
-        {
-            if (!_isEnabled || length <= 0)
-            {
-                return;
-            }
-
-            var sampleCount = length / sizeof(float);
-            if (sampleCount < EqChannelCount)
-            {
-                return;
-            }
-
-            var samples = (float*)buffer;
-            lock (_syncRoot)
-            {
-                for (var index = 0; index + 1 < sampleCount; index += EqChannelCount)
-                {
-                    var left = samples[index];
-                    var right = samples[index + 1];
-
-                    foreach (var filter in _lowCutFilters)
-                    {
-                        filter.Process(ref left, ref right);
-                    }
-
-                    foreach (var filter in _peakFilters)
-                    {
-                        filter.Process(ref left, ref right);
-                    }
-
-                    foreach (var filter in _highCutFilters)
-                    {
-                        filter.Process(ref left, ref right);
-                    }
-
-                    samples[index] = left;
-                    samples[index + 1] = right;
-                }
-            }
-        }
-    }
-
-    private sealed class ExportEffectPluginProcessor : IDisposable
-    {
-        private readonly AudioEffectPluginHost _host = new();
-        private readonly DSPProcedure _dspProc;
-        private readonly int _streamHandle;
-        private Exception? _processingException;
-        private int _dspHandle;
-
-        public ExportEffectPluginProcessor(EffectPluginExportSettings settings, int sampleRate, int streamHandle)
-        {
-            _streamHandle = streamHandle;
-            _dspProc = ProcessDsp;
-
-            _host.Load(settings.Path, sampleRate, DefaultPluginMaxBlockSize, EqChannelCount);
-            if (settings.State.Length > 0)
-            {
-                _host.SetState(settings.State);
-            }
-
-            _host.Prepare(sampleRate, DefaultPluginMaxBlockSize, EqChannelCount);
-
-            _dspHandle = Bass.ChannelSetDSP(streamHandle, _dspProc, IntPtr.Zero, 1);
-            if (_dspHandle == 0)
-            {
-                throw CreateBassException("Failed to install export plug-in DSP");
-            }
-        }
-
-        public void Dispose()
-        {
-            if (_streamHandle != 0 && _dspHandle != 0)
-            {
-                Bass.ChannelRemoveDSP(_streamHandle, _dspHandle);
-                _dspHandle = 0;
-            }
-
-            _host.Dispose();
-        }
-
-        public void ThrowIfProcessingFailed()
-        {
-            if (_processingException is not null)
-            {
-                throw new InvalidOperationException("The loaded effect plug-in failed while rendering the export.", _processingException);
-            }
         }
 
         private void ProcessDsp(int handle, int channel, IntPtr buffer, int length, IntPtr user)
@@ -3339,15 +3607,89 @@ public sealed class BassMidiPlayer : IDisposable
                 return;
             }
 
-            try
+            lock (_syncRoot)
             {
-                _host.ProcessInterleaved(buffer, frames, EqChannelCount);
-            }
-            catch (Exception ex)
-            {
-                _processingException = ex;
+                foreach (var step in _steps)
+                {
+                    if (step.IsEq)
+                    {
+                        ProcessEqBuffer(buffer, length);
+                        continue;
+                    }
+
+                    try
+                    {
+                        step.Host!.ProcessInterleaved(buffer, frames, EqChannelCount);
+                    }
+                    catch (Exception ex)
+                    {
+                        _processingException = ex;
+                        return;
+                    }
+                }
             }
         }
+
+        private unsafe void ProcessEqBuffer(IntPtr buffer, int length)
+        {
+            var sampleCount = length / sizeof(float);
+            if (sampleCount < EqChannelCount)
+            {
+                return;
+            }
+
+            var samples = (float*)buffer;
+            for (var index = 0; index + 1 < sampleCount; index += EqChannelCount)
+            {
+                var left = samples[index];
+                var right = samples[index + 1];
+
+                foreach (var filter in _lowCutFilters)
+                {
+                    filter.Process(ref left, ref right);
+                }
+
+                foreach (var filter in _peakFilters)
+                {
+                    filter.Process(ref left, ref right);
+                }
+
+                foreach (var filter in _highCutFilters)
+                {
+                    filter.Process(ref left, ref right);
+                }
+
+                samples[index] = left;
+                samples[index + 1] = right;
+            }
+        }
+
+        private readonly record struct EffectChainProcessorStep(bool IsEq, AudioEffectPluginHost? Host);
+    }
+
+    private sealed class LoadedEffectPlugin : IDisposable
+    {
+        public LoadedEffectPlugin(Guid id, string path)
+        {
+            Id = id;
+            Path = path;
+            Host = new AudioEffectPluginHost();
+        }
+
+        public Guid Id { get; }
+
+        public string Path { get; }
+
+        public AudioEffectPluginHost Host { get; }
+
+        public string DisplayName => string.IsNullOrWhiteSpace(Host.PluginName)
+            ? System.IO.Path.GetFileNameWithoutExtension(Path)
+            : Host.PluginName;
+
+        public bool HasEditor => Host.HasEditor;
+
+        public void Dispose()
+            => Host.Dispose();
     }
 
     private sealed class StereoBiquadFilter

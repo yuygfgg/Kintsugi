@@ -1,6 +1,6 @@
 # Kintsugi Midi Player
 
-Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI or playlist loading, switchable live visualizers, an interactive EQ, a piano-roll waterfall view, transport controls, tempo override, global transpose, per-channel mixing, a live MIDI event browser, offline audio export, and a single insert effect plug-in slot for VST3 and macOS Audio Unit effects.
+Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI or playlist loading, switchable live visualizers, an interactive EQ, a piano-roll waterfall view, transport controls, tempo override, global transpose, per-channel mixing, a live MIDI event browser, offline audio export, and a reorderable effect chain with the built-in EQ plus VST3 and macOS Audio Unit effects.
 
 ## Build
 
@@ -39,10 +39,10 @@ This bundle includes the native BASS/BASSMIDI/BASSenc libraries needed for playb
 2. Open a MIDI file or a playlist file. The bundled `GeneralUser-GS.sf2` default SoundFont loads automatically in packaged builds.
 3. If you open a single MIDI file, all other MIDI files in the same directory will automatically be imported into the Playlist. If you open a `.m3u`, `.m3u8`, or `.pls` file, the Playlist will follow the entries defined in that file.
 4. Optional: click the gear button and replace it with your own SoundFont (`.sf2` or `.sfz`).
-5. Optional: click `LOAD FX` to insert one VST3 effect, or on macOS one VST3 or Audio Unit effect.
+5. Optional: switch to the `FX` view and click `Add FX` to append one or more VST3 effects, or on macOS VST3 or Audio Unit effects.
 6. Use the transport controls at the bottom to play, pause, seek, or loop the track.
-7. Click `EVENTS` if you want to inspect the current MIDI file's raw event stream while it plays.
-8. Click `EXPORT AUDIO` if you want to render the current track to an audio file.
+7. Use `ACTIONS ▾` > `Browse Events...` if you want to inspect the current MIDI file's raw event stream while it plays.
+8. Use `ACTIONS ▾` > `Export Audio...` if you want to render the current track to an audio file.
 
 ### 3. Main Window Overview
 
@@ -55,12 +55,12 @@ The header shows:
 - The app title
 - The current MIDI file name
 - A status badge such as `Ready to play`, `Playing`, `Paused`, `Finished`, or an error message
-- An `ACTIONS ▾` menu containing file, event, and effect plug-in operations
+- An `ACTIONS ▾` menu containing file, export, and event operations
 - The settings button
 
 #### Event Browser
 
-Click `EVENTS` in the header to open the MIDI Event Browser for the currently loaded file.
+Use `ACTIONS ▾` > `Browse Events...` to open the MIDI Event Browser for the currently loaded file.
 
 The Event Browser opens as a separate window, so it can stay visible while you continue using the main player window.
 
@@ -97,10 +97,11 @@ Hovering a channel shows the current instrument or drum kit name for that channe
 
 The center panel contains:
 
-- A switchable `EQ` / `ROLL` / `MIX` visualizer header
+- A switchable `EQ` / `ROLL` / `MIX` / `FX` visualizer header
 - An `EQ` view with a real-time spectrum analyzer and integrated EQ curve
 - A `ROLL` view with a piano-roll waterfall made of channel-colored falling note blocks
 - A `MIX` view providing a vertical mixer strip for all 16 channels
+- An `FX` view for loading, reordering, bypassing, and removing effects in the processing chain
 - A piano keyboard that lights up with active notes
 - `KEY -` and `KEY +` buttons for global transpose in semitones
 
@@ -205,23 +206,26 @@ The spectrum panel also works as a live EQ editor.
 - Click the EQ power button to bypass or enable the entire EQ
 - EQ currently affects live playback and the analyzer display in real time
 
-#### Effect Plug-ins
+#### Effect Chain
 
-Kintsugi currently hosts one insert effect plug-in at a time.
+Switch to the `FX` tab in the center visualizer to manage the current effect chain.
 
-- Use `LOAD FX` to load the first effect
-- Use `REPLACE FX` to swap it for another effect
-- Use `FX UI` to open the plug-in's own editor window when the plug-in provides one
-- Use `FX OFF` to unload the current effect completely
+- Use `Add FX` to append another effect to the chain
+- Use `UI` to open a plug-in's own editor window when that plug-in provides one
+- Use `↑` and `↓` to reorder the chain
+- Use `REMOVE` to remove a plug-in from the chain
+- Use `TOGGLE` on the EQ row to bypass or enable the built-in EQ
+- Use `Clear FX` to unload all external plug-ins while keeping the EQ row available
 - On macOS, both VST3 (`.vst3`) and Audio Unit (`.component`) effects are supported
 - On other platforms, the app currently hosts VST3 effects
 - Instrument plug-ins are not supported yet; load an audio effect plug-in with a stereo input/output layout
 
-Processing order is:
+Processing order follows the chain order shown in the `FX` view, from top to bottom.
+
+Typical processing flow is:
 
 1. MIDI is rendered through the selected SoundFont.
-2. The loaded VST3 or AU effect processes the stereo audio.
-3. The built-in EQ processes the result afterward.
+2. Each enabled chain item processes the stereo audio in the visible order.
 
 This same order is used for both live playback and offline export, so the rendered file should match what you hear in the player.
 
@@ -343,7 +347,7 @@ Available sample rates:
 
 ### 8. Exporting Audio
 
-Click `EXPORT AUDIO` to render the current MIDI file to an audio file.
+Use `ACTIONS ▾` > `Export Audio...` to render the current MIDI file to an audio file.
 
 The export button is enabled only when a MIDI file is loaded.
 
@@ -384,7 +388,7 @@ Audio export uses the current playback state for rendering:
 - Current MIDI system mode
 - Current tempo override
 - Current global transpose
-- Current loaded effect plug-in and its current state
+- Current effect chain order, loaded plug-ins, and plug-in states
 - Current EQ state
 - Current master mix
 - Current reverb and chorus return settings
@@ -451,9 +455,6 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 | `ACTIONS` > `Browse Events...` | Open the MIDI Event Browser                        |
 | `◀` / `▶` toggle button        | Slide out or retract the Playlist drawer           |
 | `ACTIONS` > `Export Audio...`  | Render the current track to WAV, FLAC, or Opus     |
-| `ACTIONS` > `Load FX...`       | Load or replace the current insert effect plug-in  |
-| `ACTIONS` > `FX UI...`         | Open the current effect plug-in editor window      |
-| `ACTIONS` > `Unload FX`        | Unload the current effect plug-in                  |
 | `Space`                        | Play or pause                                      |
 | `⏮` / `⏭`                      | Previous / Next track                              |
 | Channel left-click             | Mute/unmute channel                                |
@@ -461,12 +462,17 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 | Channel hover                  | Show channel instrument name                       |
 | `MIX` (Transport)              | Open global mixer popup                            |
 | `MIX` (Visualizer)             | Switch to the per-channel mixer view               |
+| `FX` (Visualizer)              | Open the effect chain view                         |
+| `Add FX`                       | Append a VST3 or AU effect to the chain            |
+| `UI`                           | Open the selected plug-in editor window            |
+| `↑` / `↓` in `FX`              | Move a chain item earlier or later                 |
+| `REMOVE` in `FX`               | Remove the selected plug-in                        |
+| `TOGGLE` in `FX`               | Bypass or enable the built-in EQ chain item        |
+| `Clear FX`                     | Remove all external plug-ins from the chain        |
 | Loop button                    | Toggle looping                                     |
 | `BPM`                          | Open tempo override popup                          |
-| `EQ` / `ROLL`                  | Switch the center visualizer view                  |
+| `EQ` / `ROLL` / `MIX` / `FX`   | Switch the center visualizer view                  |
 | `KEY -` / `KEY +`              | Transpose down or up                               |
 | EQ power button                | Bypass or enable the EQ                            |
 | EQ drag / wheel / double-click | Edit EQ bands / adjust width or slope / reset band |
 | Slider double-click            | Reset that control                                 |
-|                                |
-| control                        |

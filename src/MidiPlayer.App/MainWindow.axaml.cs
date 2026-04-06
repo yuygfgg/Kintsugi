@@ -27,7 +27,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         Eq,
         PianoRoll,
-        Mix
+        Mix,
+        Effects
     }
 
     private static readonly IBrush LoopEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#214B75"));
@@ -96,6 +97,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int _currentPlaylistSourceIndex = -1;
 
     public ObservableCollection<PlaylistItem> Playlist { get; } = new();
+    public ObservableCollection<AudioEffectChainItem> EffectChainItems { get; } = new();
+
     private bool _isPlaylistSortAscending = true;
     public bool IsPlaylistSortAscending
     {
@@ -184,6 +187,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         UpdateSortIcon();
+        RefreshEffectChainItems();
 
         Closing += OnClosing;
     }
@@ -326,26 +330,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool CanUnloadAudioPlugin => _player.HasEffectPlugin && !_isExporting && !_isLoadingAudioPlugin;
 
-    public bool CanOpenAudioPluginEditor => _player.EffectPluginHasEditor && !_isExporting && !_isLoadingAudioPlugin;
-
     public string ExportButtonText => _isExporting ? "EXPORTING..." : "EXPORT AUDIO";
 
     public string AudioPluginButtonText
         => _isLoadingAudioPlugin
             ? "LOADING FX..."
             : _player.HasEffectPlugin
-                ? "REPLACE FX"
+                ? "ADD FX"
                 : "LOAD FX";
 
-    public string AudioPluginSummaryText
-        => _player.HasEffectPlugin
-            ? $"FX: {_player.EffectPluginDisplayName}"
-            : "FX: OFF";
+    public string AudioPluginSummaryText => _player.GetEffectChainSummary();
 
-    public string AudioPluginToolTip
-        => _player.HasEffectPlugin
-            ? "Replace the currently loaded VST3 or Audio Unit effect."
-            : "Load a VST3 or Audio Unit effect.";
+    public string AudioPluginToolTip => "Open the FX chain view to add, reorder, or remove plug-ins.";
 
     public string CurrentBpmText => FormatBpm(_player.GetCurrentBpm());
 
@@ -387,6 +383,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool IsMixViewSelected => _selectedVisualizerView == VisualizerView.Mix;
 
+    public bool IsEffectsViewSelected => _selectedVisualizerView == VisualizerView.Effects;
+
     public IBrush EqViewButtonBackground => GetVisualizerViewButtonBackground(VisualizerView.Eq);
 
     public IBrush EqViewButtonBorderBrush => GetVisualizerViewButtonBorderBrush(VisualizerView.Eq);
@@ -404,6 +402,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public IBrush MixViewButtonBorderBrush => GetVisualizerViewButtonBorderBrush(VisualizerView.Mix);
 
     public IBrush MixViewButtonForeground => GetVisualizerViewButtonForeground(VisualizerView.Mix);
+
+    public IBrush EffectsViewButtonBackground => GetVisualizerViewButtonBackground(VisualizerView.Effects);
+
+    public IBrush EffectsViewButtonBorderBrush => GetVisualizerViewButtonBorderBrush(VisualizerView.Effects);
+
+    public IBrush EffectsViewButtonForeground => GetVisualizerViewButtonForeground(VisualizerView.Effects);
+
+    public string EffectChainStatusText => _player.HasEffectPlugin
+        ? $"{_player.EffectPluginCount} plug-in{(_player.EffectPluginCount == 1 ? string.Empty : "s")} plus EQ in the current chain."
+        : "Only the built-in EQ is in the chain.";
 
     public double PlaybackSpeedPercent
     {
@@ -705,7 +713,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
             _player.LoadEffectPlugin(path);
-            StatusText = $"FX loaded: {_player.EffectPluginDisplayName}";
+            StatusText = $"FX added: {Path.GetFileNameWithoutExtension(path)}";
+            SetVisualizerView(VisualizerView.Effects);
         }
         catch (Exception ex)
         {
@@ -728,7 +737,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             _player.UnloadEffectPlugin();
-            StatusText = "FX cleared.";
+            StatusText = "External FX cleared.";
         }
         catch (Exception ex)
         {
@@ -736,25 +745,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         RefreshAudioPluginBindings();
-    }
-
-    private async void OnShowAudioPluginEditorClicked(object? sender, RoutedEventArgs e)
-    {
-        if (!CanOpenAudioPluginEditor)
-        {
-            return;
-        }
-
-        try
-        {
-            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
-            _player.ShowEffectPluginEditor();
-            StatusText = $"FX UI opened: {_player.EffectPluginDisplayName}";
-        }
-        catch (Exception ex)
-        {
-            StatusText = "Plug-in error: " + ex.Message;
-        }
     }
 
     private void OnSettingsClicked(object? sender, RoutedEventArgs e)
@@ -934,6 +924,104 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         SetVisualizerView(VisualizerView.Mix);
         e.Handled = true;
+    }
+
+    private void ShowEffectsView()
+    {
+        SetVisualizerView(VisualizerView.Effects);
+    }
+
+    private void OnShowEffectsViewClicked(object? sender, RoutedEventArgs e)
+    {
+        ShowEffectsView();
+        e.Handled = true;
+    }
+
+    private async void OnOpenEffectChainItemEditorClicked(object? sender, RoutedEventArgs e)
+    {
+        if (!TryGetEffectChainItemId(sender, out var itemId))
+        {
+            return;
+        }
+
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
+            _player.ShowEffectPluginEditor(itemId);
+            StatusText = "FX UI opened.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Plug-in error: " + ex.Message;
+        }
+    }
+
+    private void OnRemoveEffectChainItemClicked(object? sender, RoutedEventArgs e)
+    {
+        if (!TryGetEffectChainItemId(sender, out var itemId))
+        {
+            return;
+        }
+
+        try
+        {
+            _player.RemoveEffectPlugin(itemId);
+            StatusText = "FX removed from chain.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Plug-in error: " + ex.Message;
+        }
+    }
+
+    private void OnMoveEffectChainItemUpClicked(object? sender, RoutedEventArgs e)
+    {
+        MoveEffectChainItem(sender, -1);
+    }
+
+    private void OnMoveEffectChainItemDownClicked(object? sender, RoutedEventArgs e)
+    {
+        MoveEffectChainItem(sender, 1);
+    }
+
+    private void OnToggleEqFromEffectsViewClicked(object? sender, RoutedEventArgs e)
+    {
+        IsEqEnabled = !IsEqEnabled;
+        e.Handled = true;
+    }
+
+    private void MoveEffectChainItem(object? sender, int offset)
+    {
+        if (!TryGetEffectChainItemId(sender, out var itemId))
+        {
+            return;
+        }
+
+        _player.MoveEffectChainItem(itemId, offset);
+        RefreshAudioPluginBindings();
+    }
+
+    private static bool TryGetEffectChainItemId(object? sender, out Guid itemId)
+    {
+        itemId = Guid.Empty;
+        if (sender is not Control control || control.Tag is null)
+        {
+            return false;
+        }
+
+        if (control.Tag is Guid guid)
+        {
+            itemId = guid;
+            return true;
+        }
+
+        if (control.Tag is string text && Guid.TryParse(text, out guid))
+        {
+            itemId = guid;
+            return true;
+        }
+
+        return false;
     }
 
     private void OnTogglePlaylistClicked(object? sender, RoutedEventArgs e)
@@ -1551,10 +1639,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         OnPropertyChanged(nameof(CanLoadAudioPlugin));
         OnPropertyChanged(nameof(CanUnloadAudioPlugin));
-        OnPropertyChanged(nameof(CanOpenAudioPluginEditor));
         OnPropertyChanged(nameof(AudioPluginButtonText));
         OnPropertyChanged(nameof(AudioPluginSummaryText));
         OnPropertyChanged(nameof(AudioPluginToolTip));
+        OnPropertyChanged(nameof(EffectChainStatusText));
+        RefreshEffectChainItems();
     }
 
     private void RefreshPlaybackBindings()
@@ -1630,11 +1719,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(EqButtonBorderBrush));
         OnPropertyChanged(nameof(EqButtonForeground));
         OnPropertyChanged(nameof(EqButtonToolTip));
+        OnPropertyChanged(nameof(AudioPluginSummaryText));
+        OnPropertyChanged(nameof(EffectChainStatusText));
     }
 
     private void OnPlayerEqStateChanged(object? sender, EventArgs e)
     {
         RefreshEqBindings();
+        RefreshEffectChainItems();
 
         if (!_isLoadingSavedMidiMix)
         {
@@ -1645,6 +1737,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnPlayerPluginStateChanged(object? sender, EventArgs e)
     {
         Dispatcher.UIThread.Post(RefreshAudioPluginBindings);
+    }
+
+    private void RefreshEffectChainItems()
+    {
+        var items = _player.GetEffectChainItems();
+        EffectChainItems.Clear();
+        foreach (var item in items)
+        {
+            EffectChainItems.Add(item);
+        }
     }
 
     private void SetVisualizerView(VisualizerView view)
@@ -1658,6 +1760,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(IsEqViewSelected));
         OnPropertyChanged(nameof(IsPianoRollViewSelected));
         OnPropertyChanged(nameof(IsMixViewSelected));
+        OnPropertyChanged(nameof(IsEffectsViewSelected));
         OnPropertyChanged(nameof(EqViewButtonBackground));
         OnPropertyChanged(nameof(EqViewButtonBorderBrush));
         OnPropertyChanged(nameof(EqViewButtonForeground));
@@ -1667,6 +1770,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(MixViewButtonBackground));
         OnPropertyChanged(nameof(MixViewButtonBorderBrush));
         OnPropertyChanged(nameof(MixViewButtonForeground));
+        OnPropertyChanged(nameof(EffectsViewButtonBackground));
+        OnPropertyChanged(nameof(EffectsViewButtonBorderBrush));
+        OnPropertyChanged(nameof(EffectsViewButtonForeground));
     }
 
     private IBrush GetVisualizerViewButtonBackground(VisualizerView view)
