@@ -5,6 +5,7 @@ namespace MidiPlayer.App.Models;
 
 public class PlaylistItem : INotifyPropertyChanged
 {
+    private int _sourceIndex;
     private string _filePath = string.Empty;
     private string _fileName = string.Empty;
     private double _durationSeconds;
@@ -13,6 +14,12 @@ public class PlaylistItem : INotifyPropertyChanged
     private bool _isFailed;
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public int SourceIndex
+    {
+        get => _sourceIndex;
+        init => SetField(ref _sourceIndex, value);
+    }
 
     public string FilePath
     {

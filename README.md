@@ -1,6 +1,6 @@
 # Kintsugi Midi Player
 
-Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI loading, switchable live visualizers, an interactive EQ, a piano-roll waterfall view, transport controls, tempo override, global transpose, per-channel mixing, a live MIDI event browser, and offline audio export.
+Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI or playlist loading, switchable live visualizers, an interactive EQ, a piano-roll waterfall view, transport controls, tempo override, global transpose, per-channel mixing, a live MIDI event browser, and offline audio export.
 
 ## Build
 
@@ -27,17 +27,19 @@ This bundle includes the native BASS/BASSMIDI/BASSenc libraries needed for playb
 ### 1. Supported Files
 
 - MIDI input: `.mid`, `.midi`, `.kar`, `.rmi`
+- Playlist input: `.m3u`, `.m3u8`, `.pls`
 - SoundFont input: `.sf2`, `.sfz`
 - Export output: `.wav`, `.flac`, `.opus`
 
 ### 2. Quick Start
 
 1. Open the app.
-2. Open a MIDI file. The bundled `GeneralUser-GS.sf2` default SoundFont loads automatically in packaged builds. All other MIDI files in the same directory will automatically be imported into the Playlist.
-3. Optional: click the gear button and replace it with your own SoundFont (`.sf2` or `.sfz`).
-4. Use the transport controls at the bottom to play, pause, seek, or loop the track.
-5. Click `EVENTS` if you want to inspect the current MIDI file's raw event stream while it plays.
-6. Click `EXPORT AUDIO` if you want to render the current track to an audio file.
+2. Open a MIDI file or a playlist file. The bundled `GeneralUser-GS.sf2` default SoundFont loads automatically in packaged builds.
+3. If you open a single MIDI file, all other MIDI files in the same directory will automatically be imported into the Playlist. If you open a `.m3u`, `.m3u8`, or `.pls` file, the Playlist will follow the entries defined in that file.
+4. Optional: click the gear button and replace it with your own SoundFont (`.sf2` or `.sfz`).
+5. Use the transport controls at the bottom to play, pause, seek, or loop the track.
+6. Click `EVENTS` if you want to inspect the current MIDI file's raw event stream while it plays.
+7. Click `EXPORT AUDIO` if you want to render the current track to an audio file.
 
 ### 3. Main Window Overview
 
@@ -109,9 +111,12 @@ Colors match MIDI channels, so you can see which channel is playing which notes.
 #### Playlist Drawer
 
 Click the `◀` tab located on the right edge of the main window to slide out the playlist panel.
-- It automatically imports all valid MIDI files from the directory of the last opened file.
+- Opening a single MIDI file automatically imports all valid MIDI files from that file's directory.
+- Opening a `.m3u`, `.m3u8`, or `.pls` file imports the MIDI files referenced by that playlist.
+- Playlist entries are limited to local MIDI files. Relative paths are resolved relative to the playlist file.
 - Track durations are parsed instantly in the background.
-- Click `↓ A-Z` or `↑ Z-A` to toggle alphabetical sorting.
+- Playlist files keep their original order and show `LIST` in the sort button. Click it once to switch back to alphabetical sorting.
+- Click `↓ A-Z` or `↑ Z-A` to toggle alphabetical sorting after leaving `LIST` mode.
 - Click `▶` in the drawer's header to cleanly retract it.
 
 #### Transport Bar
@@ -129,9 +134,11 @@ The bottom bar contains:
 
 ### 4. Playback Basics
 
-#### Open a MIDI File
+#### Open a File
 
-Click `OPEN FILE` and choose a MIDI file, or drag a MIDI file into the window. The app loads the file immediately.
+Click `OPEN FILE` and choose a MIDI or playlist file, or drag one into the window. The app loads it immediately.
+
+When opening a playlist file, Kintsugi starts with the first valid MIDI entry in that list.
 
 Playback starts automatically when the bundled `GeneralUser-GS.sf2` or a previously selected custom SoundFont is available.
 
@@ -147,7 +154,7 @@ If playback has already reached the end of the song, pressing Play starts again 
 
 #### Track Navigation
 
-- Use the `⏮` (Previous) or `⏭` (Next) buttons in the transport bar to skip between tracks in your auto-imported Playlist.
+- Use the `⏮` (Previous) or `⏭` (Next) buttons in the transport bar to skip between tracks in the current Playlist.
 - These controls map directly to your system's native media controllers (SMTC/macOS remote commands), meaning your keyboard's hardware media keys will naturally switch tracks in Kintsugi.
 
 #### Seek

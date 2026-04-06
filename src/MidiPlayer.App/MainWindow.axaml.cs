@@ -56,7 +56,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static readonly IBrush SpeedDisabledBackgroundBrush = new SolidColorBrush(Color.Parse("#171717"));
     private static readonly IBrush SpeedDisabledBorderBrush = new SolidColorBrush(Color.Parse("#2F2F2F"));
     private static readonly IBrush SpeedDisabledForegroundBrush = new SolidColorBrush(Color.Parse("#A0A0A0"));
-    private static readonly string[] SupportedMidiExtensions = [".mid", ".midi", ".kar", ".rmi"];
+    private static readonly string[] SupportedPlayableExtensions = [.. PlaylistFileParser.SupportedMidiExtensions, .. PlaylistFileParser.SupportedPlaylistExtensions];
+    private static readonly string SupportedPlayableFileDescription = string.Join(", ", SupportedPlayableExtensions);
     private const double ChannelMixerPopupWidth = 244;
     private const double ChannelMixerPopupHeight = 206;
     private const double ChannelMixerPopupPointerWidth = 20;
@@ -90,6 +91,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private PianoRollNote[] _pianoRollNotes = Array.Empty<PianoRollNote>();
     private bool _isLoadingSavedMidiMix;
     private string _currentMidiMixKey = string.Empty;
+    private bool _playlistUsesExplicitOrder;
+    private int _currentPlaylistSourceIndex = -1;
 
     public ObservableCollection<PlaylistItem> Playlist { get; } = new();
     private bool _isPlaylistSortAscending = true;
@@ -168,6 +171,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AddHandler(DragDrop.DropEvent, OnWindowDrop);
         
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
+        UpdateSortIcon();
 
         Closing += OnClosing;
     }
@@ -639,10 +643,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         var path = await PickSingleFileAsync(
-            new FilePickerFileType("MIDI")
+            new FilePickerFileType("MIDI / Playlist")
             {
-                Patterns = ["*.mid", "*.midi", "*.kar", "*.rmi"],
-                MimeTypes = ["audio/midi"]
+                Patterns = [.. SupportedPlayableExtensions.Select(extension => $"*{extension}")]
             });
 
         if (path is null)
@@ -650,7 +653,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        LoadMidiFromPath(path);
+        OpenPlayablePath(path);
     }
 
     private void OnSettingsClicked(object? sender, RoutedEventArgs e)
@@ -841,7 +844,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void OnToggleSortClicked(object? sender, RoutedEventArgs e)
     {
-        IsPlaylistSortAscending = !IsPlaylistSortAscending;
+        if (_playlistUsesExplicitOrder)
+        {
+            _playlistUsesExplicitOrder = false;
+            SortPlaylist();
+        }
+        else
+        {
+            IsPlaylistSortAscending = !IsPlaylistSortAscending;
+        }
+
         UpdateSortIcon();
     }
 
@@ -850,7 +862,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var run = this.FindControl<Avalonia.Controls.TextBlock>("SortIconText");
         if (run != null)
         {
-            run.Text = IsPlaylistSortAscending ? "↓ A-Z" : "↑ Z-A";
+            run.Text = _playlistUsesExplicitOrder
+                ? "LIST"
+                : IsPlaylistSortAscending ? "↓ A-Z" : "↑ Z-A";
         }
     }
 
@@ -861,28 +875,38 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             listBox.SelectedItem = null; // Reset selection to allow clicking again
             if (!item.IsPlaying)
             {
-                LoadMidiFromPath(item.FilePath, true);
+                LoadMidiFromPath(item.FilePath, true, item.SourceIndex);
             }
         }
     }
 
     internal void OnPlayNextClicked(object? sender, RoutedEventArgs e)
     {
-        if (Playlist.Count == 0 || string.IsNullOrEmpty(_player.MidiPath)) return;
-        var index = Playlist.ToList().FindIndex(x => string.Equals(x.FilePath, _player.MidiPath, StringComparison.OrdinalIgnoreCase));
+        if (Playlist.Count == 0)
+        {
+            return;
+        }
+
+        int index = GetCurrentPlaylistIndex();
         if (index >= 0 && index < Playlist.Count - 1)
         {
-            LoadMidiFromPath(Playlist[index + 1].FilePath, true);
+            PlaylistItem nextItem = Playlist[index + 1];
+            LoadMidiFromPath(nextItem.FilePath, true, nextItem.SourceIndex);
         }
     }
 
     internal void OnPlayPreviousClicked(object? sender, RoutedEventArgs e)
     {
-        if (Playlist.Count == 0 || string.IsNullOrEmpty(_player.MidiPath)) return;
-        var index = Playlist.ToList().FindIndex(x => string.Equals(x.FilePath, _player.MidiPath, StringComparison.OrdinalIgnoreCase));
+        if (Playlist.Count == 0)
+        {
+            return;
+        }
+
+        int index = GetCurrentPlaylistIndex();
         if (index > 0)
         {
-            LoadMidiFromPath(Playlist[index - 1].FilePath, true);
+            PlaylistItem previousItem = Playlist[index - 1];
+            LoadMidiFromPath(previousItem.FilePath, true, previousItem.SourceIndex);
         }
     }
 
@@ -1124,7 +1148,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void OnWindowDragOver(object? sender, DragEventArgs e)
     {
-        bool canDrop = CanOpenMidi && TryGetDraggedMidiPath(e.DataTransfer) is not null;
+        bool canDrop = CanOpenMidi && TryGetDraggedPlayablePath(e.DataTransfer) is not null;
         e.DragEffects = canDrop ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
     }
@@ -1138,10 +1162,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        string? path = TryGetDraggedMidiPath(e.DataTransfer);
+        string? path = TryGetDraggedPlayablePath(e.DataTransfer);
         if (path is null)
         {
-            StatusText = "Drop a MIDI file (.mid, .midi, .kar, .rmi).";
+            StatusText = $"Drop a MIDI or playlist file ({SupportedPlayableFileDescription}).";
             e.DragEffects = DragDropEffects.None;
             e.Handled = true;
             return;
@@ -1149,7 +1173,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         e.DragEffects = DragDropEffects.Copy;
         e.Handled = true;
-        LoadMidiFromPath(path);
+        OpenPlayablePath(path);
     }
 
     private void RefreshTransport(bool resetPosition = false)
@@ -1568,7 +1592,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static string FormatCoord(double value)
         => value.ToString("0.###", CultureInfo.InvariantCulture);
 
-    internal void LoadMidiFromPath(string path, bool isFromPlaylist = false)
+    internal void LoadMidiFromPath(string path, bool isFromPlaylist = false, int playlistSourceIndex = -1)
     {
         CloseChannelMixerPopup();
         IsGlobalMixerPopupOpen = false;
@@ -1606,7 +1630,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
             else
             {
-                UpdatePlaylistPlayingState(path);
+                UpdatePlaylistPlayingState(playlistSourceIndex, path);
             }
         }
         catch (Exception ex)
@@ -1619,31 +1643,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ImportPlaylistFromDirectory(string currentMidiPath)
     {
-        _playlistParseCts?.Cancel();
-        Playlist.Clear();
-
         try
         {
             string? dir = Path.GetDirectoryName(currentMidiPath);
-            if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) return;
+            if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
+            {
+                return;
+            }
 
             var files = Directory.GetFiles(dir)
                 .Where(f => IsSupportedMidiPath(f))
                 .ToList();
 
-            foreach (var f in files)
-            {
-                Playlist.Add(new PlaylistItem
-                {
-                    FilePath = f,
-                    FileName = Path.GetFileName(f),
-                    IsPlaying = string.Equals(f, currentMidiPath, StringComparison.OrdinalIgnoreCase)
-                });
-            }
-
-            SortPlaylist();
-            _playlistParseCts = new CancellationTokenSource();
-            _ = ParsePlaylistDurationsAsync(_playlistParseCts.Token);
+            ReplacePlaylist(files, currentMidiPath, preserveExplicitOrder: false);
         }
         catch (Exception ex)
         {
@@ -1663,11 +1675,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         foreach (var item in items) Playlist.Add(item);
     }
 
-    private void UpdatePlaylistPlayingState(string playingPath)
+    private void UpdatePlaylistPlayingState(int playingSourceIndex, string? playingPath = null)
     {
+        _currentPlaylistSourceIndex = playingSourceIndex;
         foreach (var item in Playlist)
         {
-            item.IsPlaying = string.Equals(item.FilePath, playingPath, StringComparison.OrdinalIgnoreCase);
+            item.IsPlaying = playingSourceIndex >= 0
+                ? item.SourceIndex == playingSourceIndex
+                : !string.IsNullOrWhiteSpace(playingPath) && string.Equals(item.FilePath, playingPath, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -1714,7 +1729,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private static string? TryGetDraggedMidiPath(IDataTransfer dataTransfer)
+    private static string? TryGetDraggedPlayablePath(IDataTransfer dataTransfer)
     {
         if (dataTransfer.TryGetFiles() is { } storageItems)
         {
@@ -1726,7 +1741,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 }
 
                 string? path = storageFile.TryGetLocalPath();
-                if (IsSupportedMidiPath(path))
+                if (IsSupportedPlayablePath(path))
                 {
                     return path;
                 }
@@ -1737,22 +1752,109 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     private static bool IsSupportedMidiPath(string? path)
+        => PlaylistFileParser.IsSupportedMidiPath(path);
+
+    private static bool IsSupportedPlayablePath(string? path)
+        => PlaylistFileParser.IsSupportedMidiPath(path) || PlaylistFileParser.IsSupportedPlaylistPath(path);
+
+    private void OpenPlayablePath(string path)
     {
-        if (string.IsNullOrWhiteSpace(path))
+        if (PlaylistFileParser.IsSupportedPlaylistPath(path))
         {
-            return false;
+            ImportPlaylistFromFile(path);
+            return;
         }
 
-        string extension = Path.GetExtension(path);
-        foreach (var supportedExtension in SupportedMidiExtensions)
+        if (PlaylistFileParser.IsSupportedMidiPath(path))
         {
-            if (string.Equals(extension, supportedExtension, StringComparison.OrdinalIgnoreCase))
+            LoadMidiFromPath(path);
+            return;
+        }
+
+        StatusText = $"Unsupported file type: {Path.GetExtension(path)}";
+    }
+
+    private void ImportPlaylistFromFile(string playlistPath)
+    {
+        try
+        {
+            IReadOnlyList<string> midiPaths = PlaylistFileParser.ParseLocalMidiEntries(playlistPath);
+            if (midiPaths.Count == 0)
             {
-                return true;
+                StatusText = $"No supported local MIDI files found in {Path.GetFileName(playlistPath)}.";
+                return;
+            }
+
+            _isPlaylistSortAscending = true;
+            ReplacePlaylist(midiPaths, currentMidiPath: null, preserveExplicitOrder: true);
+            PlaylistItem firstItem = Playlist[0];
+            LoadMidiFromPath(firstItem.FilePath, true, firstItem.SourceIndex);
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Playlist error: " + ex.Message;
+        }
+    }
+
+    private void ReplacePlaylist(IReadOnlyList<string> filePaths, string? currentMidiPath, bool preserveExplicitOrder)
+    {
+        _playlistParseCts?.Cancel();
+        Playlist.Clear();
+
+        int currentSourceIndex = -1;
+        for (int i = 0; i < filePaths.Count; i++)
+        {
+            string filePath = filePaths[i];
+            if (currentSourceIndex < 0 && !string.IsNullOrWhiteSpace(currentMidiPath) &&
+                string.Equals(filePath, currentMidiPath, StringComparison.OrdinalIgnoreCase))
+            {
+                currentSourceIndex = i;
+            }
+
+            Playlist.Add(new PlaylistItem
+            {
+                SourceIndex = i,
+                FilePath = filePath,
+                FileName = Path.GetFileName(filePath),
+                IsPlaying = false
+            });
+        }
+
+        _playlistUsesExplicitOrder = preserveExplicitOrder;
+        if (!_playlistUsesExplicitOrder)
+        {
+            SortPlaylist();
+        }
+
+        UpdatePlaylistPlayingState(currentSourceIndex, currentMidiPath);
+        UpdateSortIcon();
+
+        if (Playlist.Count == 0)
+        {
+            return;
+        }
+
+        _playlistParseCts = new CancellationTokenSource();
+        _ = ParsePlaylistDurationsAsync(_playlistParseCts.Token);
+    }
+
+    private int GetCurrentPlaylistIndex()
+    {
+        if (_currentPlaylistSourceIndex >= 0)
+        {
+            int indexBySource = Playlist.ToList().FindIndex(item => item.SourceIndex == _currentPlaylistSourceIndex);
+            if (indexBySource >= 0)
+            {
+                return indexBySource;
             }
         }
 
-        return false;
+        if (string.IsNullOrWhiteSpace(_player.MidiPath))
+        {
+            return -1;
+        }
+
+        return Playlist.ToList().FindIndex(item => string.Equals(item.FilePath, _player.MidiPath, StringComparison.OrdinalIgnoreCase));
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
