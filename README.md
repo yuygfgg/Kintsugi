@@ -1,6 +1,6 @@
 # Kintsugi Midi Player
 
-Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI or playlist loading, switchable live visualizers, an interactive EQ, a piano-roll waterfall view, transport controls, tempo override, global transpose, per-channel mixing, a live MIDI event browser, and offline audio export.
+Kintsugi Midi Player is a desktop MIDI player built with Avalonia and BASS/BASSMIDI. It supports SoundFont-based playback, drag-and-drop MIDI or playlist loading, switchable live visualizers, an interactive EQ, a piano-roll waterfall view, transport controls, tempo override, global transpose, per-channel mixing, a live MIDI event browser, offline audio export, and a single insert effect plug-in slot for VST3 and macOS Audio Unit effects.
 
 ## Build
 
@@ -29,6 +29,8 @@ This bundle includes the native BASS/BASSMIDI/BASSenc libraries needed for playb
 - MIDI input: `.mid`, `.midi`, `.kar`, `.rmi`
 - Playlist input: `.m3u`, `.m3u8`, `.pls`
 - SoundFont input: `.sf2`, `.sfz`
+- Effect plug-ins: `.vst3`
+- Effect plug-ins on macOS: `.component` (Audio Unit)
 - Export output: `.wav`, `.flac`, `.opus`
 
 ### 2. Quick Start
@@ -37,9 +39,10 @@ This bundle includes the native BASS/BASSMIDI/BASSenc libraries needed for playb
 2. Open a MIDI file or a playlist file. The bundled `GeneralUser-GS.sf2` default SoundFont loads automatically in packaged builds.
 3. If you open a single MIDI file, all other MIDI files in the same directory will automatically be imported into the Playlist. If you open a `.m3u`, `.m3u8`, or `.pls` file, the Playlist will follow the entries defined in that file.
 4. Optional: click the gear button and replace it with your own SoundFont (`.sf2` or `.sfz`).
-5. Use the transport controls at the bottom to play, pause, seek, or loop the track.
-6. Click `EVENTS` if you want to inspect the current MIDI file's raw event stream while it plays.
-7. Click `EXPORT AUDIO` if you want to render the current track to an audio file.
+5. Optional: click `LOAD FX` to insert one VST3 effect, or on macOS one VST3 or Audio Unit effect.
+6. Use the transport controls at the bottom to play, pause, seek, or loop the track.
+7. Click `EVENTS` if you want to inspect the current MIDI file's raw event stream while it plays.
+8. Click `EXPORT AUDIO` if you want to render the current track to an audio file.
 
 ### 3. Main Window Overview
 
@@ -57,6 +60,9 @@ The header shows:
 - `OPEN FILE`
 - `EXPORT AUDIO`
 - `EVENTS`
+- `LOAD FX` or `REPLACE FX`
+- `FX UI`
+- `FX OFF`
 - The settings button
 
 #### Event Browser
@@ -208,6 +214,26 @@ The spectrum panel also works as a live EQ editor.
 - Double-click the selected band to reset it to its default position
 - Click the EQ power button to bypass or enable the entire EQ
 - EQ currently affects live playback and the analyzer display in real time
+
+#### Effect Plug-ins
+
+Kintsugi currently hosts one insert effect plug-in at a time.
+
+- Use `LOAD FX` to load the first effect
+- Use `REPLACE FX` to swap it for another effect
+- Use `FX UI` to open the plug-in's own editor window when the plug-in provides one
+- Use `FX OFF` to unload the current effect completely
+- On macOS, both VST3 (`.vst3`) and Audio Unit (`.component`) effects are supported
+- On other platforms, the app currently hosts VST3 effects
+- Instrument plug-ins are not supported yet; load an audio effect plug-in with a stereo input/output layout
+
+Processing order is:
+
+1. MIDI is rendered through the selected SoundFont.
+2. The loaded VST3 or AU effect processes the stereo audio.
+3. The built-in EQ processes the result afterward.
+
+This same order is used for both live playback and offline export, so the rendered file should match what you hear in the player.
 
 #### Piano Roll / Waterfall
 
@@ -379,6 +405,7 @@ Audio export uses the current playback state for rendering:
 - Current MIDI system mode
 - Current tempo override
 - Current global transpose
+- Current loaded effect plug-in and its current state
 - Current EQ state
 - Current master mix
 - Current reverb and chorus return settings
@@ -445,6 +472,9 @@ This is expected. The player rebuilds the audio engine when the sample rate chan
 | `EVENTS`                       | Open the MIDI Event Browser                        |
 | `◀` tab (Right Edge)           | Slide out the Playlist drawer                      |
 | `EXPORT AUDIO`                 | Render the current track to WAV, FLAC, or Opus     |
+| `LOAD FX` / `REPLACE FX`       | Load or replace the current insert effect plug-in  |
+| `FX UI`                        | Open the current effect plug-in editor window      |
+| `FX OFF`                       | Unload the current effect plug-in                  |
 | `Space`                        | Play or pause                                      |
 | `⏮` / `⏭`                      | Previous / Next track                              |
 | Channel single-click           | Mute/unmute channel                                |

@@ -73,6 +73,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isScrubbing;
     private bool _isUpdatingPosition;
     private bool _isExporting;
+    private bool _isLoadingAudioPlugin;
     private bool _wasPlayingLastRefresh;
     private double _durationSeconds;
     private double _positionSeconds;
@@ -126,6 +127,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _settings = AppSettings.Load();
         _player.EqStateChanged += OnPlayerEqStateChanged;
+        _player.PluginStateChanged += OnPlayerPluginStateChanged;
 
         _player.SampleRate = _settings.SampleRate;
 
@@ -323,7 +325,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool CanBrowseMidiEvents => _player.HasStream && !_isExporting && !string.IsNullOrWhiteSpace(_player.MidiPath);
 
+    public bool CanLoadAudioPlugin => !_isExporting && !_isLoadingAudioPlugin;
+
+    public bool CanUnloadAudioPlugin => _player.HasEffectPlugin && !_isExporting && !_isLoadingAudioPlugin;
+
+    public bool CanOpenAudioPluginEditor => _player.EffectPluginHasEditor && !_isExporting && !_isLoadingAudioPlugin;
+
     public string ExportButtonText => _isExporting ? "EXPORTING..." : "EXPORT AUDIO";
+
+    public string AudioPluginButtonText
+        => _isLoadingAudioPlugin
+            ? "LOADING FX..."
+            : _player.HasEffectPlugin
+                ? "REPLACE FX"
+                : "LOAD FX";
+
+    public string AudioPluginSummaryText
+        => _player.HasEffectPlugin
+            ? $"FX: {_player.EffectPluginDisplayName}"
+            : "FX: OFF";
+
+    public string AudioPluginToolTip
+        => _player.HasEffectPlugin
+            ? "Replace the currently loaded VST3 or Audio Unit effect."
+            : "Load a VST3 or Audio Unit effect.";
 
     public string CurrentBpmText => FormatBpm(_player.GetCurrentBpm());
 
@@ -654,6 +679,80 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         OpenPlayablePath(path);
+    }
+
+    private async void OnLoadAudioPluginClicked(object? sender, RoutedEventArgs e)
+    {
+        if (!CanLoadAudioPlugin)
+        {
+            return;
+        }
+
+        var path = await PickAudioPluginPathAsync();
+
+        if (path is null)
+        {
+            return;
+        }
+
+        _isLoadingAudioPlugin = true;
+        RefreshAudioPluginBindings();
+        StatusText = $"Loading FX: {Path.GetFileName(path)}";
+
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
+            _player.LoadEffectPlugin(path);
+            StatusText = $"FX loaded: {_player.EffectPluginDisplayName}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Plug-in error: " + ex.Message;
+        }
+        finally
+        {
+            _isLoadingAudioPlugin = false;
+            RefreshAudioPluginBindings();
+        }
+    }
+
+    private void OnUnloadAudioPluginClicked(object? sender, RoutedEventArgs e)
+    {
+        if (!CanUnloadAudioPlugin)
+        {
+            return;
+        }
+
+        try
+        {
+            _player.UnloadEffectPlugin();
+            StatusText = "FX cleared.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Plug-in error: " + ex.Message;
+        }
+
+        RefreshAudioPluginBindings();
+    }
+
+    private async void OnShowAudioPluginEditorClicked(object? sender, RoutedEventArgs e)
+    {
+        if (!CanOpenAudioPluginEditor)
+        {
+            return;
+        }
+
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
+            _player.ShowEffectPluginEditor();
+            StatusText = $"FX UI opened: {_player.EffectPluginDisplayName}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Plug-in error: " + ex.Message;
+        }
     }
 
     private void OnSettingsClicked(object? sender, RoutedEventArgs e)
@@ -1222,6 +1321,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(PlayPauseIconMargin));
         OnPropertyChanged(nameof(CurrentBpmText));
         RefreshLoopBindings();
+        RefreshAudioPluginBindings();
     }
 
     private async Task<string?> PickSingleFileAsync(FilePickerFileType fileType)
@@ -1257,6 +1357,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return path;
     }
 
+    private async Task<string?> PickAudioPluginPathAsync()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return await PickSingleFileAsync(new FilePickerFileType("Audio Plug-ins")
+            {
+                Patterns = ["*.vst3"]
+            });
+        }
+
+        CloseChannelMixerPopup();
+        IsGlobalMixerPopupOpen = false;
+        IsSpeedPopupOpen = false;
+        var dialog = new AudioPluginPickerWindow();
+        await dialog.ShowDialog(this);
+        return dialog.SelectedPath;
+    }
+
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
         if (_isExporting)
@@ -1276,6 +1394,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _mediaControls.Dispose();
         _player.EqStateChanged -= OnPlayerEqStateChanged;
+        _player.PluginStateChanged -= OnPlayerPluginStateChanged;
         _player.Dispose();
     }
 
@@ -1439,6 +1558,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshGlobalChorusBindings();
     }
 
+    private void RefreshAudioPluginBindings()
+    {
+        OnPropertyChanged(nameof(CanLoadAudioPlugin));
+        OnPropertyChanged(nameof(CanUnloadAudioPlugin));
+        OnPropertyChanged(nameof(CanOpenAudioPluginEditor));
+        OnPropertyChanged(nameof(AudioPluginButtonText));
+        OnPropertyChanged(nameof(AudioPluginSummaryText));
+        OnPropertyChanged(nameof(AudioPluginToolTip));
+    }
+
     private void RefreshPlaybackBindings()
     {
         OnPropertyChanged(nameof(PlaybackSpeedPercent));
@@ -1522,6 +1651,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             PersistCurrentMidiMix();
         }
+    }
+
+    private void OnPlayerPluginStateChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(RefreshAudioPluginBindings);
     }
 
     private void SetVisualizerView(VisualizerView view)

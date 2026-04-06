@@ -9,6 +9,7 @@ publish/
 # Native dependency cache
 .native-assets/
 .bundled-assets/
+.deps/
 
 # IDE / editor
 .vs/

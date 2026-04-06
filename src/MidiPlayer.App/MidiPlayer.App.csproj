@@ -23,6 +23,12 @@
     <NativeAssetsRid Condition="'$(NativeAssetsRid)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</NativeAssetsRid>
     <NativeAssetsDir>$(MSBuildThisFileDirectory)../../.native-assets/$(NativeAssetsRid)</NativeAssetsDir>
     <BundledAssetsDir>$(MSBuildThisFileDirectory)../../.bundled-assets</BundledAssetsDir>
+    <PluginHostProjectDir>$(MSBuildThisFileDirectory)../native/pluginhost</PluginHostProjectDir>
+    <PluginHostBuildDir>$(BaseIntermediateOutputPath)native-pluginhost/$(NativeAssetsRid)</PluginHostBuildDir>
+    <PluginHostLibraryName Condition="$([System.String]::Copy('$(NativeAssetsRid)').ToLowerInvariant().StartsWith('win'))">KintsugiPluginHost.dll</PluginHostLibraryName>
+    <PluginHostLibraryName Condition="$([System.String]::Copy('$(NativeAssetsRid)').ToLowerInvariant().StartsWith('osx'))">libKintsugiPluginHost.dylib</PluginHostLibraryName>
+    <PluginHostLibraryName Condition="$([System.String]::Copy('$(PluginHostLibraryName)').Length) == 0">libKintsugiPluginHost.so</PluginHostLibraryName>
+    <NativeBuildParallelism>$([System.Environment]::ProcessorCount)</NativeBuildParallelism>
     <MacNativeArch Condition="$([System.String]::Copy('$(NativeAssetsRid)').ToLowerInvariant().EndsWith('-arm64'))">arm64</MacNativeArch>
     <MacNativeArch Condition="$([System.String]::Copy('$(NativeAssetsRid)').ToLowerInvariant().EndsWith('-x64'))">x86_64</MacNativeArch>
     <CreateMacAppBundle Condition="'$(CreateMacAppBundle)' == ''">false</CreateMacAppBundle>
@@ -47,6 +53,13 @@
   <Target Name="PrepareBundledAssets" BeforeTargets="Build;Publish" Condition="'$(DesignTimeBuild)' != 'true'">
     <MakeDir Directories="$(BundledAssetsDir)" />
     <Exec Command="dotnet run --project &quot;$(MSBuildThisFileDirectory)../../tools/NativeAssetDownloader/NativeAssetDownloader.csproj&quot; -- --asset-set bundled --output &quot;$(BundledAssetsDir)&quot;" />
+  </Target>
+
+  <Target Name="BuildPluginHost" BeforeTargets="Build;Publish" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MakeDir Directories="$(NativeAssetsDir);$(PluginHostBuildDir)" />
+    <Exec Command="cmake -S &quot;$(PluginHostProjectDir)&quot; -B &quot;$(PluginHostBuildDir)&quot; -DCMAKE_BUILD_TYPE=$(Configuration) -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=&quot;$(NativeAssetsDir)&quot; -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=&quot;$(NativeAssetsDir)&quot; -DCMAKE_OSX_ARCHITECTURES=$(MacNativeArch)" Condition="'$(MacNativeArch)' != ''" />
+    <Exec Command="cmake -S &quot;$(PluginHostProjectDir)&quot; -B &quot;$(PluginHostBuildDir)&quot; -DCMAKE_BUILD_TYPE=$(Configuration) -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=&quot;$(NativeAssetsDir)&quot; -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=&quot;$(NativeAssetsDir)&quot;" Condition="'$(MacNativeArch)' == ''" />
+    <Exec Command="cmake --build &quot;$(PluginHostBuildDir)&quot; --config $(Configuration) --parallel $(NativeBuildParallelism)" />
   </Target>
 
   <Target Name="CompileMacMediaControls" BeforeTargets="Build;Publish" Condition="'$(DesignTimeBuild)' != 'true' and '$([MSBuild]::IsOSPlatform(`OSX`))' == 'true' and $([System.String]::Copy('$(NativeAssetsRid)').StartsWith('osx'))">
