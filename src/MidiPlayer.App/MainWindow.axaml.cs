@@ -157,6 +157,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             onNext: () => Dispatcher.UIThread.Post(() => OnPlayNextClicked(this, new RoutedEventArgs())),
             onPrevious: () => Dispatcher.UIThread.Post(() => OnPlayPreviousClicked(this, new RoutedEventArgs()))
         );
+        _mediaControls.AttachWindow(this);
 
         _positionTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => RefreshTransport());
         _positionTimer.Start();
