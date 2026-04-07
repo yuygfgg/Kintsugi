@@ -20,10 +20,7 @@ public class ChannelMonitorControl : Control
         set => SetValue(PlayerProperty, value);
     }
 
-    private static readonly IPen OutlinePen = new Pen(new SolidColorBrush(Color.Parse("#111")), 1);
     private int _hoveredChannel = -1;
-
-    
 
     public ChannelMonitorControl()
     {
@@ -97,6 +94,18 @@ public class ChannelMonitorControl : Control
                 InvalidateVisual();
             });
         }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        App.Current.SkinManager.SkinChanged += OnSkinChanged;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        App.Current.SkinManager.SkinChanged -= OnSkinChanged;
     }
 
     private void OnNotesChanged()
@@ -205,10 +214,17 @@ public class ChannelMonitorControl : Control
                 FlowDirection.LeftToRight,
                 new Typeface("Arial"),
                 10,
-                isMuted ? Brushes.DimGray : Brushes.White);
+                isMuted ? App.Current.SkinManager.GetBrush("Theme.ChannelMonitorMutedTextBrush", "#696969") : App.Current.SkinManager.GetBrush("Theme.ChannelMonitorTextBrush", "#FFFFFF"));
             
             context.DrawText(text, new Point(rect.Center.X - text.Width / 2, rect.Center.Y - text.Height / 2));
         }
+    }
+
+    private static IPen OutlinePen => new Pen(App.Current.SkinManager.GetBrush("Theme.ControlOutlineBrush", "#111111"), 1);
+
+    private void OnSkinChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(InvalidateVisual);
     }
 }
 

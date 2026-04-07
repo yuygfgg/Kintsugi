@@ -1,0 +1,210 @@
+<Styles x:Class="MidiPlayer.App.Styles.Skins.WindowsClassicStyles"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <FontFamily x:Key="Theme.UiFontFamily">MS Sans Serif, Microsoft Sans Serif, Arial, Sans-Serif</FontFamily>
+    <FontFamily x:Key="Theme.MonoFontFamily">Lucida Console, Consolas, Courier New, monospace</FontFamily>
+
+    <CornerRadius x:Key="Theme.ButtonCornerRadius">0</CornerRadius>
+    <CornerRadius x:Key="Theme.InputCornerRadius">0</CornerRadius>
+    <CornerRadius x:Key="Theme.SurfaceCornerRadius">0</CornerRadius>
+    <CornerRadius x:Key="Theme.PopupCornerRadius">0</CornerRadius>
+    <CornerRadius x:Key="Theme.PillCornerRadius">0</CornerRadius>
+    <CornerRadius x:Key="Theme.RoundButtonCornerRadius">0</CornerRadius>
+    <CornerRadius x:Key="Theme.PlayPauseButtonCornerRadius">0</CornerRadius>
+    <CornerRadius x:Key="Theme.SideToggleCornerRadius">0</CornerRadius>
+
+    <SolidColorBrush x:Key="Theme.WindowBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.SurfaceBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.SurfaceBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.VisualizerBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Theme.VisualizerBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.PopupBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.PopupBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.SidebarBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.SidebarBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.PillBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Theme.PillBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.AccentPillBackgroundBrush" Color="#000080" />
+    <SolidColorBrush x:Key="Theme.AccentPillBorderBrush" Color="#000000" />
+
+    <SolidColorBrush x:Key="Theme.ForegroundBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.MutedForegroundBrush" Color="#202020" />
+    <SolidColorBrush x:Key="Theme.SubtleForegroundBrush" Color="#404040" />
+    <SolidColorBrush x:Key="Theme.HintForegroundBrush" Color="#404040" />
+    <SolidColorBrush x:Key="Theme.DimForegroundBrush" Color="#555555" />
+    <SolidColorBrush x:Key="Theme.AccentBrush" Color="#000080" />
+    <SolidColorBrush x:Key="Theme.SecondaryAccentForegroundBrush" Color="#000080" />
+    <SolidColorBrush x:Key="Theme.AccentMutedForegroundBrush" Color="#000080" />
+    <SolidColorBrush x:Key="Theme.DisabledForegroundBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.ListItemSelectedForegroundBrush" Color="#FFFFFF" />
+
+    <SolidColorBrush x:Key="Theme.ButtonBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.ButtonBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.ButtonForegroundBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.ButtonHoverBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.ButtonPressedBackgroundBrush" Color="#B0B0B0" />
+
+    <SolidColorBrush x:Key="Theme.PrimaryButtonBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.PrimaryButtonBorderBrush" Color="#404040" />
+    <SolidColorBrush x:Key="Theme.PrimaryButtonForegroundBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.SecondaryButtonBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.SecondaryButtonBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.SecondaryButtonForegroundBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.CompactButtonBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.CompactButtonBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.CompactButtonForegroundBrush" Color="#000000" />
+
+    <SolidColorBrush x:Key="Theme.IconButtonBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.IconButtonBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.IconButtonForegroundBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.IconButtonHoverBackgroundBrush" Color="#C0C0C0" />
+
+    <SolidColorBrush x:Key="Theme.ActionButtonBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.ActionButtonBorderBrush" Color="#404040" />
+    <SolidColorBrush x:Key="Theme.ActionButtonForegroundBrush" Color="#000000" />
+
+    <SolidColorBrush x:Key="Theme.ChainButtonBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.ChainButtonBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.ChainButtonForegroundBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.ChainPrimaryButtonBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.ChainPrimaryButtonBorderBrush" Color="#404040" />
+    <SolidColorBrush x:Key="Theme.ChainPrimaryButtonForegroundBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.ChainDangerButtonBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.ChainDangerButtonBorderBrush" Color="#800000" />
+    <SolidColorBrush x:Key="Theme.ChainDangerButtonForegroundBrush" Color="#000000" />
+
+    <SolidColorBrush x:Key="Theme.InputBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Theme.InputBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.InputForegroundBrush" Color="#000000" />
+
+    <SolidColorBrush x:Key="Theme.ListItemHoverBrush" Color="#000080" />
+    <SolidColorBrush x:Key="Theme.ListItemSelectedBrush" Color="#000080" />
+
+    <SolidColorBrush x:Key="Theme.ToggleActiveBackgroundBrush" Color="#000080" />
+    <SolidColorBrush x:Key="Theme.ToggleActiveBorderBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.ToggleActiveForegroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Theme.TogglePreparedBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.TogglePreparedBorderBrush" Color="#000080" />
+    <SolidColorBrush x:Key="Theme.TogglePreparedForegroundBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.ToggleInactiveBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.ToggleInactiveBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.ToggleInactiveForegroundBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.BadgeActiveBackgroundBrush" Color="#000080" />
+    <SolidColorBrush x:Key="Theme.BadgeActiveBorderBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.BadgeActiveForegroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Theme.BadgeStandbyBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Theme.BadgeStandbyBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.BadgeStandbyForegroundBrush" Color="#000000" />
+
+    <SolidColorBrush x:Key="Theme.PlayPauseButtonBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.PlayPauseButtonBorderBrush" Color="#404040" />
+    <SolidColorBrush x:Key="Theme.PlayPauseButtonForegroundBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.SideToggleBackgroundBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.SideToggleBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.SideToggleForegroundBrush" Color="#000000" />
+
+    <SolidColorBrush x:Key="Theme.ControlOutlineBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.PianoWhiteKeyBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Theme.PianoBlackKeyBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.ChannelMonitorTextBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.ChannelMonitorMutedTextBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.ChannelDefaultTextBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.ChannelNeutralCurrentTextBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.ChannelInactiveBrush" Color="#A0A0A0" />
+    <SolidColorBrush x:Key="Theme.ChannelMutedBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.ChannelFocusBackgroundBrush" Color="#DFDFDF" />
+    <SolidColorBrush x:Key="Theme.ChannelNeutralActiveBackgroundBrush" Color="#E8E8E8" />
+
+    <Color x:Key="Theme.PianoRollBackgroundTopColor">#FFFFFF</Color>
+    <Color x:Key="Theme.PianoRollBackgroundBottomColor">#C0C0C0</Color>
+    <SolidColorBrush x:Key="Theme.PianoRollWhiteLaneBrush" Color="#F8F8F8" />
+    <SolidColorBrush x:Key="Theme.PianoRollBlackLaneBrush" Color="#E0E0E0" />
+    <SolidColorBrush x:Key="Theme.PianoRollTextBrush" Color="#000080" />
+    <SolidColorBrush x:Key="Theme.PianoRollEmptyStateBrush" Color="#404040" />
+    <SolidColorBrush x:Key="Theme.PianoRollLaneBorderBrush" Color="#B0B0B0" />
+    <SolidColorBrush x:Key="Theme.PianoRollTimeGridBrush" Color="#A0A0A0" />
+    <SolidColorBrush x:Key="Theme.PianoRollHitLineBrush" Color="#000080" />
+    <Color x:Key="Theme.PianoRollHitGlowColor">#40000080</Color>
+
+    <SolidColorBrush x:Key="Theme.LoopTimelineSeekLaneBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Theme.LoopTimelineFullLoopBrush" Color="#DFDFDF" />
+    <SolidColorBrush x:Key="Theme.LoopTimelineSelectionBrush" Color="#C0C0C0" />
+    <SolidColorBrush x:Key="Theme.LoopTimelineSelectionStandbyBrush" Color="#DFDFDF" />
+    <SolidColorBrush x:Key="Theme.LoopTimelineProgressBrush" Color="#000080" />
+    <SolidColorBrush x:Key="Theme.LoopTimelineHandleBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.LoopTimelinePlayheadBrush" Color="#000000" />
+    <SolidColorBrush x:Key="Theme.LoopTimelineLaneBorderBrush" Color="#808080" />
+    <SolidColorBrush x:Key="Theme.LoopTimelineSelectionBorderBrush" Color="#000080" />
+    <SolidColorBrush x:Key="Theme.LoopTimelineSelectionStandbyBorderBrush" Color="#808080" />
+
+    <Color x:Key="Theme.SpectrumBackgroundTopColor">#FFFFFF</Color>
+    <Color x:Key="Theme.SpectrumBackgroundBottomColor">#C0C0C0</Color>
+    <Color x:Key="Theme.SpectrumGridMajorColor">#808080</Color>
+    <Color x:Key="Theme.SpectrumGridMinorColor">#B0B0B0</Color>
+    <Color x:Key="Theme.SpectrumZeroLineColor">#000080</Color>
+    <Color x:Key="Theme.SpectrumBarsColor">#000080</Color>
+    <Color x:Key="Theme.SpectrumResponseFillColor">#5A82D6</Color>
+    <Color x:Key="Theme.SpectrumResponseLineColor">#000080</Color>
+    <Color x:Key="Theme.SpectrumReadoutMutedColor">#505050</Color>
+    <Color x:Key="Theme.SpectrumPanelBorderColor">#808080</Color>
+    <Color x:Key="Theme.SpectrumPanelTextColor">#000080</Color>
+    <Color x:Key="Theme.SpectrumAxisTextColor">#000080</Color>
+    <Color x:Key="Theme.SpectrumReadoutOverlayColor">#20FFFFFF</Color>
+    <Color x:Key="Theme.SpectrumDisabledOverlayColor">#60C0C0C0</Color>
+    <Color x:Key="Theme.SpectrumGlyphInactiveColor">#000000</Color>
+    <Color x:Key="Theme.SpectrumHandleTextColor">#000000</Color>
+  </Styles.Resources>
+
+  <!-- WINDOWS 95 / 98 RETRO 3D BORDERS -->
+
+  <!-- Raised Controls (Buttons) -->
+  <Style Selector="Button /template/ ContentPresenter">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #FFFFFF, inset -1 -1 0 0 #000000, inset 2 2 0 0 #DFDFDF, inset -2 -2 0 0 #808080" />
+  </Style>
+  <Style Selector="Button:pressed /template/ ContentPresenter">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #000000, inset -1 -1 0 0 #FFFFFF, inset 2 2 0 0 #808080, inset -2 -2 0 0 #DFDFDF" />
+  </Style>
+  <Style Selector="Button:disabled /template/ ContentPresenter">
+    <Setter Property="Opacity" Value="0.6" />
+  </Style>
+
+  <!-- Raised Controls (Borders) -->
+  <Style Selector="Border.pill, Border.accentPill">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #FFFFFF, inset -1 -1 0 0 #000000, inset 2 2 0 0 #DFDFDF, inset -2 -2 0 0 #808080" />
+  </Style>
+  <Style Selector="Border.pill:pressed">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #000000, inset -1 -1 0 0 #FFFFFF, inset 2 2 0 0 #808080, inset -2 -2 0 0 #DFDFDF" />
+  </Style>
+
+  <!-- Sunken Controls (Panels) -->
+  <Style Selector="Border.panel, Border.visualPanel, Border.popupPanel">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #808080, inset -1 -1 0 0 #FFFFFF, inset 2 2 0 0 #000000, inset -2 -2 0 0 #DFDFDF" />
+  </Style>
+
+  <!-- Sunken Controls (Inputs) -->
+  <Style Selector="TextBox /template/ Border, ComboBox /template/ Border">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #808080, inset -1 -1 0 0 #FFFFFF, inset 2 2 0 0 #000000, inset -2 -2 0 0 #DFDFDF" />
+  </Style>
+
+  <!-- Sidebars (Outset but flat on the sides where it docks) -->
+  <Style Selector="Border.sidebar">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 0 0 0 #FFFFFF, inset -1 0 0 0 #000000" />
+  </Style>
+
+  <!-- ListBox Item Hover/Selected styling for Win95 -->
+  <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Theme.ListItemHoverBrush}" />
+  </Style>
+  <Style Selector="ListBoxItem:pointerover TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ListItemSelectedForegroundBrush}" />
+  </Style>
+
+</Styles>

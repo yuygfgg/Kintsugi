@@ -8,135 +8,29 @@
     xmlns:models="using:MidiPlayer.App.Models"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="700"
     Title="Kintsugi Midi Player"
+    Classes="appWindow"
     Width="820"
     Height="560"
     MinWidth="700"
     MinHeight="460"
-    WindowStartupLocation="CenterScreen"
-    Background="#101010">
-  <Window.Styles>
-    <Style Selector="TextBlock">
-      <Setter Property="Foreground" Value="#E0E0E0" />
-    </Style>
-    <Style Selector="ToolTip">
-      <Setter Property="Background" Value="#0D0D0D" />
-      <Setter Property="BorderBrush" Value="#303030" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="Foreground" Value="#DCEEFF" />
-    </Style>
-    <Style Selector="ToolTip TextBlock">
-      <Setter Property="Foreground" Value="#DCEEFF" />
-    </Style>
-    <Style Selector="Button.iconBtn">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="BorderBrush" Value="#333" />
-      <Setter Property="Foreground" Value="#C8D7E6" />
-      <Setter Property="Padding" Value="8" />
-      <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="Focusable" Value="False" />
-    </Style>
-    <Style Selector="Button.iconBtn:disabled">
-      <Setter Property="Foreground" Value="#8091A2" />
-    </Style>
-    <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#303030" />
-    </Style>
-    <Style Selector="Button.actionBtn">
-      <Setter Property="Background" Value="#163553" />
-      <Setter Property="BorderBrush" Value="#3A74B0" />
-      <Setter Property="Foreground" Value="#DCEEFF" />
-    </Style>
-    <Style Selector="Button.actionBtn:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#214B75" />
-    </Style>
-    <Style Selector="Button.chainBtn">
-      <Setter Property="Background" Value="#1C1C1C" />
-      <Setter Property="BorderBrush" Value="#333333" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="Foreground" Value="#E0E0E0" />
-      <Setter Property="Padding" Value="10,6" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Focusable" Value="False" />
-    </Style>
-    <Style Selector="Button.chainBtn:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#263241" />
-    </Style>
-    <Style Selector="Button.chainBtn:pressed /template/ ContentPresenter">
-      <Setter Property="Background" Value="#314254" />
-    </Style>
-    <Style Selector="Button.chainPrimaryBtn">
-      <Setter Property="Background" Value="#202A36" />
-      <Setter Property="BorderBrush" Value="#3A74B0" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="Foreground" Value="#DCEEFF" />
-      <Setter Property="Padding" Value="10,6" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Focusable" Value="False" />
-    </Style>
-    <Style Selector="Button.chainPrimaryBtn:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#274364" />
-    </Style>
-    <Style Selector="Button.chainPrimaryBtn:pressed /template/ ContentPresenter">
-      <Setter Property="Background" Value="#32567E" />
-    </Style>
-    <Style Selector="Button.chainDangerBtn">
-      <Setter Property="Background" Value="#261516" />
-      <Setter Property="BorderBrush" Value="#7A3B42" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="Foreground" Value="#F1D1D3" />
-      <Setter Property="Padding" Value="10,6" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Focusable" Value="False" />
-    </Style>
-    <Style Selector="Button.chainDangerBtn:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#3A1C1E" />
-    </Style>
-    <Style Selector="Button.chainDangerBtn:pressed /template/ ContentPresenter">
-      <Setter Property="Background" Value="#4B2428" />
-    </Style>
-    <Style Selector="Button.viewChip">
-      <Setter Property="Background" Value="#171717" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="BorderBrush" Value="#2F2F2F" />
-      <Setter Property="Foreground" Value="#A0A0A0" />
-      <Setter Property="Padding" Value="14,6" />
-      <Setter Property="CornerRadius" Value="999" />
-      <Setter Property="FontSize" Value="10" />
-      <Setter Property="FontWeight" Value="Bold" />
-      <Setter Property="Focusable" Value="False" />
-    </Style>
-    <Style Selector="Button.viewChip:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#202A36" />
-    </Style>
-    <Style Selector="Button">
-      <Setter Property="Focusable" Value="False" />
-    </Style>
-  </Window.Styles>
-
+    WindowStartupLocation="CenterScreen">
   <Panel>
     <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
       <!-- Header -->
       <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalAlignment="Center" ClipToBounds="True" Margin="0,0,12,0">
-        <TextBlock Text="KINTSUGI MIDI PLAYER" FontSize="16" FontWeight="Bold" Foreground="#4A90E2" VerticalAlignment="Center" />
+        <TextBlock Text="KINTSUGI MIDI PLAYER" FontSize="16" FontWeight="Bold" Classes="accent" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1"
                    Text="{Binding MidiDisplayName}"
                    FontSize="14"
                    FontWeight="Normal"
-                   Foreground="#A0A0A0"
+                   Classes="muted"
                    VerticalAlignment="Center"
                    TextTrimming="CharacterEllipsis" />
-        <Border Grid.Column="2"
-                Background="#171717"
-                BorderBrush="#2F2F2F"
-                BorderThickness="1"
-                CornerRadius="999"
-                Padding="8,3"
-                VerticalAlignment="Center">
+        <Border Grid.Column="2" Classes="pill" Padding="8,3" VerticalAlignment="Center">
           <TextBlock Text="{Binding StatusText}"
                      FontSize="11"
-                     Foreground="#888"
+                     Classes="subtle"
                      VerticalAlignment="Center"
                      MaxWidth="180"
                      TextTrimming="CharacterEllipsis"
@@ -144,7 +38,7 @@
         </Border>
       </Grid>
         <Button Grid.Column="1" Classes="iconBtn" FontSize="11" FontWeight="Bold" Margin="0,0,8,0">
-          <TextBlock Text="ACTIONS ▾" Foreground="#C8D7E6" />
+          <TextBlock Text="ACTIONS ▾" />
           <Button.Flyout>
             <MenuFlyout>
               <MenuItem Header="Open File..." Click="OnOpenMidiClicked" IsEnabled="{Binding CanOpenMidi}" />
@@ -154,22 +48,14 @@
           </Button.Flyout>
         </Button>
         <Button Grid.Column="2" Classes="iconBtn" Click="OnSettingsClicked" ToolTip.Tip="Settings" IsEnabled="{Binding CanOpenSettings}">
-          <TextBlock Text="⚙" FontSize="14" />
+          <TextBlock Text="{Binding SettingsButtonText}" FontSize="14" FontWeight="Bold" />
         </Button>
       </Grid>
 
     <!-- Channel Monitor -->
-    <Border Grid.Row="1"
-            Background="#181818"
-            BorderBrush="#333"
-            BorderThickness="1"
-            CornerRadius="4"
-            Padding="8"
-            Margin="0,0,0,16"
-            ClipToBounds="False"
-            ZIndex="20">
+    <Border Grid.Row="1" Classes="panel" Padding="8" Margin="0,0,0,16" ClipToBounds="False" ZIndex="20">
       <StackPanel Spacing="8">
-        <TextBlock Text="CHANNEL ACTIVITY" FontSize="10" FontWeight="Bold" Foreground="#666" />
+        <TextBlock Text="CHANNEL ACTIVITY" FontSize="10" FontWeight="Bold" Classes="dim" />
         <Grid Height="24" ClipToBounds="False">
           <controls:ChannelMonitorControl
               x:Name="ChannelMonitorView"
@@ -189,8 +75,8 @@
                 ZIndex="30">
               <Path
                   Data="{Binding ChannelMixerPopupOutlinePathData}"
-                  Fill="#111111"
-                  Stroke="#3A74B0"
+                  Fill="{DynamicResource Theme.PopupBackgroundBrush}"
+                  Stroke="{DynamicResource Theme.PopupBorderBrush}"
                   StrokeThickness="1" />
 
               <StackPanel
@@ -198,28 +84,28 @@
                   Margin="10,18,10,10"
                   Spacing="8">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                  <TextBlock Text="{Binding ChannelLabel}" FontSize="11" FontWeight="Bold" Foreground="#DCEEFF" />
-                  <TextBlock Grid.Column="1" Text="SEND" FontSize="9" FontWeight="Bold" Foreground="#5D88B4" />
+                  <TextBlock Text="{Binding ChannelLabel}" FontSize="11" FontWeight="Bold" Classes="secondaryAccent" />
+                  <TextBlock Grid.Column="1" Text="SEND" FontSize="9" FontWeight="Bold" Classes="accentMuted" />
                 </Grid>
 
                 <StackPanel Spacing="6">
                   <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
-                    <TextBlock Text="VOL" FontSize="9" FontWeight="Bold" Foreground="#666" VerticalAlignment="Center" />
+                    <TextBlock Text="VOL" FontSize="9" FontWeight="Bold" Classes="dim" VerticalAlignment="Center" />
                     <Slider
                         Grid.Column="2"
                         Minimum="0"
                         Maximum="200"
                         Value="{Binding VolumePercent, Mode=TwoWay}"
-                        Foreground="#4A90E2"
+                        Foreground="{DynamicResource Theme.AccentBrush}"
                         SmallChange="1"
                         LargeChange="10"
                         ToolTip.Tip="Double-click to reset to 100%"
                         DoubleTapped="OnChannelVolumeSliderDoubleTapped" />
-                    <TextBlock Grid.Column="3" Text="{Binding VolumeText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding VolumeText}" FontSize="10" Classes="secondaryAccent" VerticalAlignment="Center" />
                   </Grid>
 
                   <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
-                    <TextBlock Text="REV" FontSize="9" FontWeight="Bold" Foreground="#666" VerticalAlignment="Center" />
+                    <TextBlock Text="REV" FontSize="9" FontWeight="Bold" Classes="dim" VerticalAlignment="Center" />
                     <Button
                         Grid.Column="1"
                         MinWidth="34"
@@ -227,23 +113,24 @@
                         Padding="6,0"
                         Click="OnChannelReverbModeClicked"
                         ToolTip.Tip="{Binding ReverbSendModeToolTip}">
-                      <TextBlock Text="{Binding ReverbSendModeLabel}" FontSize="9" FontWeight="Bold" Foreground="#B6D6F8" />
+                      <TextBlock Text="{Binding ReverbSendModeLabel}" FontSize="9" FontWeight="Bold" Classes="secondaryAccent" />
                     </Button>
-                    <Slider
+                    <controls:KnobControl
                         Grid.Column="2"
+                        Width="24" Height="24"
                         Minimum="{Binding ReverbSendMinimum}"
                         Maximum="{Binding ReverbSendMaximum}"
                         Value="{Binding ReverbSendValue, Mode=TwoWay}"
-                        Foreground="#4A90E2"
-                        SmallChange="1"
-                        LargeChange="10"
+                        KnobBrush="{DynamicResource Theme.ButtonBackgroundBrush}"
+                        IndicatorBrush="{DynamicResource Theme.AccentBrush}"
+                        OutlineBrush="{DynamicResource Theme.ButtonBorderBrush}"
                         ToolTip.Tip="Double-click to reset current mode"
                         DoubleTapped="OnChannelReverbSliderDoubleTapped" />
-                    <TextBlock Grid.Column="3" Text="{Binding ReverbSendText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding ReverbSendText}" FontSize="10" Classes="secondaryAccent" VerticalAlignment="Center" />
                   </Grid>
 
                   <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
-                    <TextBlock Text="CHO" FontSize="9" FontWeight="Bold" Foreground="#666" VerticalAlignment="Center" />
+                    <TextBlock Text="CHO" FontSize="9" FontWeight="Bold" Classes="dim" VerticalAlignment="Center" />
                     <Button
                         Grid.Column="1"
                         MinWidth="34"
@@ -251,19 +138,20 @@
                         Padding="6,0"
                         Click="OnChannelChorusModeClicked"
                         ToolTip.Tip="{Binding ChorusSendModeToolTip}">
-                      <TextBlock Text="{Binding ChorusSendModeLabel}" FontSize="9" FontWeight="Bold" Foreground="#B6D6F8" />
+                      <TextBlock Text="{Binding ChorusSendModeLabel}" FontSize="9" FontWeight="Bold" Classes="secondaryAccent" />
                     </Button>
-                    <Slider
+                    <controls:KnobControl
                         Grid.Column="2"
+                        Width="24" Height="24"
                         Minimum="{Binding ChorusSendMinimum}"
                         Maximum="{Binding ChorusSendMaximum}"
                         Value="{Binding ChorusSendValue, Mode=TwoWay}"
-                        Foreground="#4A90E2"
-                        SmallChange="1"
-                        LargeChange="10"
+                        KnobBrush="{DynamicResource Theme.ButtonBackgroundBrush}"
+                        IndicatorBrush="{DynamicResource Theme.AccentBrush}"
+                        OutlineBrush="{DynamicResource Theme.ButtonBorderBrush}"
                         ToolTip.Tip="Double-click to reset current mode"
                         DoubleTapped="OnChannelChorusSliderDoubleTapped" />
-                    <TextBlock Grid.Column="3" Text="{Binding ChorusSendText}" FontSize="10" Foreground="#B6D6F8" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding ChorusSendText}" FontSize="10" Classes="secondaryAccent" VerticalAlignment="Center" />
                   </Grid>
                 </StackPanel>
               </StackPanel>
@@ -274,18 +162,11 @@
     </Border>
 
     <!-- Piano Roll / Visualizer -->
-    <Border Grid.Row="2" Background="#181818" BorderBrush="#333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,16" ClipToBounds="True">
+    <Border Grid.Row="2" Classes="panel" Margin="0,0,0,16" ClipToBounds="True">
       <Grid RowDefinitions="*,Auto">
         <Grid Margin="8" RowDefinitions="Auto,*" RowSpacing="8">
           <Grid ColumnDefinitions="44,*,44" ColumnSpacing="8">
-            <Border
-                Grid.Column="1"
-                HorizontalAlignment="Center"
-                Background="#111111CC"
-                BorderBrush="#2F2F2F"
-                BorderThickness="1"
-                CornerRadius="999"
-                Padding="4">
+            <Border Grid.Column="1" Classes="pill" HorizontalAlignment="Center" Padding="4">
               <StackPanel Orientation="Horizontal" Spacing="4">
                 <Button
                     Classes="viewChip"
@@ -336,7 +217,7 @@
                 Background="{Binding EqButtonBackground}"
                 BorderBrush="{Binding EqButtonBorderBrush}"
                 Foreground="{Binding EqButtonForeground}"
-                CornerRadius="18"
+                CornerRadius="{DynamicResource Theme.RoundButtonCornerRadius}"
                 ToolTip.Tip="{Binding EqButtonToolTip}">
               <Grid Width="18" Height="18">
                 <Path
@@ -354,13 +235,7 @@
           </Grid>
 
           <Grid Grid.Row="1" ColumnDefinitions="44,*,44" ColumnSpacing="8">
-            <Border
-                Grid.Column="1"
-                Background="#0C1119"
-                BorderBrush="#1E2A38"
-                BorderThickness="1"
-                CornerRadius="4"
-                ClipToBounds="True">
+            <Border Grid.Column="1" Classes="visualPanel" ClipToBounds="True">
               <Grid>
                 <controls:SpectrumControl
                     IsVisible="{Binding IsEqViewSelected}"
@@ -375,7 +250,7 @@
 
                 <Grid IsVisible="{Binding IsMixViewSelected}" ColumnDefinitions="*,Auto">
                   <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                    <ItemsControl ItemsSource="{Binding ChannelMixRows}" Padding="12,12,24,12">
+                    <ItemsControl ItemsSource="{Binding ChannelMixRows}" Padding="12,12,24,12" VerticalAlignment="Stretch">
                       <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                           <StackPanel Orientation="Horizontal" Spacing="6"/>
@@ -383,14 +258,14 @@
                       </ItemsControl.ItemsPanel>
                       <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                          <Border Background="#111" BorderBrush="#222" BorderThickness="1" CornerRadius="4" Padding="4,8" Width="52">
+                          <Border Classes="panel" Padding="4,8" Width="52" VerticalAlignment="Stretch">
                             <Grid RowDefinitions="Auto,*,Auto">
-                              <TextBlock Text="{Binding ChannelLabel}" FontSize="10" FontWeight="Bold" Foreground="#A0A0A0" HorizontalAlignment="Center" />
+                              <TextBlock Text="{Binding ChannelLabel}" FontSize="10" FontWeight="Bold" Classes="muted" HorizontalAlignment="Center" />
                               
                               <Grid Grid.Row="1" Margin="0,12">
-                                 <Slider Orientation="Vertical" Minimum="0" Maximum="200" Value="{Binding VolumePercent, Mode=TwoWay}" Foreground="#4A90E2" HorizontalAlignment="Center" DoubleTapped="OnChannelVolumeSliderDoubleTapped" />
-                                 <Border Background="#111111CC" CornerRadius="2" VerticalAlignment="Bottom" HorizontalAlignment="Center" Padding="2,1" Margin="0,0,0,-8" IsHitTestVisible="False">
-                                   <TextBlock Text="{Binding VolumeText}" FontSize="8" Foreground="#DCEEFF" />
+                                 <Slider Orientation="Vertical" Minimum="0" Maximum="200" Value="{Binding VolumePercent, Mode=TwoWay}" Foreground="{DynamicResource Theme.AccentBrush}" HorizontalAlignment="Center" DoubleTapped="OnChannelVolumeSliderDoubleTapped" />
+                                 <Border Classes="pill" VerticalAlignment="Bottom" HorizontalAlignment="Center" Padding="2,1" Margin="0,0,0,-8" IsHitTestVisible="False">
+                                   <TextBlock Text="{Binding VolumeText}" FontSize="8" Classes="secondaryAccent" />
                                  </Border>
                               </Grid>
 
@@ -398,21 +273,21 @@
                                 <StackPanel Spacing="0">
                                   <Grid ColumnDefinitions="*,Auto" Margin="4,0">
                                     <Button Grid.Column="0" Padding="0" Click="OnChannelReverbModeClicked" Background="Transparent" ToolTip.Tip="{Binding ReverbSendModeToolTip}">
-                                      <TextBlock Text="{Binding ReverbSendModeLabel}" FontSize="8" FontWeight="Bold" Foreground="#5D88B4" VerticalAlignment="Center" />
+                                      <TextBlock Text="{Binding ReverbSendModeLabel}" FontSize="8" FontWeight="Bold" Classes="accentMuted" VerticalAlignment="Center" />
                                     </Button>
-                                    <TextBlock Grid.Column="1" Text="{Binding ReverbSendText}" FontSize="8" Foreground="#888" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding ReverbSendText}" FontSize="8" Classes="subtle" VerticalAlignment="Center" />
                                   </Grid>
-                                  <Slider Minimum="{Binding ReverbSendMinimum}" Maximum="{Binding ReverbSendMaximum}" Value="{Binding ReverbSendValue, Mode=TwoWay}" Foreground="#214B75" Margin="4,0" DoubleTapped="OnChannelReverbSliderDoubleTapped" />
+                                  <controls:KnobControl Width="20" Height="20" Minimum="{Binding ReverbSendMinimum}" Maximum="{Binding ReverbSendMaximum}" Value="{Binding ReverbSendValue, Mode=TwoWay}" KnobBrush="{DynamicResource Theme.ButtonBackgroundBrush}" IndicatorBrush="{DynamicResource Theme.AccentBrush}" OutlineBrush="{DynamicResource Theme.ButtonBorderBrush}" Margin="4,0" DoubleTapped="OnChannelReverbSliderDoubleTapped" />
                                 </StackPanel>
 
                                 <StackPanel Spacing="0">
                                   <Grid ColumnDefinitions="*,Auto" Margin="4,0">
                                     <Button Grid.Column="0" Padding="0" Click="OnChannelChorusModeClicked" Background="Transparent" ToolTip.Tip="{Binding ChorusSendModeToolTip}">
-                                      <TextBlock Text="{Binding ChorusSendModeLabel}" FontSize="8" FontWeight="Bold" Foreground="#5D88B4" VerticalAlignment="Center" />
+                                      <TextBlock Text="{Binding ChorusSendModeLabel}" FontSize="8" FontWeight="Bold" Classes="accentMuted" VerticalAlignment="Center" />
                                     </Button>
-                                    <TextBlock Grid.Column="1" Text="{Binding ChorusSendText}" FontSize="8" Foreground="#888" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding ChorusSendText}" FontSize="8" Classes="subtle" VerticalAlignment="Center" />
                                   </Grid>
-                                  <Slider Minimum="{Binding ChorusSendMinimum}" Maximum="{Binding ChorusSendMaximum}" Value="{Binding ChorusSendValue, Mode=TwoWay}" Foreground="#214B75" Margin="4,0" DoubleTapped="OnChannelChorusSliderDoubleTapped" />
+                                  <controls:KnobControl Width="20" Height="20" Minimum="{Binding ChorusSendMinimum}" Maximum="{Binding ChorusSendMaximum}" Value="{Binding ChorusSendValue, Mode=TwoWay}" KnobBrush="{DynamicResource Theme.ButtonBackgroundBrush}" IndicatorBrush="{DynamicResource Theme.AccentBrush}" OutlineBrush="{DynamicResource Theme.ButtonBorderBrush}" Margin="4,0" DoubleTapped="OnChannelChorusSliderDoubleTapped" />
                                 </StackPanel>
                               </StackPanel>
                             </Grid>
@@ -422,14 +297,14 @@
                     </ItemsControl>
                   </ScrollViewer>
 
-                  <Border Grid.Column="1" Background="#111" BorderBrush="#3A74B0" BorderThickness="1" CornerRadius="4" Padding="4,8" Width="60" Margin="0,12,12,12">
+                  <Border Grid.Column="1" Classes="panel" Padding="4,8" Width="60" Margin="0,12,12,12">
                     <Grid RowDefinitions="Auto,*,Auto">
-                      <TextBlock Text="GLOBAL" FontSize="10" FontWeight="Bold" Foreground="#4A90E2" HorizontalAlignment="Center" />
+                      <TextBlock Text="GLOBAL" FontSize="10" FontWeight="Bold" Classes="accent" HorizontalAlignment="Center" />
                       
                       <Grid Grid.Row="1" Margin="0,12">
-                         <Slider Orientation="Vertical" Minimum="0" Maximum="200" Value="{Binding MasterVolumePercent, Mode=TwoWay}" Foreground="#4A90E2" HorizontalAlignment="Center" DoubleTapped="OnMasterVolumeSliderDoubleTapped" ToolTip.Tip="Double-click to reset to 100%" />
-                         <Border Background="#111111CC" CornerRadius="2" VerticalAlignment="Bottom" HorizontalAlignment="Center" Padding="2,1" Margin="0,0,0,-8" IsHitTestVisible="False">
-                           <TextBlock Text="{Binding MasterVolumePercentText}" FontSize="8" Foreground="#DCEEFF" />
+                         <Slider Orientation="Vertical" Minimum="0" Maximum="200" Value="{Binding MasterVolumePercent, Mode=TwoWay}" Foreground="{DynamicResource Theme.AccentBrush}" HorizontalAlignment="Center" DoubleTapped="OnMasterVolumeSliderDoubleTapped" ToolTip.Tip="Double-click to reset to 100%" />
+                         <Border Classes="pill" VerticalAlignment="Bottom" HorizontalAlignment="Center" Padding="2,1" Margin="0,0,0,-8" IsHitTestVisible="False">
+                           <TextBlock Text="{Binding MasterVolumePercentText}" FontSize="8" Classes="secondaryAccent" />
                          </Border>
                       </Grid>
 
@@ -437,21 +312,21 @@
                         <StackPanel Spacing="0">
                           <Grid ColumnDefinitions="*,Auto" Margin="4,0">
                             <Button Grid.Column="0" Padding="0" Click="OnGlobalReverbModeClicked" Background="Transparent" ToolTip.Tip="{Binding GlobalReverbReturnModeToolTip}">
-                              <TextBlock Text="{Binding GlobalReverbReturnModeLabel}" FontSize="8" FontWeight="Bold" Foreground="#5D88B4" VerticalAlignment="Center" />
+                              <TextBlock Text="{Binding GlobalReverbReturnModeLabel}" FontSize="8" FontWeight="Bold" Classes="accentMuted" VerticalAlignment="Center" />
                             </Button>
-                            <TextBlock Grid.Column="1" Text="{Binding GlobalReverbReturnText}" FontSize="8" Foreground="#888" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding GlobalReverbReturnText}" FontSize="8" Classes="subtle" VerticalAlignment="Center" />
                           </Grid>
-                          <Slider Minimum="{Binding GlobalReverbReturnMinimum}" Maximum="{Binding GlobalReverbReturnMaximum}" Value="{Binding GlobalReverbReturnValue, Mode=TwoWay}" Foreground="#214B75" Margin="4,0" DoubleTapped="OnReverbSliderDoubleTapped" ToolTip.Tip="Double-click to reset current mode" />
+                          <controls:KnobControl Width="20" Height="20" Minimum="{Binding GlobalReverbReturnMinimum}" Maximum="{Binding GlobalReverbReturnMaximum}" Value="{Binding GlobalReverbReturnValue, Mode=TwoWay}" KnobBrush="{DynamicResource Theme.ButtonBackgroundBrush}" IndicatorBrush="{DynamicResource Theme.AccentBrush}" OutlineBrush="{DynamicResource Theme.ButtonBorderBrush}" Margin="4,0" DoubleTapped="OnReverbSliderDoubleTapped" ToolTip.Tip="Double-click to reset current mode" />
                         </StackPanel>
 
                         <StackPanel Spacing="0">
                           <Grid ColumnDefinitions="*,Auto" Margin="4,0">
                             <Button Grid.Column="0" Padding="0" Click="OnGlobalChorusModeClicked" Background="Transparent" ToolTip.Tip="{Binding GlobalChorusReturnModeToolTip}">
-                              <TextBlock Text="{Binding GlobalChorusReturnModeLabel}" FontSize="8" FontWeight="Bold" Foreground="#5D88B4" VerticalAlignment="Center" />
+                              <TextBlock Text="{Binding GlobalChorusReturnModeLabel}" FontSize="8" FontWeight="Bold" Classes="accentMuted" VerticalAlignment="Center" />
                             </Button>
-                            <TextBlock Grid.Column="1" Text="{Binding GlobalChorusReturnText}" FontSize="8" Foreground="#888" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding GlobalChorusReturnText}" FontSize="8" Classes="subtle" VerticalAlignment="Center" />
                           </Grid>
-                          <Slider Minimum="{Binding GlobalChorusReturnMinimum}" Maximum="{Binding GlobalChorusReturnMaximum}" Value="{Binding GlobalChorusReturnValue, Mode=TwoWay}" Foreground="#214B75" Margin="4,0" DoubleTapped="OnChorusSliderDoubleTapped" ToolTip.Tip="Double-click to reset current mode" />
+                          <controls:KnobControl Width="20" Height="20" Minimum="{Binding GlobalChorusReturnMinimum}" Maximum="{Binding GlobalChorusReturnMaximum}" Value="{Binding GlobalChorusReturnValue, Mode=TwoWay}" KnobBrush="{DynamicResource Theme.ButtonBackgroundBrush}" IndicatorBrush="{DynamicResource Theme.AccentBrush}" OutlineBrush="{DynamicResource Theme.ButtonBorderBrush}" Margin="4,0" DoubleTapped="OnChorusSliderDoubleTapped" ToolTip.Tip="Double-click to reset current mode" />
                         </StackPanel>
                       </StackPanel>
                     </Grid>
@@ -461,9 +336,9 @@
                 <Grid IsVisible="{Binding IsEffectsViewSelected}" Margin="12" RowDefinitions="Auto,*" RowSpacing="12">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                     <StackPanel Spacing="4">
-                      <TextBlock Text="FX CHAIN" FontSize="12" FontWeight="Bold" Foreground="#4A90E2" />
-                      <TextBlock Text="{Binding EffectChainStatusText}" FontSize="12" Foreground="#A0A0A0" />
-                      <TextBlock Text="Signal flows from top to bottom. EQ can be moved like any plug-in." FontSize="11" Foreground="#6D7C8C" />
+                      <TextBlock Text="FX CHAIN" FontSize="12" FontWeight="Bold" Classes="accent" />
+                      <TextBlock Text="{Binding EffectChainStatusText}" FontSize="12" Classes="muted" />
+                      <TextBlock Text="Signal flows from top to bottom. EQ can be moved like any plug-in." FontSize="11" Classes="hint" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -473,15 +348,7 @@
                           Click="OnLoadAudioPluginClicked"
                           IsEnabled="{Binding CanLoadAudioPlugin}"
                           Padding="14,8" />
-                      <Button
-                          Background="#1C1C1C"
-                          Foreground="#E0E0E0"
-                          BorderBrush="#333333"
-                          BorderThickness="1"
-                          Content="Clear FX"
-                          Click="OnUnloadAudioPluginClicked"
-                          IsEnabled="{Binding CanUnloadAudioPlugin}"
-                          Padding="14,8" />
+                      <Button Classes="secondary" Content="Clear FX" Click="OnUnloadAudioPluginClicked" IsEnabled="{Binding CanUnloadAudioPlugin}" Padding="14,8" />
                     </StackPanel>
                   </Grid>
 
@@ -491,23 +358,13 @@
                     <ItemsControl ItemsSource="{Binding EffectChainItems}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:AudioEffectChainItem">
-                          <Border Margin="0,0,0,10"
-                                  Padding="14"
-                                  Background="#111111"
-                                  BorderBrush="#263241"
-                                  BorderThickness="1"
-                                  CornerRadius="8">
+                          <Border Classes="panel" Margin="0,0,0,10" Padding="14">
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                              <Border Background="#13283E"
-                                      BorderBrush="#3A74B0"
-                                      BorderThickness="1"
-                                      CornerRadius="999"
-                                      Padding="10,4"
-                                      VerticalAlignment="Top">
+                              <Border Classes="accentPill" Padding="10,4" VerticalAlignment="Top">
                                 <TextBlock Text="{Binding FormatLabel}"
                                            FontSize="11"
                                            FontWeight="Bold"
-                                           Foreground="#DCEEFF" />
+                                           Foreground="{DynamicResource Theme.ToggleActiveForegroundBrush}" />
                               </Border>
 
                               <StackPanel Grid.Column="1" Spacing="4">
@@ -515,29 +372,24 @@
                                   <TextBlock Text="{Binding DisplayName}"
                                              FontSize="15"
                                              FontWeight="SemiBold"
-                                             Foreground="#DCEEFF"
+                                             Classes="secondaryAccent"
                                              TextTrimming="CharacterEllipsis" />
-                                  <Border Grid.Column="1"
-                                          Background="#171F29"
-                                          BorderBrush="#314254"
-                                          BorderThickness="1"
-                                          CornerRadius="999"
-                                          Padding="10,3">
+                                  <Border Grid.Column="1" Classes="pill" Padding="10,3">
                                     <TextBlock Text="{Binding StatusLabel}"
                                                FontSize="10"
                                                FontWeight="Bold"
-                                               Foreground="#B6D6F8" />
+                                               Classes="secondaryAccent" />
                                   </Border>
                                 </Grid>
 
                                 <TextBlock Text="{Binding Description}"
                                            FontSize="11"
-                                           Foreground="#8BA1B7" />
+                                           Classes="hint" />
 
                                 <TextBlock Text="{Binding Path}"
                                            IsVisible="{Binding HasPath}"
                                            FontSize="11"
-                                           Foreground="#6D7C8C"
+                                           Classes="hint"
                                            TextTrimming="CharacterEllipsis"
                                            ToolTip.Tip="{Binding Path}" />
                               </StackPanel>
@@ -614,8 +466,8 @@
               IsEnabled="{Binding CanAdjustPlaybackModifiers}"
               ToolTip.Tip="Transpose down by one semitone">
             <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <TextBlock Text="KEY" FontSize="9" FontWeight="Bold" Foreground="#6A8FB4" HorizontalAlignment="Center" />
-              <TextBlock Text="−" FontSize="18" FontWeight="Bold" Foreground="#DCEEFF" HorizontalAlignment="Center" />
+              <TextBlock Text="KEY" FontSize="9" FontWeight="Bold" Classes="accentMuted" HorizontalAlignment="Center" />
+              <TextBlock Text="−" FontSize="18" FontWeight="Bold" Classes="secondaryAccent" HorizontalAlignment="Center" />
             </StackPanel>
           </Button>
 
@@ -627,21 +479,11 @@
                 Player="{Binding Player}"
                 TransposeOffsetSemitones="{Binding TransposeSemitones}" />
 
-            <Border
-                Grid.Row="1"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Bottom"
-                Margin="0,6,0,0"
-                Background="#111111CC"
-                BorderBrush="#2F2F2F"
-                BorderThickness="1"
-                CornerRadius="999"
-                Padding="10,3">
+            <Border Grid.Row="1" Classes="pill" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,6,0,0" Padding="10,3">
               <TextBlock Text="{Binding TransposeSemitonesText}"
                          FontSize="10"
                          FontWeight="Bold"
-                         Foreground="#B6D6F8"
-                         FontFamily="Courier New" />
+                         Classes="secondaryAccent mono" />
             </Border>
           </Grid>
 
@@ -655,8 +497,8 @@
               IsEnabled="{Binding CanAdjustPlaybackModifiers}"
               ToolTip.Tip="Transpose up by one semitone">
             <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <TextBlock Text="KEY" FontSize="9" FontWeight="Bold" Foreground="#6A8FB4" HorizontalAlignment="Center" />
-              <TextBlock Text="+" FontSize="18" FontWeight="Bold" Foreground="#DCEEFF" HorizontalAlignment="Center" />
+              <TextBlock Text="KEY" FontSize="9" FontWeight="Bold" Classes="accentMuted" HorizontalAlignment="Center" />
+              <TextBlock Text="+" FontSize="18" FontWeight="Bold" Classes="secondaryAccent" HorizontalAlignment="Center" />
             </StackPanel>
           </Button>
         </Grid>
@@ -664,24 +506,24 @@
     </Border>
 
     <!-- Transport Controls -->
-    <Border Grid.Row="3" Background="#181818" BorderBrush="#333" BorderThickness="1" CornerRadius="4" Padding="16">
+    <Border Grid.Row="3" Classes="panel" Padding="16">
       <Grid ColumnDefinitions="Auto,*,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" Margin="0,0,16,0" VerticalAlignment="Center">
-          <Button Classes="iconBtn" Width="36" Height="36" CornerRadius="18" Padding="0" Click="OnPlayPreviousClicked" ToolTip.Tip="Previous Track">
-            <TextBlock Text="⏮" FontSize="16" Foreground="#C8D7E6" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <Button Classes="transportBtn" Width="36" Height="36" Click="OnPlayPreviousClicked" ToolTip.Tip="Previous Track">
+            <TextBlock Text="{Binding PreviousTrackButtonText}" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Button>
-          <Button Width="48" Height="48" CornerRadius="24" Background="#4A90E2" BorderThickness="0" Click="OnPlayPauseClicked" IsEnabled="{Binding CanTogglePlayback}" Margin="4,0">
-            <TextBlock Text="{Binding PlayPauseIcon}" FontSize="20" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{Binding PlayPauseIconMargin}"/>
+          <Button Classes="playPauseBtn" Width="48" Height="48" Click="OnPlayPauseClicked" IsEnabled="{Binding CanTogglePlayback}" Margin="4,0">
+            <TextBlock Text="{Binding PlayPauseIcon}" FontSize="20" Foreground="{DynamicResource Theme.PlayPauseButtonForegroundBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{Binding PlayPauseIconMargin}"/>
           </Button>
-          <Button Classes="iconBtn" Width="36" Height="36" CornerRadius="18" Padding="0" Click="OnPlayNextClicked" ToolTip.Tip="Next Track">
-            <TextBlock Text="⏭" FontSize="16" Foreground="#C8D7E6" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <Button Classes="transportBtn" Width="36" Height="36" Click="OnPlayNextClicked" ToolTip.Tip="Next Track">
+            <TextBlock Text="{Binding NextTrackButtonText}" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Button>
         </StackPanel>
         
         <Grid Grid.Column="1" RowDefinitions="Auto,36" RowSpacing="4" VerticalAlignment="Center" ClipToBounds="False">
           <Grid ColumnDefinitions="Auto,*,Auto">
-            <TextBlock Text="{Binding PositionText}" FontSize="12" Foreground="#888" FontFamily="Courier New" />
-            <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="12" Foreground="#888" FontFamily="Courier New" />
+            <TextBlock Text="{Binding PositionText}" FontSize="12" Classes="subtle mono" />
+            <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="12" Classes="subtle mono" />
           </Grid>
 
           <StackPanel
@@ -697,7 +539,7 @@
                 Background="{Binding LoopBadgeBackground}"
                 BorderBrush="{Binding LoopBadgeBorderBrush}"
                 BorderThickness="1"
-                CornerRadius="999"
+                CornerRadius="{DynamicResource Theme.PillCornerRadius}"
                 MinHeight="22"
                 Padding="10,0">
               <Grid Height="20">
@@ -705,7 +547,7 @@
                     Text="{Binding LoopRangeSummaryText}"
                     FontSize="10"
                     FontWeight="Bold"
-                    FontFamily="Courier New"
+                    Classes="mono"
                     Foreground="{Binding LoopBadgeForeground}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
@@ -727,7 +569,7 @@
                     Text="CLEAR"
                     FontSize="10"
                     FontWeight="Bold"
-                    Foreground="#B6D6F8"
+                    Classes="secondaryAccent"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     TextAlignment="Center"
@@ -761,7 +603,7 @@
                 Width="40"
                 Height="40"
                 Padding="0"
-                CornerRadius="20"
+                CornerRadius="{DynamicResource Theme.RoundButtonCornerRadius}"
                 Click="OnLoopClicked"
                 ToolTip.Tip="{Binding LoopButtonToolTip}"
                 Background="{Binding LoopButtonBackground}"
@@ -787,7 +629,7 @@
                   Background="{Binding SpeedButtonBackground}"
                   BorderBrush="{Binding SpeedButtonBorderBrush}"
                   BorderThickness="1"
-                  CornerRadius="999">
+                  CornerRadius="{DynamicResource Theme.PillCornerRadius}">
                 <StackPanel Spacing="1">
                   <TextBlock Text="BPM"
                              FontSize="10"
@@ -798,31 +640,19 @@
                              FontSize="14"
                              Foreground="{Binding SpeedButtonForeground}"
                              HorizontalAlignment="Right"
-                             FontFamily="Courier New" />
+                             Classes="mono" />
                 </StackPanel>
               </Button>
 
-              <Border
-                  IsVisible="{Binding IsSpeedPopupOpen}"
-                  ZIndex="20"
-                  Width="240"
-                  HorizontalAlignment="Right"
-                  VerticalAlignment="Top"
-                  Margin="0,-102,0,0"
-                  Background="#111111"
-                  BorderBrush="#3A74B0"
-                  BorderThickness="1"
-                  CornerRadius="8"
-                  Padding="10">
+              <Border IsVisible="{Binding IsSpeedPopupOpen}" Classes="popupPanel" ZIndex="20" Width="240" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-102,0,0" Padding="10">
                 <StackPanel Spacing="8">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <TextBlock Text="TEMPO OVERRIDE" FontSize="10" FontWeight="Bold" Foreground="#DCEEFF" />
+                    <TextBlock Text="TEMPO OVERRIDE" FontSize="10" FontWeight="Bold" Classes="secondaryAccent" />
                     <TextBlock Grid.Column="1"
                                Text="{Binding PlaybackSpeedPercentText}"
                                FontSize="10"
                                FontWeight="Bold"
-                               Foreground="#B6D6F8"
-                               FontFamily="Courier New" />
+                               Classes="secondaryAccent mono" />
                   </Grid>
 
                   <Slider
@@ -830,7 +660,7 @@
                       Maximum="400"
                       Value="{Binding PlaybackSpeedPercent, Mode=TwoWay}"
                       IsEnabled="{Binding CanAdjustPlaybackModifiers}"
-                      Foreground="#4A90E2"
+                      Foreground="{DynamicResource Theme.AccentBrush}"
                       SmallChange="1"
                       LargeChange="10"
                       ToolTip.Tip="Override playback speed. Double-click to reset to 100%."
@@ -844,29 +674,21 @@
     </Border>
     </Grid>
 
-    <Button HorizontalAlignment="Right" VerticalAlignment="Center" 
-            Background="#1A1A1A" BorderBrush="#333" BorderThickness="1,1,0,1" CornerRadius="8,0,0,8"
+    <Button HorizontalAlignment="Right" VerticalAlignment="Center" Classes="playlistToggleBtn"
             Click="OnTogglePlaylistClicked"
             Margin="{Binding PlaylistToggleMargin}"
             ZIndex="51"
-            Padding="4,24"
             ToolTip.Tip="Toggle Playlist">
-      <TextBlock Text="{Binding PlaylistToggleIcon}" Foreground="#888" FontSize="10"/>
+      <TextBlock Text="{Binding PlaylistToggleIcon}" FontSize="10"/>
     </Button>
 
-    <Border HorizontalAlignment="Right" VerticalAlignment="Stretch"
-            IsVisible="{Binding IsPlaylistVisible}"
-            Width="300"
-            Background="#121212" 
-            BorderBrush="#333" 
-            BorderThickness="1,0,0,0"
-            ZIndex="50">
+    <Border HorizontalAlignment="Right" VerticalAlignment="Stretch" Classes="sidebar" IsVisible="{Binding IsPlaylistVisible}" Width="300" ZIndex="50">
       <Grid RowDefinitions="Auto,*">
-        <Border BorderBrush="#333" BorderThickness="0,0,0,1" Padding="12">
+        <Border BorderBrush="{DynamicResource Theme.SidebarBorderBrush}" BorderThickness="0,0,0,1" Padding="12">
           <Grid ColumnDefinitions="*,Auto,Auto">
-            <TextBlock Text="PLAYLIST" FontWeight="Bold" FontSize="14" Foreground="#4A90E2" VerticalAlignment="Center" />
+            <TextBlock Text="PLAYLIST" FontWeight="Bold" FontSize="14" Classes="accent" VerticalAlignment="Center" />
             <Button Grid.Column="1" Classes="iconBtn" Click="OnToggleSortClicked" Padding="8,4" Margin="0">
-              <TextBlock x:Name="SortIconText" Text="↓ A-Z" FontSize="11" FontWeight="Bold" Foreground="#A0A0A0" />
+              <TextBlock x:Name="SortIconText" Text="↓ A-Z" FontSize="11" FontWeight="Bold" Classes="muted" />
             </Button>
           </Grid>
         </Border>
@@ -877,22 +699,16 @@
               <Setter Property="Padding" Value="12,8" />
               <Setter Property="Cursor" Value="Hand" />
             </Style>
-            <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
-              <Setter Property="Background" Value="#1A1A1A" />
-            </Style>
-            <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-              <Setter Property="Background" Value="#252525" />
-            </Style>
           </ListBox.Styles>
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="models:PlaylistItem">
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Background="Transparent">
-                <TextBlock Grid.Column="0" Text="▶" Foreground="#4A90E2" IsVisible="{Binding IsPlaying}" VerticalAlignment="Center" Width="14" FontSize="10" />
+                <TextBlock Grid.Column="0" Text="▶" Classes="accent" IsVisible="{Binding IsPlaying}" VerticalAlignment="Center" Width="14" FontSize="10" />
                 <TextBlock Grid.Column="0" Text="" IsVisible="{Binding !IsPlaying}" Width="14" />
                 
                 <TextBlock Grid.Column="1" Text="{Binding FileName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" FontSize="13" />
                 
-                <TextBlock Grid.Column="2" Text="{Binding DurationText}" Foreground="#888" FontSize="12" FontFamily="Courier New" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding DurationText}" Classes="subtle mono" FontSize="12" VerticalAlignment="Center" />
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>

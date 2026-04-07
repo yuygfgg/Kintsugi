@@ -29,15 +29,6 @@ public class SpectrumControl : Control
 
     private static readonly Typeface UiTypeface = new("Segoe UI");
     private static readonly Typeface MonoTypeface = new("Cascadia Mono");
-    private static readonly Color BackgroundTopColor = Color.Parse("#13243B");
-    private static readonly Color BackgroundBottomColor = Color.Parse("#0A1321");
-    private static readonly Color GridMajorColor = Color.Parse("#2A4364");
-    private static readonly Color GridMinorColor = Color.Parse("#1B2B44");
-    private static readonly Color ZeroLineColor = Color.Parse("#95B9E6");
-    private static readonly Color SpectrumColor = Color.Parse("#77B8FF");
-    private static readonly Color ResponseFillColor = Color.Parse("#B7ECFF");
-    private static readonly Color ResponseLineColor = Color.Parse("#BFE8FF");
-    private static readonly Color ReadoutMutedColor = Color.Parse("#61758C");
     private static readonly EqBand[] DefaultBands =
     [
         new EqBand("Low Cut", EqBandKind.LowCut, 20.0, 0.0, 0.0, Color.Parse("#7E90AC"), 0),
@@ -120,12 +111,14 @@ public class SpectrumControl : Control
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        App.Current.SkinManager.SkinChanged += OnSkinChanged;
         _timer.Start();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        App.Current.SkinManager.SkinChanged -= OnSkinChanged;
         _timer.Stop();
     }
 
@@ -376,7 +369,7 @@ public class SpectrumControl : Control
             ]
         };
 
-        context.DrawRectangle(background, new Pen(new SolidColorBrush(Color.Parse("#23384F")), 1), bounds, 8, 8);
+        context.DrawRectangle(background, new Pen(new SolidColorBrush(SpectrumPanelBorderColor), 1), bounds, 8, 8);
 
         var glowBrush = new RadialGradientBrush
         {
@@ -392,11 +385,11 @@ public class SpectrumControl : Control
         };
 
         context.DrawRectangle(glowBrush, null, plotRect.Inflate(18));
-        context.DrawRectangle(new SolidColorBrush(Color.FromArgb(28, 10, 22, 38)), null, readoutRect);
+        context.DrawRectangle(new SolidColorBrush(SpectrumReadoutOverlayColor), null, readoutRect);
 
         if (!IsEqEnabled)
         {
-            context.DrawRectangle(new SolidColorBrush(Color.FromArgb(110, 5, 10, 16)), null, bounds, 8, 8);
+            context.DrawRectangle(new SolidColorBrush(SpectrumDisabledOverlayColor), null, bounds, 8, 8);
         }
     }
 
@@ -414,7 +407,7 @@ public class SpectrumControl : Control
                 Math.Abs(gain).ToString(CultureInfo.InvariantCulture),
                 UiTypeface,
                 10,
-                new SolidColorBrush(Color.Parse("#88A6C8")),
+                new SolidColorBrush(SpectrumPanelTextColor),
                 new Point(plotRect.Left - 10, y - 8),
                 TextAlignment.Right);
 
@@ -423,7 +416,7 @@ public class SpectrumControl : Control
                 Math.Abs(gain).ToString(CultureInfo.InvariantCulture),
                 UiTypeface,
                 10,
-                new SolidColorBrush(Color.Parse("#88A6C8")),
+                new SolidColorBrush(SpectrumPanelTextColor),
                 new Point(plotRect.Right + 10, y - 8),
                 TextAlignment.Left);
         }
@@ -442,7 +435,7 @@ public class SpectrumControl : Control
                 label,
                 MonoTypeface,
                 10,
-                new SolidColorBrush(Color.Parse("#9AB7D8")),
+                new SolidColorBrush(SpectrumAxisTextColor),
                 new Point(x, labelY),
                 TextAlignment.Center);
         }
@@ -567,7 +560,7 @@ public class SpectrumControl : Control
                 ? new SolidColorBrush(band.Color)
                 : new SolidColorBrush(Color.FromArgb(110, band.Color.R, band.Color.G, band.Color.B));
             var outline = new Pen(
-                new SolidColorBrush(i == _selectedBandIndex && IsEqEnabled ? Colors.White : Color.FromArgb(210, 8, 14, 22)),
+                new SolidColorBrush(i == _selectedBandIndex && IsEqEnabled ? SpectrumHandleOutlineActiveColor : SpectrumHandleOutlineInactiveColor),
                 i == _selectedBandIndex && IsEqEnabled ? 2.0 : 1.4);
             context.DrawEllipse(fill, outline, point, radius, radius);
         }
@@ -590,7 +583,7 @@ public class SpectrumControl : Control
             var glyph = CreateBandGlyphGeometry(band.Kind, x, glyphCenterY, 18.0, 10.0);
             var glyphColor = IsEqEnabled
                 ? band.Color
-                : Color.FromArgb(120, band.Color.R, band.Color.G, band.Color.B);
+                : Color.FromArgb(120, SpectrumGlyphInactiveColor.R, SpectrumGlyphInactiveColor.G, SpectrumGlyphInactiveColor.B);
             context.DrawGeometry(null, new Pen(new SolidColorBrush(glyphColor), 2), glyph);
         }
     }
@@ -946,5 +939,44 @@ public class SpectrumControl : Control
             Q = DefaultQ;
             SlopeDbPerOct = DefaultSlopeDbPerOct;
         }
+    }
+
+    private static Color BackgroundTopColor => App.Current.SkinManager.GetColor("Theme.SpectrumBackgroundTopColor", "#13243B");
+
+    private static Color BackgroundBottomColor => App.Current.SkinManager.GetColor("Theme.SpectrumBackgroundBottomColor", "#0A1321");
+
+    private static Color GridMajorColor => App.Current.SkinManager.GetColor("Theme.SpectrumGridMajorColor", "#2A4364");
+
+    private static Color GridMinorColor => App.Current.SkinManager.GetColor("Theme.SpectrumGridMinorColor", "#1B2B44");
+
+    private static Color ZeroLineColor => App.Current.SkinManager.GetColor("Theme.SpectrumZeroLineColor", "#95B9E6");
+
+    private static Color SpectrumColor => App.Current.SkinManager.GetColor("Theme.SpectrumBarsColor", "#77B8FF");
+
+    private static Color ResponseFillColor => App.Current.SkinManager.GetColor("Theme.SpectrumResponseFillColor", "#B7ECFF");
+
+    private static Color ResponseLineColor => App.Current.SkinManager.GetColor("Theme.SpectrumResponseLineColor", "#BFE8FF");
+
+    private static Color ReadoutMutedColor => App.Current.SkinManager.GetColor("Theme.SpectrumReadoutMutedColor", "#61758C");
+
+    private static Color SpectrumPanelBorderColor => App.Current.SkinManager.GetColor("Theme.SpectrumPanelBorderColor", "#23384F");
+
+    private static Color SpectrumPanelTextColor => App.Current.SkinManager.GetColor("Theme.SpectrumPanelTextColor", "#88A6C8");
+
+    private static Color SpectrumAxisTextColor => App.Current.SkinManager.GetColor("Theme.SpectrumAxisTextColor", "#9AB7D8");
+
+    private static Color SpectrumReadoutOverlayColor => App.Current.SkinManager.GetColor("Theme.SpectrumReadoutOverlayColor", "#1C0A1626");
+
+    private static Color SpectrumDisabledOverlayColor => App.Current.SkinManager.GetColor("Theme.SpectrumDisabledOverlayColor", "#6E050A10");
+
+    private static Color SpectrumGlyphInactiveColor => App.Current.SkinManager.GetColor("Theme.SpectrumGlyphInactiveColor", "#7A8A9A");
+
+    private static Color SpectrumHandleOutlineActiveColor => App.Current.SkinManager.GetColor("Theme.ForegroundBrush", "#FFFFFF");
+
+    private static Color SpectrumHandleOutlineInactiveColor => App.Current.SkinManager.GetColor("Theme.SpectrumHandleTextColor", "#D2A6C8");
+
+    private void OnSkinChanged(object? sender, EventArgs e)
+    {
+        InvalidateVisual();
     }
 }

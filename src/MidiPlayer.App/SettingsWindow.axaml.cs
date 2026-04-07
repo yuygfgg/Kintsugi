@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -21,13 +22,15 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     {
         InitializeComponent();
         DataContext = this;
-        _settings = new AppSettings();
+        _settings = AppSettings.Load();
+        SkinComboBox.ItemsSource = App.Current.SkinManager.AvailableSkins;
+        SkinComboBox.SelectedItem = App.Current.SkinManager.AvailableSkins.FirstOrDefault(skin => skin.Id == _settings.UiSkinId)
+            ?? App.Current.SkinManager.AvailableSkins[0];
     }
 
     public SettingsWindow(BassMidiPlayer player) : this()
     {
         _player = player;
-        _settings = AppSettings.Load();
         UpdateSoundFontDisplay();
 
         SystemModeComboBox.SelectedIndex = _player.SystemMode switch
@@ -171,6 +174,18 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
 
         _player.SampleRate = rate;
         _settings.SampleRate = rate;
+        _settings.Save();
+    }
+
+    private void OnSkinChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing || SkinComboBox.SelectedItem is not AppSkinDefinition skin)
+        {
+            return;
+        }
+
+        App.Current.SkinManager.ApplySkin(skin.Id);
+        _settings.UiSkinId = skin.Id;
         _settings.Save();
     }
 

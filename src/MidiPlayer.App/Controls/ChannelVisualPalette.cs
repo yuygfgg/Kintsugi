@@ -32,12 +32,12 @@ internal static class ChannelVisualPalette
         new SolidColorBrush(ChannelColors[15])
     ];
 
-    public static readonly IBrush DefaultTextBrush = new SolidColorBrush(Color.Parse("#D7DEE6"));
-    public static readonly IBrush NeutralCurrentTextBrush = new SolidColorBrush(Color.Parse("#DCEEFF"));
-    public static readonly IBrush InactiveBrush = new SolidColorBrush(Color.Parse("#303030"));
-    public static readonly IBrush MutedBrush = new SolidColorBrush(Color.Parse("#1A1A1A"));
-    public static readonly IBrush FocusBackgroundBrush = new SolidColorBrush(Color.Parse("#16293B"));
-    public static readonly IBrush NeutralActiveBackgroundBrush = new SolidColorBrush(Color.Parse("#132131"));
+    public static IBrush DefaultTextBrush => App.Current.SkinManager.GetBrush("Theme.ChannelDefaultTextBrush", "#D7DEE6");
+    public static IBrush NeutralCurrentTextBrush => App.Current.SkinManager.GetBrush("Theme.ChannelNeutralCurrentTextBrush", "#DCEEFF");
+    public static IBrush InactiveBrush => App.Current.SkinManager.GetBrush("Theme.ChannelInactiveBrush", "#303030");
+    public static IBrush MutedBrush => App.Current.SkinManager.GetBrush("Theme.ChannelMutedBrush", "#1A1A1A");
+    public static IBrush FocusBackgroundBrush => App.Current.SkinManager.GetBrush("Theme.ChannelFocusBackgroundBrush", "#16293B");
+    public static IBrush NeutralActiveBackgroundBrush => App.Current.SkinManager.GetBrush("Theme.ChannelNeutralActiveBackgroundBrush", "#132131");
 
     private static readonly IBrush[] ActiveBackgroundBrushes =
     [

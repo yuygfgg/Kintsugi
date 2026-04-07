@@ -30,34 +30,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Mix,
         Effects
     }
-
-    private static readonly IBrush LoopEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#214B75"));
-    private static readonly IBrush LoopEnabledBorderBrush = new SolidColorBrush(Color.Parse("#4A90E2"));
-    private static readonly IBrush LoopEnabledForegroundBrush = new SolidColorBrush(Color.Parse("#DCEEFF"));
-    private static readonly IBrush LoopPreparedBackgroundBrush = new SolidColorBrush(Color.Parse("#16293B"));
-    private static readonly IBrush LoopPreparedBorderBrush = new SolidColorBrush(Color.Parse("#3B6288"));
-    private static readonly IBrush LoopPreparedForegroundBrush = new SolidColorBrush(Color.Parse("#B8D3EC"));
-    private static readonly IBrush LoopDisabledBackgroundBrush = Brushes.Transparent;
-    private static readonly IBrush LoopDisabledBorderBrush = new SolidColorBrush(Color.Parse("#333333"));
-    private static readonly IBrush LoopDisabledForegroundBrush = new SolidColorBrush(Color.Parse("#A0A0A0"));
-    private static readonly IBrush LoopBadgeEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#13283E"));
-    private static readonly IBrush LoopBadgeEnabledBorderBrush = new SolidColorBrush(Color.Parse("#4A90E2"));
-    private static readonly IBrush LoopBadgeEnabledForegroundBrush = new SolidColorBrush(Color.Parse("#DCEEFF"));
-    private static readonly IBrush LoopBadgeStandbyBackgroundBrush = new SolidColorBrush(Color.Parse("#161F29"));
-    private static readonly IBrush LoopBadgeStandbyBorderBrush = new SolidColorBrush(Color.Parse("#3B6288"));
-    private static readonly IBrush LoopBadgeStandbyForegroundBrush = new SolidColorBrush(Color.Parse("#B8D3EC"));
-    private static readonly IBrush MixerEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#214B75"));
-    private static readonly IBrush MixerEnabledBorderBrush = new SolidColorBrush(Color.Parse("#4A90E2"));
-    private static readonly IBrush MixerEnabledForegroundBrush = new SolidColorBrush(Color.Parse("#DCEEFF"));
-    private static readonly IBrush MixerDisabledBackgroundBrush = Brushes.Transparent;
-    private static readonly IBrush MixerDisabledBorderBrush = new SolidColorBrush(Color.Parse("#333333"));
-    private static readonly IBrush MixerDisabledForegroundBrush = new SolidColorBrush(Color.Parse("#A0A0A0"));
-    private static readonly IBrush SpeedEnabledBackgroundBrush = new SolidColorBrush(Color.Parse("#214B75"));
-    private static readonly IBrush SpeedEnabledBorderBrush = new SolidColorBrush(Color.Parse("#4A90E2"));
-    private static readonly IBrush SpeedEnabledForegroundBrush = new SolidColorBrush(Color.Parse("#DCEEFF"));
-    private static readonly IBrush SpeedDisabledBackgroundBrush = new SolidColorBrush(Color.Parse("#171717"));
-    private static readonly IBrush SpeedDisabledBorderBrush = new SolidColorBrush(Color.Parse("#2F2F2F"));
-    private static readonly IBrush SpeedDisabledForegroundBrush = new SolidColorBrush(Color.Parse("#A0A0A0"));
     private static readonly string[] SupportedPlayableExtensions = [.. PlaylistFileParser.SupportedMidiExtensions, .. PlaylistFileParser.SupportedPlaylistExtensions];
     private static readonly string SupportedPlayableFileDescription = string.Join(", ", SupportedPlayableExtensions);
     private const double ChannelMixerPopupWidth = 244;
@@ -139,6 +111,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ChannelMonitorView.SizeChanged += (_, _) => UpdateChannelMixerPopupPosition();
 
         _settings = AppSettings.Load();
+        App.Current.SkinManager.SkinChanged += OnSkinChanged;
         _player.EqStateChanged += OnPlayerEqStateChanged;
         _player.PluginStateChanged += OnPlayerPluginStateChanged;
 
@@ -310,9 +283,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public string DurationText => FormatTime(DurationSeconds);
 
-    public string PlayPauseIcon => _player.IsPlaying ? "⏸" : "▶";
+    public string PlayPauseIcon => _player.IsPlaying
+        ? App.Current.SkinManager.IsWindowsClassic ? "||" : "⏸"
+        : App.Current.SkinManager.IsWindowsClassic ? ">" : "▶";
 
-    public Thickness PlayPauseIconMargin => _player.IsPlaying ? new Thickness(0, 0, 0, 0) : new Thickness(2, 0, 0, 0);
+    public Thickness PlayPauseIconMargin => !_player.IsPlaying && !App.Current.SkinManager.IsWindowsClassic
+        ? new Thickness(2, 0, 0, 0)
+        : new Thickness(0);
+
+    public string PreviousTrackButtonText => App.Current.SkinManager.IsWindowsClassic ? "|<" : "⏮";
+
+    public string NextTrackButtonText => App.Current.SkinManager.IsWindowsClassic ? ">|" : "⏭";
+
+    public string SettingsButtonText => App.Current.SkinManager.IsWindowsClassic ? "SET" : "⚙";
 
     public bool CanTogglePlayback => _player.HasStream;
 
@@ -363,11 +346,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    public IBrush EqButtonBackground => IsEqEnabled ? SpeedEnabledBackgroundBrush : SpeedDisabledBackgroundBrush;
+    public IBrush EqButtonBackground => IsEqEnabled ? ToggleActiveBackgroundBrush : ToggleInactiveBackgroundBrush;
 
-    public IBrush EqButtonBorderBrush => IsEqEnabled ? SpeedEnabledBorderBrush : SpeedDisabledBorderBrush;
+    public IBrush EqButtonBorderBrush => IsEqEnabled ? ToggleActiveBorderBrush : ToggleInactiveBorderBrush;
 
-    public IBrush EqButtonForeground => IsEqEnabled ? SpeedEnabledForegroundBrush : SpeedDisabledForegroundBrush;
+    public IBrush EqButtonForeground => IsEqEnabled ? ToggleActiveForegroundBrush : ToggleInactiveForegroundBrush;
 
     public string EqButtonToolTip => IsEqEnabled ? "Turn EQ off" : "Turn EQ on";
 
@@ -638,37 +621,37 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : "Loop playback. Drag the upper timeline lane to create an A-B range.");
 
     public IBrush LoopButtonBackground => _player.IsLooping
-        ? LoopEnabledBackgroundBrush
+        ? ToggleActiveBackgroundBrush
         : _player.HasCustomLoopRange
-            ? LoopPreparedBackgroundBrush
-            : LoopDisabledBackgroundBrush;
+            ? TogglePreparedBackgroundBrush
+            : ToggleInactiveBackgroundBrush;
 
     public IBrush LoopButtonBorderBrush => _player.IsLooping
-        ? LoopEnabledBorderBrush
+        ? ToggleActiveBorderBrush
         : _player.HasCustomLoopRange
-            ? LoopPreparedBorderBrush
-            : LoopDisabledBorderBrush;
+            ? TogglePreparedBorderBrush
+            : ToggleInactiveBorderBrush;
 
     public IBrush LoopButtonForeground => _player.IsLooping
-        ? LoopEnabledForegroundBrush
+        ? ToggleActiveForegroundBrush
         : _player.HasCustomLoopRange
-            ? LoopPreparedForegroundBrush
-            : LoopDisabledForegroundBrush;
+            ? TogglePreparedForegroundBrush
+            : ToggleInactiveForegroundBrush;
 
-    public IBrush LoopBadgeBackground => _player.IsLooping ? LoopBadgeEnabledBackgroundBrush : LoopBadgeStandbyBackgroundBrush;
+    public IBrush LoopBadgeBackground => _player.IsLooping ? BadgeActiveBackgroundBrush : BadgeStandbyBackgroundBrush;
 
-    public IBrush LoopBadgeBorderBrush => _player.IsLooping ? LoopBadgeEnabledBorderBrush : LoopBadgeStandbyBorderBrush;
+    public IBrush LoopBadgeBorderBrush => _player.IsLooping ? BadgeActiveBorderBrush : BadgeStandbyBorderBrush;
 
-    public IBrush LoopBadgeForeground => _player.IsLooping ? LoopBadgeEnabledForegroundBrush : LoopBadgeStandbyForegroundBrush;
-
-
+    public IBrush LoopBadgeForeground => _player.IsLooping ? BadgeActiveForegroundBrush : BadgeStandbyForegroundBrush;
 
 
-    public IBrush SpeedButtonBackground => IsSpeedPopupOpen ? SpeedEnabledBackgroundBrush : SpeedDisabledBackgroundBrush;
 
-    public IBrush SpeedButtonBorderBrush => IsSpeedPopupOpen ? SpeedEnabledBorderBrush : SpeedDisabledBorderBrush;
 
-    public IBrush SpeedButtonForeground => IsSpeedPopupOpen ? SpeedEnabledForegroundBrush : SpeedDisabledForegroundBrush;
+    public IBrush SpeedButtonBackground => IsSpeedPopupOpen ? ToggleActiveBackgroundBrush : ToggleInactiveBackgroundBrush;
+
+    public IBrush SpeedButtonBorderBrush => IsSpeedPopupOpen ? ToggleActiveBorderBrush : ToggleInactiveBorderBrush;
+
+    public IBrush SpeedButtonForeground => IsSpeedPopupOpen ? ToggleActiveForegroundBrush : ToggleInactiveForegroundBrush;
 
     private async void OnOpenMidiClicked(object? sender, RoutedEventArgs e)
     {
@@ -1470,6 +1453,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _mediaControls.Dispose();
+        App.Current.SkinManager.SkinChanged -= OnSkinChanged;
         _player.EqStateChanged -= OnPlayerEqStateChanged;
         _player.PluginStateChanged -= OnPlayerPluginStateChanged;
         _player.Dispose();
@@ -1776,13 +1760,73 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     private IBrush GetVisualizerViewButtonBackground(VisualizerView view)
-        => _selectedVisualizerView == view ? SpeedEnabledBackgroundBrush : SpeedDisabledBackgroundBrush;
+        => _selectedVisualizerView == view ? ToggleActiveBackgroundBrush : ToggleInactiveBackgroundBrush;
 
     private IBrush GetVisualizerViewButtonBorderBrush(VisualizerView view)
-        => _selectedVisualizerView == view ? SpeedEnabledBorderBrush : SpeedDisabledBorderBrush;
+        => _selectedVisualizerView == view ? ToggleActiveBorderBrush : ToggleInactiveBorderBrush;
 
     private IBrush GetVisualizerViewButtonForeground(VisualizerView view)
-        => _selectedVisualizerView == view ? SpeedEnabledForegroundBrush : SpeedDisabledForegroundBrush;
+        => _selectedVisualizerView == view ? ToggleActiveForegroundBrush : ToggleInactiveForegroundBrush;
+
+    private static IBrush ToggleActiveBackgroundBrush => App.Current.SkinManager.GetBrush("Theme.ToggleActiveBackgroundBrush", "#214B75");
+
+    private static IBrush ToggleActiveBorderBrush => App.Current.SkinManager.GetBrush("Theme.ToggleActiveBorderBrush", "#4A90E2");
+
+    private static IBrush ToggleActiveForegroundBrush => App.Current.SkinManager.GetBrush("Theme.ToggleActiveForegroundBrush", "#DCEEFF");
+
+    private static IBrush TogglePreparedBackgroundBrush => App.Current.SkinManager.GetBrush("Theme.TogglePreparedBackgroundBrush", "#16293B");
+
+    private static IBrush TogglePreparedBorderBrush => App.Current.SkinManager.GetBrush("Theme.TogglePreparedBorderBrush", "#3B6288");
+
+    private static IBrush TogglePreparedForegroundBrush => App.Current.SkinManager.GetBrush("Theme.TogglePreparedForegroundBrush", "#B8D3EC");
+
+    private static IBrush ToggleInactiveBackgroundBrush => App.Current.SkinManager.GetBrush("Theme.ToggleInactiveBackgroundBrush", "#171717");
+
+    private static IBrush ToggleInactiveBorderBrush => App.Current.SkinManager.GetBrush("Theme.ToggleInactiveBorderBrush", "#2F2F2F");
+
+    private static IBrush ToggleInactiveForegroundBrush => App.Current.SkinManager.GetBrush("Theme.ToggleInactiveForegroundBrush", "#A0A0A0");
+
+    private static IBrush BadgeActiveBackgroundBrush => App.Current.SkinManager.GetBrush("Theme.BadgeActiveBackgroundBrush", "#13283E");
+
+    private static IBrush BadgeActiveBorderBrush => App.Current.SkinManager.GetBrush("Theme.BadgeActiveBorderBrush", "#4A90E2");
+
+    private static IBrush BadgeActiveForegroundBrush => App.Current.SkinManager.GetBrush("Theme.BadgeActiveForegroundBrush", "#DCEEFF");
+
+    private static IBrush BadgeStandbyBackgroundBrush => App.Current.SkinManager.GetBrush("Theme.BadgeStandbyBackgroundBrush", "#161F29");
+
+    private static IBrush BadgeStandbyBorderBrush => App.Current.SkinManager.GetBrush("Theme.BadgeStandbyBorderBrush", "#3B6288");
+
+    private static IBrush BadgeStandbyForegroundBrush => App.Current.SkinManager.GetBrush("Theme.BadgeStandbyForegroundBrush", "#B8D3EC");
+
+    private void OnSkinChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            OnPropertyChanged(nameof(PlayPauseIcon));
+            OnPropertyChanged(nameof(PlayPauseIconMargin));
+            OnPropertyChanged(nameof(PreviousTrackButtonText));
+            OnPropertyChanged(nameof(NextTrackButtonText));
+            OnPropertyChanged(nameof(SettingsButtonText));
+            RefreshEqBindings();
+            RefreshLoopBindings();
+            OnPropertyChanged(nameof(SpeedButtonBackground));
+            OnPropertyChanged(nameof(SpeedButtonBorderBrush));
+            OnPropertyChanged(nameof(SpeedButtonForeground));
+            OnPropertyChanged(nameof(EqViewButtonBackground));
+            OnPropertyChanged(nameof(EqViewButtonBorderBrush));
+            OnPropertyChanged(nameof(EqViewButtonForeground));
+            OnPropertyChanged(nameof(PianoRollViewButtonBackground));
+            OnPropertyChanged(nameof(PianoRollViewButtonBorderBrush));
+            OnPropertyChanged(nameof(PianoRollViewButtonForeground));
+            OnPropertyChanged(nameof(MixViewButtonBackground));
+            OnPropertyChanged(nameof(MixViewButtonBorderBrush));
+            OnPropertyChanged(nameof(MixViewButtonForeground));
+            OnPropertyChanged(nameof(EffectsViewButtonBackground));
+            OnPropertyChanged(nameof(EffectsViewButtonBorderBrush));
+            OnPropertyChanged(nameof(EffectsViewButtonForeground));
+            InvalidateVisual();
+        });
+    }
 
     private static bool IsWithinVisual(Visual? source, Visual? target)
     {

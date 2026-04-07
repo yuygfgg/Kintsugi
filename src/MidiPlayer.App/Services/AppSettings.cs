@@ -9,6 +9,7 @@ namespace MidiPlayer.App.Services;
 
 public class AppSettings
 {
+    public string UiSkinId { get; set; } = AppSkinManager.ModernDarkSkinId;
     public string? SoundFontPath { get; set; }
     public MidiSystem SystemMode { get; set; } = MidiSystem.Default;
     public int SampleRate { get; set; } = 44100;

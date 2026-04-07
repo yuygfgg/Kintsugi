@@ -26,19 +26,6 @@ public sealed class LoopTimelineControl : Control
     public static readonly StyledProperty<bool> IsLoopEnabledProperty =
         AvaloniaProperty.Register<LoopTimelineControl, bool>(nameof(IsLoopEnabled));
 
-    private static readonly IBrush LoopLaneFill = new SolidColorBrush(Color.Parse("#1C1C1C"));
-    private static readonly IBrush SeekLaneFill = new SolidColorBrush(Color.Parse("#202020"));
-    private static readonly IBrush SelectionFill = new SolidColorBrush(Color.Parse("#24496F"));
-    private static readonly IBrush SelectionStandbyFill = new SolidColorBrush(Color.Parse("#1B3248"));
-    private static readonly IBrush FullLoopFill = new SolidColorBrush(Color.Parse("#162B3E"));
-    private static readonly IBrush RangeTintFill = new SolidColorBrush(Color.Parse("#14283B"));
-    private static readonly IBrush ProgressFill = new SolidColorBrush(Color.Parse("#4A90E2"));
-    private static readonly IBrush HandleFill = new SolidColorBrush(Color.Parse("#DCEEFF"));
-    private static readonly IBrush PlayheadFill = new SolidColorBrush(Color.Parse("#DCEEFF"));
-    private static readonly Pen LaneBorderPen = new(new SolidColorBrush(Color.Parse("#303030")), 1);
-    private static readonly Pen SelectionBorderPen = new(new SolidColorBrush(Color.Parse("#4A90E2")), 1);
-    private static readonly Pen SelectionStandbyBorderPen = new(new SolidColorBrush(Color.Parse("#3B5A78")), 1);
-    private static readonly Pen PlayheadPen = new(new SolidColorBrush(Color.Parse("#DCEEFF")), 1.5);
     private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
     private static readonly Cursor MoveCursor = new(StandardCursorType.SizeAll);
     private static readonly Cursor ResizeCursor = new(StandardCursorType.SizeWestEast);
@@ -139,6 +126,18 @@ public sealed class LoopTimelineControl : Control
     public event EventHandler<TimelineLoopRangeChangedEventArgs>? LoopRangeChanged;
 
     public event EventHandler? LoopRangeCleared;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        App.Current.SkinManager.SkinChanged += OnSkinChanged;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        App.Current.SkinManager.SkinChanged -= OnSkinChanged;
+    }
 
     public override void Render(DrawingContext context)
     {
@@ -650,6 +649,33 @@ public sealed class LoopTimelineControl : Control
 
     private Pen GetSelectionBorderPen()
         => IsLoopEnabled ? SelectionBorderPen : SelectionStandbyBorderPen;
+
+    private static IBrush SeekLaneFill => App.Current.SkinManager.GetBrush("Theme.LoopTimelineSeekLaneBrush", "#202020");
+
+    private static IBrush SelectionFill => App.Current.SkinManager.GetBrush("Theme.LoopTimelineSelectionBrush", "#24496F");
+
+    private static IBrush SelectionStandbyFill => App.Current.SkinManager.GetBrush("Theme.LoopTimelineSelectionStandbyBrush", "#1B3248");
+
+    private static IBrush FullLoopFill => App.Current.SkinManager.GetBrush("Theme.LoopTimelineFullLoopBrush", "#162B3E");
+
+    private static IBrush ProgressFill => App.Current.SkinManager.GetBrush("Theme.LoopTimelineProgressBrush", "#4A90E2");
+
+    private static IBrush HandleFill => App.Current.SkinManager.GetBrush("Theme.LoopTimelineHandleBrush", "#DCEEFF");
+
+    private static IBrush PlayheadFill => App.Current.SkinManager.GetBrush("Theme.LoopTimelinePlayheadBrush", "#DCEEFF");
+
+    private static Pen LaneBorderPen => new(App.Current.SkinManager.GetBrush("Theme.LoopTimelineLaneBorderBrush", "#303030"), 1);
+
+    private static Pen SelectionBorderPen => new(App.Current.SkinManager.GetBrush("Theme.LoopTimelineSelectionBorderBrush", "#4A90E2"), 1);
+
+    private static Pen SelectionStandbyBorderPen => new(App.Current.SkinManager.GetBrush("Theme.LoopTimelineSelectionStandbyBorderBrush", "#3B5A78"), 1);
+
+    private static Pen PlayheadPen => new(App.Current.SkinManager.GetBrush("Theme.LoopTimelinePlayheadBrush", "#DCEEFF"), 1.5);
+
+    private void OnSkinChanged(object? sender, EventArgs e)
+    {
+        InvalidateVisual();
+    }
 
     private enum DragMode
     {

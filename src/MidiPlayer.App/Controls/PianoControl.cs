@@ -26,10 +26,6 @@ public class PianoControl : Control
         set => SetValue(TransposeOffsetSemitonesProperty, value);
     }
 
-    private static readonly IBrush WhiteKeyBrush = new SolidColorBrush(Color.Parse("#E0E0E0"));
-    private static readonly IBrush BlackKeyBrush = new SolidColorBrush(Color.Parse("#202020"));
-    private static readonly IPen OutlinePen = new Pen(new SolidColorBrush(Color.Parse("#111")), 1);
-
     public PianoControl()
     {
         ClipToBounds = true;
@@ -55,6 +51,18 @@ public class PianoControl : Control
         {
             Dispatcher.UIThread.Post(InvalidateVisual);
         }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        App.Current.SkinManager.SkinChanged += OnSkinChanged;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        App.Current.SkinManager.SkinChanged -= OnSkinChanged;
     }
 
     private void OnNotesChanged()
@@ -114,5 +122,16 @@ public class PianoControl : Control
                 context.DrawRectangle(fill, OutlinePen, rect);
             }
         }
+    }
+
+    private static IBrush WhiteKeyBrush => App.Current.SkinManager.GetBrush("Theme.PianoWhiteKeyBrush", "#E0E0E0");
+
+    private static IBrush BlackKeyBrush => App.Current.SkinManager.GetBrush("Theme.PianoBlackKeyBrush", "#202020");
+
+    private static IPen OutlinePen => new Pen(App.Current.SkinManager.GetBrush("Theme.ControlOutlineBrush", "#111111"), 1);
+
+    private void OnSkinChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(InvalidateVisual);
     }
 }

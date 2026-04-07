@@ -2,40 +2,30 @@
     x:Class="MidiPlayer.App.SettingsWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:services="using:MidiPlayer.App.Services"
     Title="Kintsugi Midi Player Settings"
+    Classes="appWindow"
     Width="440"
-    Height="480"
+    Height="560"
     WindowStartupLocation="CenterOwner"
-    CanResize="False"
-    Background="#202020">
-  <Window.Styles>
-    <Style Selector="TextBlock">
-      <Setter Property="Foreground" Value="#E0E0E0" />
-    </Style>
-    <Style Selector="TextBlock.hint">
-      <Setter Property="Foreground" Value="#888888" />
-      <Setter Property="FontSize" Value="12" />
-      <Setter Property="TextWrapping" Value="Wrap" />
-    </Style>
-  </Window.Styles>
-
+    CanResize="False">
   <ScrollViewer>
     <StackPanel Spacing="24" Margin="32">
-      <TextBlock FontSize="24" FontWeight="SemiBold" Text="Player Settings" />
+      <TextBlock FontSize="24" FontWeight="SemiBold" Text="Player Settings" Classes="accent" />
 
       <StackPanel Spacing="8">
         <TextBlock Text="SoundFont" FontWeight="SemiBold" />
         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
-          <TextBox Text="{Binding SoundFontDisplayName}" IsReadOnly="True" VerticalAlignment="Center" Background="#303030" BorderThickness="0" Foreground="#E0E0E0" />
-          <Button Grid.Column="1" Content="Use Bundled" Click="OnUseBundledSoundFontClicked" Background="#353535" Foreground="#E0E0E0" BorderThickness="0" Padding="12,6" />
-          <Button Grid.Column="2" Content="Browse..." Click="OnBrowseSoundFontClicked" Background="#404040" Foreground="#E0E0E0" BorderThickness="0" Padding="12,6" />
+          <TextBox Text="{Binding SoundFontDisplayName}" IsReadOnly="True" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Classes="secondary" Content="Use Bundled" Click="OnUseBundledSoundFontClicked" />
+          <Button Grid.Column="2" Classes="compact" Content="Browse..." Click="OnBrowseSoundFontClicked" />
         </Grid>
         <TextBlock Classes="hint" Text="Load an SF2 or SFZ file, or switch back to the bundled GeneralUser-GS.sf2." />
       </StackPanel>
 
       <StackPanel Spacing="8">
         <TextBlock Text="MIDI System Mode" FontWeight="SemiBold" />
-        <ComboBox x:Name="SystemModeComboBox" SelectionChanged="OnSystemModeChanged" HorizontalAlignment="Stretch" Background="#303030" BorderThickness="0" Foreground="#E0E0E0">
+        <ComboBox x:Name="SystemModeComboBox" SelectionChanged="OnSystemModeChanged" HorizontalAlignment="Stretch">
           <ComboBoxItem Content="Auto (Use MIDI File Default)" />
           <ComboBoxItem Content="GM1 (General MIDI 1)" />
           <ComboBoxItem Content="GM2 (General MIDI 2)" />
@@ -47,7 +37,7 @@
 
       <StackPanel Spacing="8">
         <TextBlock Text="Output Sample Rate" FontWeight="SemiBold" />
-        <ComboBox x:Name="SampleRateComboBox" SelectionChanged="OnSampleRateChanged" HorizontalAlignment="Stretch" Background="#303030" BorderThickness="0" Foreground="#E0E0E0">
+        <ComboBox x:Name="SampleRateComboBox" SelectionChanged="OnSampleRateChanged" HorizontalAlignment="Stretch">
           <ComboBoxItem Content="44100 Hz" />
           <ComboBoxItem Content="48000 Hz" />
           <ComboBoxItem Content="88200 Hz" />
@@ -56,7 +46,19 @@
         <TextBlock Classes="hint" Text="Select the audio output sample rate." />
       </StackPanel>
 
-      <Button Content="Close" Click="OnCloseClicked" HorizontalAlignment="Right" Margin="0,16,0,0" Width="80" HorizontalContentAlignment="Center" Background="#4A90E2" Foreground="White" BorderThickness="0" />
+      <StackPanel Spacing="8">
+        <TextBlock Text="Skin" FontWeight="SemiBold" />
+        <ComboBox x:Name="SkinComboBox" SelectionChanged="OnSkinChanged" HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="services:AppSkinDefinition">
+              <TextBlock Text="{Binding DisplayName}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBlock Classes="hint" Text="Switch the whole app between the modern interface and a Windows 95 / 98 inspired skin." />
+      </StackPanel>
+
+      <Button Classes="primary" Content="Close" Click="OnCloseClicked" HorizontalAlignment="Right" Margin="0,16,0,0" Width="80" HorizontalContentAlignment="Center" />
     </StackPanel>
   </ScrollViewer>
 </Window>

@@ -1,0 +1,251 @@
+<Styles x:Class="MidiPlayer.App.Styles.CommonStyles"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="Window.appWindow">
+    <Setter Property="Background" Value="{DynamicResource Theme.WindowBackgroundBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ForegroundBrush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Theme.UiFontFamily}" />
+  </Style>
+
+  <Style Selector="TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ForegroundBrush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Theme.UiFontFamily}" />
+  </Style>
+
+  <Style Selector="TextBlock.accent">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.AccentBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.MutedForegroundBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.subtle">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.SubtleForegroundBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.dim">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.DimForegroundBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.secondaryAccent">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.SecondaryAccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.accentMuted">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.AccentMutedForegroundBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.hint">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.HintForegroundBrush}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <Style Selector="TextBlock.mono">
+    <Setter Property="FontFamily" Value="{DynamicResource Theme.MonoFontFamily}" />
+  </Style>
+
+  <Style Selector="ToolTip">
+    <Setter Property="Background" Value="{DynamicResource Theme.PopupBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.PopupBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ForegroundBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.PopupCornerRadius}" />
+  </Style>
+
+  <Style Selector="Button">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Background" Value="{DynamicResource Theme.ButtonBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.ButtonBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ButtonForegroundBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.ButtonCornerRadius}" />
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="FontFamily" Value="{DynamicResource Theme.UiFontFamily}" />
+  </Style>
+
+  <Style Selector="Button:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Theme.ButtonHoverBackgroundBrush}" />
+  </Style>
+
+  <Style Selector="Button:pressed">
+    <Setter Property="Background" Value="{DynamicResource Theme.ButtonPressedBackgroundBrush}" />
+  </Style>
+
+  <Style Selector="Button:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.DisabledForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{DynamicResource Theme.PrimaryButtonBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.PrimaryButtonBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.PrimaryButtonForegroundBrush}" />
+    <Setter Property="Padding" Value="14,8" />
+  </Style>
+
+  <Style Selector="Button.secondary">
+    <Setter Property="Background" Value="{DynamicResource Theme.SecondaryButtonBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.SecondaryButtonBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.SecondaryButtonForegroundBrush}" />
+    <Setter Property="Padding" Value="14,8" />
+  </Style>
+
+  <Style Selector="Button.compact">
+    <Setter Property="Background" Value="{DynamicResource Theme.CompactButtonBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.CompactButtonBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.CompactButtonForegroundBrush}" />
+    <Setter Property="Padding" Value="12,6" />
+  </Style>
+
+  <Style Selector="Button.iconBtn">
+    <Setter Property="Background" Value="{DynamicResource Theme.IconButtonBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.IconButtonBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.IconButtonForegroundBrush}" />
+    <Setter Property="Padding" Value="8" />
+  </Style>
+
+  <Style Selector="Button.iconBtn:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Theme.IconButtonHoverBackgroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.actionBtn">
+    <Setter Property="Background" Value="{DynamicResource Theme.ActionButtonBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.ActionButtonBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ActionButtonForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.chainBtn">
+    <Setter Property="Background" Value="{DynamicResource Theme.ChainButtonBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.ChainButtonBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ChainButtonForegroundBrush}" />
+    <Setter Property="Padding" Value="10,6" />
+  </Style>
+
+  <Style Selector="Button.chainPrimaryBtn">
+    <Setter Property="Background" Value="{DynamicResource Theme.ChainPrimaryButtonBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.ChainPrimaryButtonBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ChainPrimaryButtonForegroundBrush}" />
+    <Setter Property="Padding" Value="10,6" />
+  </Style>
+
+  <Style Selector="Button.chainDangerBtn">
+    <Setter Property="Background" Value="{DynamicResource Theme.ChainDangerButtonBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.ChainDangerButtonBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ChainDangerButtonForegroundBrush}" />
+    <Setter Property="Padding" Value="10,6" />
+  </Style>
+
+  <Style Selector="Button.viewChip">
+    <Setter Property="Background" Value="{DynamicResource Theme.ToggleInactiveBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.ToggleInactiveBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ToggleInactiveForegroundBrush}" />
+    <Setter Property="Padding" Value="14,6" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.PillCornerRadius}" />
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+
+  <Style Selector="Button.transportBtn">
+    <Setter Property="Background" Value="{DynamicResource Theme.IconButtonBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.IconButtonBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.IconButtonForegroundBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.RoundButtonCornerRadius}" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="Button.playPauseBtn">
+    <Setter Property="Background" Value="{DynamicResource Theme.PlayPauseButtonBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.PlayPauseButtonBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.PlayPauseButtonForegroundBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.PlayPauseButtonCornerRadius}" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="Button.playlistToggleBtn">
+    <Setter Property="Background" Value="{DynamicResource Theme.SideToggleBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.SideToggleBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.SideToggleForegroundBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.SideToggleCornerRadius}" />
+    <Setter Property="Padding" Value="4,24" />
+  </Style>
+
+  <Style Selector="TextBox">
+    <Setter Property="Background" Value="{DynamicResource Theme.InputBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.InputBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.InputForegroundBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.InputCornerRadius}" />
+  </Style>
+
+  <Style Selector="ComboBox">
+    <Setter Property="Background" Value="{DynamicResource Theme.InputBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.InputBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource Theme.InputForegroundBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.InputCornerRadius}" />
+  </Style>
+
+  <Style Selector="ListBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
+  <Style Selector="ListBoxItem">
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Focusable" Value="False" />
+  </Style>
+
+  <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Theme.ListItemHoverBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Theme.ListItemSelectedBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ListItemSelectedForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Border.panel">
+    <Setter Property="Background" Value="{DynamicResource Theme.SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.SurfaceBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.SurfaceCornerRadius}" />
+  </Style>
+
+  <Style Selector="Border.visualPanel">
+    <Setter Property="Background" Value="{DynamicResource Theme.VisualizerBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.VisualizerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.SurfaceCornerRadius}" />
+  </Style>
+
+  <Style Selector="Border.pill">
+    <Setter Property="Background" Value="{DynamicResource Theme.PillBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.PillBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.PillCornerRadius}" />
+  </Style>
+
+  <Style Selector="Border.accentPill">
+    <Setter Property="Background" Value="{DynamicResource Theme.AccentPillBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.AccentPillBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.PillCornerRadius}" />
+  </Style>
+
+  <Style Selector="Border.popupPanel">
+    <Setter Property="Background" Value="{DynamicResource Theme.PopupBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.PopupBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Theme.PopupCornerRadius}" />
+  </Style>
+
+  <Style Selector="Border.sidebar">
+    <Setter Property="Background" Value="{DynamicResource Theme.SidebarBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Theme.SidebarBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1,0,0,0" />
+  </Style>
+</Styles>

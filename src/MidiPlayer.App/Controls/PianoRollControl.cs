@@ -28,35 +28,8 @@ public class PianoRollControl : Control
         AvaloniaProperty.Register<PianoRollControl, int>(nameof(TransposeOffsetSemitones));
 
     private static readonly Typeface UiTypeface = new("Segoe UI");
-    private static readonly IBrush BackgroundBrush = new LinearGradientBrush
-    {
-        StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-        EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
-        GradientStops =
-        [
-            new GradientStop(Color.Parse("#111926"), 0),
-            new GradientStop(Color.Parse("#090D14"), 1)
-        ]
-    };
     private static readonly IBrush[] NoteBrushes = CreateBrushes(0xC8);
     private static readonly IBrush[] NoteHighlightBrushes = CreateBrushes(0xFF);
-    private static readonly IPen LanePen = new Pen(new SolidColorBrush(Color.Parse("#172130")), 1);
-    private static readonly IPen TimeGridPen = new Pen(new SolidColorBrush(Color.Parse("#223249")), 1);
-    private static readonly IPen HitLinePen = new Pen(new SolidColorBrush(Color.Parse("#EAF6FF")), 1.2);
-    private static readonly IBrush WhiteLaneBrush = new SolidColorBrush(Color.Parse("#101723"));
-    private static readonly IBrush BlackLaneBrush = new SolidColorBrush(Color.Parse("#0A111C"));
-    private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#8FA4BB"));
-    private static readonly IBrush EmptyStateBrush = new SolidColorBrush(Color.Parse("#6E8094"));
-    private static readonly IBrush HitLineGlowBrush = new LinearGradientBrush
-    {
-        StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-        EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
-        GradientStops =
-        [
-            new GradientStop(Color.FromArgb(0x60, 0xB8, 0xDD, 0xFF), 0),
-            new GradientStop(Color.FromArgb(0x00, 0xB8, 0xDD, 0xFF), 1)
-        ]
-    };
 
     private readonly DispatcherTimer _timer;
 
@@ -87,12 +60,14 @@ public class PianoRollControl : Control
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        App.Current.SkinManager.SkinChanged += OnSkinChanged;
         _timer.Start();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        App.Current.SkinManager.SkinChanged -= OnSkinChanged;
         _timer.Stop();
     }
 
@@ -302,5 +277,52 @@ public class PianoRollControl : Control
         }
 
         return brushes;
+    }
+
+    private static IBrush BackgroundBrush => new LinearGradientBrush
+    {
+        StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+        EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+        GradientStops =
+        [
+            new GradientStop(App.Current.SkinManager.GetColor("Theme.PianoRollBackgroundTopColor", "#111926"), 0),
+            new GradientStop(App.Current.SkinManager.GetColor("Theme.PianoRollBackgroundBottomColor", "#090D14"), 1)
+        ]
+    };
+
+    private static IPen LanePen => new Pen(App.Current.SkinManager.GetBrush("Theme.PianoRollLaneBorderBrush", "#172130"), 1);
+
+    private static IPen TimeGridPen => new Pen(App.Current.SkinManager.GetBrush("Theme.PianoRollTimeGridBrush", "#223249"), 1);
+
+    private static IPen HitLinePen => new Pen(App.Current.SkinManager.GetBrush("Theme.PianoRollHitLineBrush", "#EAF6FF"), 1.2);
+
+    private static IBrush WhiteLaneBrush => App.Current.SkinManager.GetBrush("Theme.PianoRollWhiteLaneBrush", "#101723");
+
+    private static IBrush BlackLaneBrush => App.Current.SkinManager.GetBrush("Theme.PianoRollBlackLaneBrush", "#0A111C");
+
+    private static IBrush TextBrush => App.Current.SkinManager.GetBrush("Theme.PianoRollTextBrush", "#8FA4BB");
+
+    private static IBrush EmptyStateBrush => App.Current.SkinManager.GetBrush("Theme.PianoRollEmptyStateBrush", "#6E8094");
+
+    private static IBrush HitLineGlowBrush => new LinearGradientBrush
+    {
+        StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+        EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+        GradientStops = CreateHitGlowStops()
+    };
+
+    private void OnSkinChanged(object? sender, EventArgs e)
+    {
+        InvalidateVisual();
+    }
+
+    private static GradientStops CreateHitGlowStops()
+    {
+        var topColor = App.Current.SkinManager.GetColor("Theme.PianoRollHitGlowColor", "#60B8DDFF");
+        return
+        [
+            new GradientStop(topColor, 0),
+            new GradientStop(Color.FromArgb(0, topColor.R, topColor.G, topColor.B), 1)
+        ];
     }
 }
