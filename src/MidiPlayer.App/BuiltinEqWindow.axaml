@@ -1,0 +1,37 @@
+<Window
+    x:Class="MidiPlayer.App.BuiltinEqWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:MidiPlayer.App.Controls"
+    Title="Equalizer"
+    Classes="appWindow"
+    Width="900"
+    Height="560"
+    MinWidth="720"
+    MinHeight="420"
+    WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,*" RowSpacing="12" Margin="16">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+      <StackPanel Spacing="4">
+        <TextBlock Text="EQ" FontSize="13" FontWeight="Bold" Classes="accent" />
+        <TextBlock Text="Built-in 8-band equalizer. Drag bands to shape the tone, and reorder it from the FX chain like any other effect." FontSize="12" Classes="hint" />
+      </StackPanel>
+
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Border Classes="pill" Padding="10,4">
+          <TextBlock Text="{Binding EqStatusText}" FontSize="10" FontWeight="Bold" Classes="secondaryAccent" />
+        </Border>
+        <Button Classes="chainPrimaryBtn"
+                Content="TOGGLE"
+                Padding="12,8"
+                Click="OnToggleEqClicked"
+                ToolTip.Tip="{Binding ToggleEqToolTip}" />
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="1" Classes="visualPanel" ClipToBounds="True">
+      <controls:SpectrumControl Player="{Binding Player}"
+                                IsEqEnabled="{Binding IsEqEnabled, Mode=TwoWay}" />
+    </Border>
+  </Grid>
+</Window>

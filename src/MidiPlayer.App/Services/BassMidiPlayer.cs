@@ -1410,14 +1410,14 @@ public sealed class BassMidiPlayer : IDisposable
                 {
                     items.Add(new AudioEffectChainItem(
                         EqEffectItemId,
-                        AudioEffectChainItemKind.Eq,
+                        AudioEffectChainItemKind.Builtin,
                         "Equalizer",
-                        "EQ",
+                        "BUILTIN",
                         "Built-in 8-band equalizer",
                         string.Empty,
                         _isEqEnabled ? "ON" : "OFF",
                         _isEqEnabled,
-                        false,
+                        true,
                         index > 0,
                         index < _effectChainOrder.Count - 1,
                         false));

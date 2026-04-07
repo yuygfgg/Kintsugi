@@ -25,7 +25,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private enum VisualizerView
     {
-        Eq,
         PianoRoll,
         Mix,
         Effects
@@ -43,6 +42,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly AppSettings _settings;
     private readonly SystemMediaControls _mediaControls;
     private readonly DispatcherTimer _positionTimer;
+    private BuiltinEqWindow? _builtinEqWindow;
     private MidiEventsWindow? _midiEventsWindow;
     private bool _isScrubbing;
     private bool _isUpdatingPosition;
@@ -61,7 +61,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isSpeedPopupOpen;
     private bool _isEqEnabled = true;
     private int _selectedChannelIndex = -1;
-    private VisualizerView _selectedVisualizerView = VisualizerView.Eq;
+    private VisualizerView _selectedVisualizerView = VisualizerView.Effects;
     private PianoRollNote[] _pianoRollNotes = Array.Empty<PianoRollNote>();
     private bool _isLoadingSavedMidiMix;
     private string _currentMidiMixKey = string.Empty;
@@ -338,21 +338,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (SetField(ref _isEqEnabled, value))
             {
                 _player.IsEqEnabled = value;
-                OnPropertyChanged(nameof(EqButtonBackground));
-                OnPropertyChanged(nameof(EqButtonBorderBrush));
-                OnPropertyChanged(nameof(EqButtonForeground));
-                OnPropertyChanged(nameof(EqButtonToolTip));
             }
         }
     }
-
-    public IBrush EqButtonBackground => IsEqEnabled ? ToggleActiveBackgroundBrush : ToggleInactiveBackgroundBrush;
-
-    public IBrush EqButtonBorderBrush => IsEqEnabled ? ToggleActiveBorderBrush : ToggleInactiveBorderBrush;
-
-    public IBrush EqButtonForeground => IsEqEnabled ? ToggleActiveForegroundBrush : ToggleInactiveForegroundBrush;
-
-    public string EqButtonToolTip => IsEqEnabled ? "Turn EQ off" : "Turn EQ on";
 
     public PianoRollNote[] PianoRollNotes
     {
@@ -360,19 +348,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         private set => SetField(ref _pianoRollNotes, value);
     }
 
-    public bool IsEqViewSelected => _selectedVisualizerView == VisualizerView.Eq;
-
     public bool IsPianoRollViewSelected => _selectedVisualizerView == VisualizerView.PianoRoll;
 
     public bool IsMixViewSelected => _selectedVisualizerView == VisualizerView.Mix;
 
     public bool IsEffectsViewSelected => _selectedVisualizerView == VisualizerView.Effects;
-
-    public IBrush EqViewButtonBackground => GetVisualizerViewButtonBackground(VisualizerView.Eq);
-
-    public IBrush EqViewButtonBorderBrush => GetVisualizerViewButtonBorderBrush(VisualizerView.Eq);
-
-    public IBrush EqViewButtonForeground => GetVisualizerViewButtonForeground(VisualizerView.Eq);
 
     public IBrush PianoRollViewButtonBackground => GetVisualizerViewButtonBackground(VisualizerView.PianoRoll);
 
@@ -393,7 +373,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public IBrush EffectsViewButtonForeground => GetVisualizerViewButtonForeground(VisualizerView.Effects);
 
     public string EffectChainStatusText => _player.HasEffectPlugin
-        ? $"{_player.EffectPluginCount} plug-in{(_player.EffectPluginCount == 1 ? string.Empty : "s")} plus EQ in the current chain."
+        ? $"{_player.EffectPluginCount} plug-in{(_player.EffectPluginCount == 1 ? string.Empty : "s")} plus the built-in EQ in the current chain."
         : "Only the built-in EQ is in the chain.";
 
     public double PlaybackSpeedPercent
@@ -885,18 +865,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IsSpeedPopupOpen = !IsSpeedPopupOpen;
     }
 
-    private void OnEqToggleClicked(object? sender, RoutedEventArgs e)
-    {
-        IsEqEnabled = !IsEqEnabled;
-        e.Handled = true;
-    }
-
-    private void OnShowEqViewClicked(object? sender, RoutedEventArgs e)
-    {
-        SetVisualizerView(VisualizerView.Eq);
-        e.Handled = true;
-    }
-
     private void OnShowPianoRollViewClicked(object? sender, RoutedEventArgs e)
     {
         SetVisualizerView(VisualizerView.PianoRoll);
@@ -922,7 +890,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void OnOpenEffectChainItemEditorClicked(object? sender, RoutedEventArgs e)
     {
-        if (!TryGetEffectChainItemId(sender, out var itemId))
+        if (!TryGetEffectChainItem(sender, out var item))
         {
             return;
         }
@@ -930,30 +898,38 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
-            _player.ShowEffectPluginEditor(itemId);
-            StatusText = "FX UI opened.";
+            if (item.IsBuiltin)
+            {
+                OpenBuiltinEffectEditor(item);
+                StatusText = $"{item.DisplayName} UI opened.";
+            }
+            else
+            {
+                _player.ShowEffectPluginEditor(item.ItemId);
+                StatusText = "FX UI opened.";
+            }
         }
         catch (Exception ex)
         {
-            StatusText = "Plug-in error: " + ex.Message;
+            StatusText = "FX error: " + ex.Message;
         }
     }
 
     private void OnRemoveEffectChainItemClicked(object? sender, RoutedEventArgs e)
     {
-        if (!TryGetEffectChainItemId(sender, out var itemId))
+        if (!TryGetEffectChainItem(sender, out var item))
         {
             return;
         }
 
         try
         {
-            _player.RemoveEffectPlugin(itemId);
+            _player.RemoveEffectPlugin(item.ItemId);
             StatusText = "FX removed from chain.";
         }
         catch (Exception ex)
         {
-            StatusText = "Plug-in error: " + ex.Message;
+            StatusText = "FX error: " + ex.Message;
         }
     }
 
@@ -975,35 +951,62 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void MoveEffectChainItem(object? sender, int offset)
     {
-        if (!TryGetEffectChainItemId(sender, out var itemId))
+        if (!TryGetEffectChainItem(sender, out var item))
         {
             return;
         }
 
-        _player.MoveEffectChainItem(itemId, offset);
+        _player.MoveEffectChainItem(item.ItemId, offset);
         RefreshAudioPluginBindings();
     }
 
-    private static bool TryGetEffectChainItemId(object? sender, out Guid itemId)
+    private void OpenBuiltinEffectEditor(AudioEffectChainItem item)
     {
-        itemId = Guid.Empty;
-        if (sender is not Control control || control.Tag is null)
+        if (item.IsEq)
         {
-            return false;
+            ShowBuiltinEqWindow();
+            return;
         }
 
-        if (control.Tag is Guid guid)
+        throw new InvalidOperationException("The selected built-in effect does not expose a custom editor.");
+    }
+
+    private void ShowBuiltinEqWindow()
+    {
+        if (_builtinEqWindow is null)
         {
-            itemId = guid;
+            _builtinEqWindow = new BuiltinEqWindow(_player);
+            _builtinEqWindow.Closed += OnBuiltinEqWindowClosed;
+        }
+
+        if (!_builtinEqWindow.IsVisible)
+        {
+            _builtinEqWindow.Show(this);
+        }
+
+        _builtinEqWindow.Activate();
+    }
+
+    private void OnBuiltinEqWindowClosed(object? sender, EventArgs e)
+    {
+        if (_builtinEqWindow is null)
+        {
+            return;
+        }
+
+        _builtinEqWindow.Closed -= OnBuiltinEqWindowClosed;
+        _builtinEqWindow = null;
+    }
+
+    private static bool TryGetEffectChainItem(object? sender, out AudioEffectChainItem item)
+    {
+        if (sender is Control { DataContext: AudioEffectChainItem effectItem })
+        {
+            item = effectItem;
             return true;
         }
 
-        if (control.Tag is string text && Guid.TryParse(text, out guid))
-        {
-            itemId = guid;
-            return true;
-        }
-
+        item = null!;
         return false;
     }
 
@@ -1445,6 +1448,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _positionTimer.Stop();
+        if (_builtinEqWindow is not null)
+        {
+            _builtinEqWindow.Closed -= OnBuiltinEqWindowClosed;
+            _builtinEqWindow.Close();
+            _builtinEqWindow = null;
+        }
+
         if (_midiEventsWindow is not null)
         {
             _midiEventsWindow.Closed -= OnMidiEventsWindowClosed;
@@ -1699,10 +1709,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsEqEnabled));
         }
 
-        OnPropertyChanged(nameof(EqButtonBackground));
-        OnPropertyChanged(nameof(EqButtonBorderBrush));
-        OnPropertyChanged(nameof(EqButtonForeground));
-        OnPropertyChanged(nameof(EqButtonToolTip));
         OnPropertyChanged(nameof(AudioPluginSummaryText));
         OnPropertyChanged(nameof(EffectChainStatusText));
     }
@@ -1741,13 +1747,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _selectedVisualizerView = view;
-        OnPropertyChanged(nameof(IsEqViewSelected));
         OnPropertyChanged(nameof(IsPianoRollViewSelected));
         OnPropertyChanged(nameof(IsMixViewSelected));
         OnPropertyChanged(nameof(IsEffectsViewSelected));
-        OnPropertyChanged(nameof(EqViewButtonBackground));
-        OnPropertyChanged(nameof(EqViewButtonBorderBrush));
-        OnPropertyChanged(nameof(EqViewButtonForeground));
         OnPropertyChanged(nameof(PianoRollViewButtonBackground));
         OnPropertyChanged(nameof(PianoRollViewButtonBorderBrush));
         OnPropertyChanged(nameof(PianoRollViewButtonForeground));
@@ -1812,9 +1814,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(SpeedButtonBackground));
             OnPropertyChanged(nameof(SpeedButtonBorderBrush));
             OnPropertyChanged(nameof(SpeedButtonForeground));
-            OnPropertyChanged(nameof(EqViewButtonBackground));
-            OnPropertyChanged(nameof(EqViewButtonBorderBrush));
-            OnPropertyChanged(nameof(EqViewButtonForeground));
             OnPropertyChanged(nameof(PianoRollViewButtonBackground));
             OnPropertyChanged(nameof(PianoRollViewButtonBorderBrush));
             OnPropertyChanged(nameof(PianoRollViewButtonForeground));

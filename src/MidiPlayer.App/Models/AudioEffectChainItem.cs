@@ -4,7 +4,7 @@ namespace MidiPlayer.App.Models;
 
 public enum AudioEffectChainItemKind
 {
-    Eq,
+    Builtin,
     Plugin
 }
 
@@ -22,7 +22,9 @@ public sealed record AudioEffectChainItem(
     bool CanMoveDown,
     bool CanRemove)
 {
-    public bool IsEq => Kind == AudioEffectChainItemKind.Eq;
+    public bool IsBuiltin => Kind == AudioEffectChainItemKind.Builtin;
+
+    public bool IsEq => IsBuiltin && ItemId == Guid.Empty;
 
     public bool IsPlugin => Kind == AudioEffectChainItemKind.Plugin;
 
