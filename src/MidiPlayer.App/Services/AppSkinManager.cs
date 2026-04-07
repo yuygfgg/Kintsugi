@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
@@ -32,6 +34,7 @@ public sealed class AppSkinManager
 
     private readonly Application _application;
     private readonly CommonStyles _commonStyles = new();
+    private readonly WindowsClassicOverrideStyles _windowsClassicOverrideStyles = new();
 
     private IStyle? _frameworkTheme;
     private IStyle? _skinStyles;
@@ -54,6 +57,11 @@ public sealed class AppSkinManager
         if (!_application.Styles.Contains(_commonStyles))
         {
             _application.Styles.Add(_commonStyles);
+        }
+
+        if (!_application.Styles.Contains(_windowsClassicOverrideStyles))
+        {
+            _application.Styles.Add(_windowsClassicOverrideStyles);
         }
 
         ApplySkin(skinId);
@@ -89,6 +97,7 @@ public sealed class AppSkinManager
         _application.Styles.Add(_skinStyles);
         _application.RequestedThemeVariant = skin.ThemeVariant;
         CurrentSkinId = skin.Id;
+        ApplySkinToOpenWindows();
         SkinChanged?.Invoke(this, EventArgs.Empty);
         return true;
     }
@@ -128,6 +137,40 @@ public sealed class AppSkinManager
         => string.Equals(skinId, WindowsClassicSkinId, StringComparison.Ordinal)
             ? new WindowsClassicStyles()
             : new ModernDarkStyles();
+
+    public void ApplySkinToWindow(Window window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        const string windowsClassicClass = "windowsClassic";
+        if (IsWindowsClassic)
+        {
+            if (!window.Classes.Contains(windowsClassicClass))
+            {
+                window.Classes.Add(windowsClassicClass);
+            }
+        }
+        else
+        {
+            if (window.Classes.Contains(windowsClassicClass))
+            {
+                window.Classes.Remove(windowsClassicClass);
+            }
+        }
+    }
+
+    private void ApplySkinToOpenWindows()
+    {
+        if (_application.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            return;
+        }
+
+        foreach (var window in desktop.Windows.ToArray())
+        {
+            ApplySkinToWindow(window);
+        }
+    }
 }
 
 public sealed record AppSkinDefinition(

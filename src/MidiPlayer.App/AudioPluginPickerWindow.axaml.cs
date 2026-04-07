@@ -38,6 +38,7 @@ public partial class AudioPluginPickerWindow : Window, INotifyPropertyChanged
     public AudioPluginPickerWindow()
     {
         InitializeComponent();
+        App.Current.SkinManager.ApplySkinToWindow(this);
         DataContext = this;
         ReloadPluginList();
     }

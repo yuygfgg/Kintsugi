@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using MidiPlayer.App.Services;
 
 namespace MidiPlayer.App;
@@ -53,6 +54,7 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
     public ExportWavWindow()
     {
         InitializeComponent();
+        App.Current.SkinManager.ApplySkinToWindow(this);
         DataContext = this;
         _availableFormatChoices = BassMidiPlayer.SupportsCompressedAudioExport ? AllFormatChoices : WavOnlyFormatChoices;
 
@@ -184,6 +186,8 @@ public partial class ExportWavWindow : Window, INotifyPropertyChanged
         {
             return;
         }
+
+        await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
 
         var selectedFormat = SelectedFormat;
         var fileType = CreateFilePickerType(selectedFormat);

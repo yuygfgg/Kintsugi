@@ -106,6 +106,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public MainWindow()
     {
         InitializeComponent();
+        App.Current.SkinManager.ApplySkinToWindow(this);
         ChannelMixRows = CreateChannelMixRows();
         DataContext = this;
         ChannelMonitorView.SizeChanged += (_, _) => UpdateChannelMixerPopupPosition();
@@ -1398,6 +1399,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             StatusText = "File picker not supported.";
             return null;
         }
+
+        await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
 
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {

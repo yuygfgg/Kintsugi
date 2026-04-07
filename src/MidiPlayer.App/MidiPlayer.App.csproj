@@ -25,7 +25,7 @@
     <NativeAssetsDir>$(MSBuildThisFileDirectory)../../.native-assets/$(NativeAssetsRid)</NativeAssetsDir>
     <BundledAssetsDir>$(MSBuildThisFileDirectory)../../.bundled-assets</BundledAssetsDir>
     <PluginHostProjectDir>$(MSBuildThisFileDirectory)../native/pluginhost</PluginHostProjectDir>
-    <PluginHostBuildDir>$(BaseIntermediateOutputPath)native-pluginhost/$(NativeAssetsRid)</PluginHostBuildDir>
+    <PluginHostBuildDir>$(BaseIntermediateOutputPath)native-pluginhost/$(Configuration)/$(NativeAssetsRid)</PluginHostBuildDir>
     <PluginHostLibraryName Condition="$([System.String]::Copy('$(NativeAssetsRid)').ToLowerInvariant().StartsWith('win'))">KintsugiPluginHost.dll</PluginHostLibraryName>
     <PluginHostLibraryName Condition="$([System.String]::Copy('$(NativeAssetsRid)').ToLowerInvariant().StartsWith('osx'))">libKintsugiPluginHost.dylib</PluginHostLibraryName>
     <PluginHostLibraryName Condition="$([System.String]::Copy('$(PluginHostLibraryName)').Length) == 0">libKintsugiPluginHost.so</PluginHostLibraryName>

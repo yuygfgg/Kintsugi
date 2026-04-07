@@ -34,6 +34,7 @@ public partial class MidiEventsWindow : Window, INotifyPropertyChanged
     public MidiEventsWindow()
     {
         InitializeComponent();
+        App.Current.SkinManager.ApplySkinToWindow(this);
         DataContext = this;
         _followTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(120), DispatcherPriority.Background, OnFollowTimerTick);
         _followTimer.Start();

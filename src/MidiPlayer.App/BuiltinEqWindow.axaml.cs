@@ -16,6 +16,7 @@ public partial class BuiltinEqWindow : Window, INotifyPropertyChanged
     public BuiltinEqWindow()
     {
         InitializeComponent();
+        App.Current.SkinManager.ApplySkinToWindow(this);
         DataContext = this;
     }
 

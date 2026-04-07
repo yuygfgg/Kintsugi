@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using ManagedBass.Midi;
 using MidiPlayer.App.Services;
 
@@ -17,13 +18,17 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     private readonly AppSettings _settings;
     private string _soundFontDisplayName = "No SoundFont loaded";
     private bool _isInitializing = true;
+    private string? _pendingSkinId;
+    private bool _isSkinApplyQueued;
 
     public SettingsWindow()
     {
         InitializeComponent();
+        App.Current.SkinManager.ApplySkinToWindow(this);
         DataContext = this;
         _settings = AppSettings.Load();
         SkinComboBox.ItemsSource = App.Current.SkinManager.AvailableSkins;
+        SkinComboBox.DropDownClosed += OnSkinDropDownClosed;
         SkinComboBox.SelectedItem = App.Current.SkinManager.AvailableSkins.FirstOrDefault(skin => skin.Id == _settings.UiSkinId)
             ?? App.Current.SkinManager.AvailableSkins[0];
     }
@@ -87,6 +92,8 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         {
             return;
         }
+
+        await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
 
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
@@ -184,9 +191,17 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        App.Current.SkinManager.ApplySkin(skin.Id);
+        _pendingSkinId = skin.Id;
         _settings.UiSkinId = skin.Id;
         _settings.Save();
+
+        if (SkinComboBox.IsDropDownOpen)
+        {
+            SkinComboBox.IsDropDownOpen = false;
+            return;
+        }
+
+        QueuePendingSkinApply();
     }
 
     private void OnCloseClicked(object? sender, RoutedEventArgs e)
@@ -197,5 +212,35 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    private void OnSkinDropDownClosed(object? sender, EventArgs e)
+    {
+        QueuePendingSkinApply();
+    }
+
+    private void QueuePendingSkinApply()
+    {
+        if (_isSkinApplyQueued || string.IsNullOrWhiteSpace(_pendingSkinId))
+        {
+            return;
+        }
+
+        _isSkinApplyQueued = true;
+        Dispatcher.UIThread.Post(ApplyPendingSkin, DispatcherPriority.Background);
+    }
+
+    private void ApplyPendingSkin()
+    {
+        _isSkinApplyQueued = false;
+
+        if (string.IsNullOrWhiteSpace(_pendingSkinId))
+        {
+            return;
+        }
+
+        var skinId = _pendingSkinId;
+        _pendingSkinId = null;
+        App.Current.SkinManager.ApplySkin(skinId);
     }
 }

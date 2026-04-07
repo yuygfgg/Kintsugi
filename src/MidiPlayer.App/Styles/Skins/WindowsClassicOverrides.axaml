@@ -1,0 +1,50 @@
+<Styles x:Class="MidiPlayer.App.Styles.Skins.WindowsClassicOverrideStyles"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="Window.windowsClassic Button /template/ ContentPresenter">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #FFFFFF, inset -1 -1 0 0 #000000, inset 2 2 0 0 #DFDFDF, inset -2 -2 0 0 #808080" />
+  </Style>
+
+  <Style Selector="Window.windowsClassic Button:pressed /template/ ContentPresenter">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #000000, inset -1 -1 0 0 #FFFFFF, inset 2 2 0 0 #808080, inset -2 -2 0 0 #DFDFDF" />
+  </Style>
+
+  <Style Selector="Window.windowsClassic Button:disabled /template/ ContentPresenter">
+    <Setter Property="Opacity" Value="0.6" />
+  </Style>
+
+  <Style Selector="Window.windowsClassic Border.pill, Window.windowsClassic Border.accentPill">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #FFFFFF, inset -1 -1 0 0 #000000, inset 2 2 0 0 #DFDFDF, inset -2 -2 0 0 #808080" />
+  </Style>
+
+  <Style Selector="Window.windowsClassic Border.pill:pressed">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #000000, inset -1 -1 0 0 #FFFFFF, inset 2 2 0 0 #808080, inset -2 -2 0 0 #DFDFDF" />
+  </Style>
+
+  <Style Selector="Window.windowsClassic Border.panel, Window.windowsClassic Border.visualPanel, Window.windowsClassic Border.popupPanel">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #808080, inset -1 -1 0 0 #FFFFFF, inset 2 2 0 0 #000000, inset -2 -2 0 0 #DFDFDF" />
+  </Style>
+
+  <Style Selector="Window.windowsClassic TextBox /template/ Border, Window.windowsClassic ComboBox /template/ Border">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 1 0 0 #808080, inset -1 -1 0 0 #FFFFFF, inset 2 2 0 0 #000000, inset -2 -2 0 0 #DFDFDF" />
+  </Style>
+
+  <Style Selector="Window.windowsClassic Border.sidebar">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="inset 1 0 0 0 #FFFFFF, inset -1 0 0 0 #000000" />
+  </Style>
+
+  <Style Selector="Window.windowsClassic ListBoxItem:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Theme.ListItemHoverBrush}" />
+  </Style>
+
+  <Style Selector="Window.windowsClassic ListBoxItem:pointerover TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Theme.ListItemSelectedForegroundBrush}" />
+  </Style>
+</Styles>
