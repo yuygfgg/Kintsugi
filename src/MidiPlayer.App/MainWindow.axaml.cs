@@ -38,10 +38,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const double ChannelMixerPopupPointerHeight = 10;
     private const double ChannelMixerPopupCornerRadius = 8;
 
-    private readonly BassMidiPlayer _player = new();
+    private readonly BassMidiPlayer _player;
     private readonly AppSettings _settings;
     private readonly SystemMediaControls _mediaControls;
     private readonly DispatcherTimer _positionTimer;
+    private bool _disposePlayerOnClose = true;
     private BuiltinEqWindow? _builtinEqWindow;
     private MidiEventsWindow? _midiEventsWindow;
     private bool _isScrubbing;
@@ -103,34 +104,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     
     private CancellationTokenSource? _playlistParseCts;
 
-    public MainWindow()
+    public MainWindow() : this(new BassMidiPlayer(), AppSettings.Load(), restoredState: null, initializePlayerFromSettings: true)
     {
+    }
+
+    private MainWindow(BassMidiPlayer player, AppSettings settings, MainWindowStateSnapshot? restoredState, bool initializePlayerFromSettings)
+    {
+        _player = player;
+        _settings = settings;
+
         InitializeComponent();
         App.Current.SkinManager.ApplySkinToWindow(this);
         ChannelMixRows = CreateChannelMixRows();
         DataContext = this;
         ChannelMonitorView.SizeChanged += (_, _) => UpdateChannelMixerPopupPosition();
 
-        _settings = AppSettings.Load();
         App.Current.SkinManager.SkinChanged += OnSkinChanged;
         _player.EqStateChanged += OnPlayerEqStateChanged;
         _player.PluginStateChanged += OnPlayerPluginStateChanged;
 
-        _player.SampleRate = _settings.SampleRate;
-
-        var initialSoundFontPath = BundledSoundFont.ResolvePreferredPath(_settings.SoundFontPath);
-        if (!string.IsNullOrWhiteSpace(initialSoundFontPath))
+        if (initializePlayerFromSettings)
         {
-            try
-            {
-                _player.LoadSoundFont(initialSoundFontPath);
-            }
-            catch
-            {
-                // Ignore initial load error for soundfont
-            }
+            InitializePlayerFromSettings();
         }
-        _player.SystemMode = _settings.SystemMode;
 
         _mediaControls = new SystemMediaControls(
             onPlay: () => { if (CanTogglePlayback && !_player.IsPlaying) OnPlayPauseClicked(this, new RoutedEventArgs()); },
@@ -160,10 +156,155 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AddHandler(DragDrop.DropEvent, OnWindowDrop);
         
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
-        UpdateSortIcon();
-        RefreshEffectChainItems();
+        ApplyRestoredState(restoredState);
 
         Closing += OnClosing;
+    }
+
+    internal MainWindow CreateSkinReplacementWindow()
+    {
+        var replacementWindow = new MainWindow(_player, _settings, CaptureStateSnapshot(), initializePlayerFromSettings: false);
+        _disposePlayerOnClose = false;
+        return replacementWindow;
+    }
+
+    private void InitializePlayerFromSettings()
+    {
+        _player.SampleRate = _settings.SampleRate;
+
+        var initialSoundFontPath = BundledSoundFont.ResolvePreferredPath(_settings.SoundFontPath);
+        if (!string.IsNullOrWhiteSpace(initialSoundFontPath))
+        {
+            try
+            {
+                _player.LoadSoundFont(initialSoundFontPath);
+            }
+            catch
+            {
+                // Ignore initial load error for soundfont
+            }
+        }
+
+        _player.SystemMode = _settings.SystemMode;
+    }
+
+    private MainWindowStateSnapshot CaptureStateSnapshot()
+        => new(
+            Playlist.Select(ClonePlaylistItem).ToArray(),
+            IsPlaylistSortAscending,
+            IsPlaylistVisible,
+            _playlistUsesExplicitOrder,
+            _currentPlaylistSourceIndex,
+            _currentMidiMixKey,
+            _selectedVisualizerView,
+            PianoRollNotes.ToArray(),
+            MidiDisplayName,
+            StatusText,
+            _builtinEqWindow?.IsVisible == true,
+            _midiEventsWindow?.IsVisible == true);
+
+    private void ApplyRestoredState(MainWindowStateSnapshot? restoredState)
+    {
+        if (restoredState is null)
+        {
+            UpdateSortIcon();
+            RefreshEffectChainItems();
+            RefreshMixBindings();
+            RefreshEqBindings();
+            RefreshChannelMixRows();
+            RefreshTransport();
+            UpdateNowPlayingTimeline();
+            return;
+        }
+
+        foreach (var item in restoredState.PlaylistItems)
+        {
+            Playlist.Add(item);
+        }
+
+        _isPlaylistSortAscending = restoredState.IsPlaylistSortAscending;
+        _playlistUsesExplicitOrder = restoredState.PlaylistUsesExplicitOrder;
+        _currentPlaylistSourceIndex = restoredState.CurrentPlaylistSourceIndex;
+        _currentMidiMixKey = restoredState.CurrentMidiMixKey;
+        PianoRollNotes = restoredState.PianoRollNotes;
+        IsPlaylistVisible = restoredState.IsPlaylistVisible;
+
+        UpdatePlaylistPlayingState(_currentPlaylistSourceIndex, _player.MidiPath);
+        SetVisualizerView(restoredState.SelectedVisualizerView);
+        UpdateSortIcon();
+        EnsurePlaylistDurationParsing();
+        RefreshEffectChainItems();
+        RefreshMixBindings();
+        RefreshEqBindings();
+        RefreshChannelMixRows();
+        RefreshTransport();
+        MidiDisplayName = restoredState.MidiDisplayName;
+        StatusText = restoredState.StatusText;
+        UpdateNowPlayingTimeline();
+
+        if (restoredState.WasBuiltinEqWindowOpen || restoredState.WasMidiEventsWindowOpen)
+        {
+            Dispatcher.UIThread.Post(() => RestoreChildWindows(restoredState), DispatcherPriority.Background);
+        }
+    }
+
+    private void RestoreChildWindows(MainWindowStateSnapshot restoredState)
+    {
+        if (restoredState.WasBuiltinEqWindowOpen)
+        {
+            ShowBuiltinEqWindow();
+        }
+
+        if (restoredState.WasMidiEventsWindowOpen && !string.IsNullOrWhiteSpace(_player.MidiPath))
+        {
+            _ = ReopenMidiEventsWindowAsync();
+        }
+    }
+
+    private async Task ReopenMidiEventsWindowAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_player.MidiPath))
+        {
+            return;
+        }
+
+        if (_midiEventsWindow is null)
+        {
+            _midiEventsWindow = new MidiEventsWindow(_player);
+            _midiEventsWindow.Closed += OnMidiEventsWindowClosed;
+            _midiEventsWindow.Show();
+        }
+        else if (!_midiEventsWindow.IsVisible)
+        {
+            _midiEventsWindow.Show();
+        }
+
+        await _midiEventsWindow.LoadMidiAsync(_player.MidiPath);
+        _midiEventsWindow.Activate();
+    }
+
+    private static PlaylistItem ClonePlaylistItem(PlaylistItem item)
+        => new()
+        {
+            SourceIndex = item.SourceIndex,
+            FilePath = item.FilePath,
+            FileName = item.FileName,
+            DurationSeconds = item.DurationSeconds,
+            IsPlaying = item.IsPlaying,
+            IsDurationParsed = item.IsDurationParsed,
+            IsFailed = item.IsFailed
+        };
+
+    private void EnsurePlaylistDurationParsing()
+    {
+        if (Playlist.Count == 0 || Playlist.All(item => item.IsDurationParsed || item.IsFailed))
+        {
+            return;
+        }
+
+        _playlistParseCts?.Cancel();
+        _playlistParseCts = new CancellationTokenSource();
+        _ = ParsePlaylistDurationsAsync(_playlistParseCts.Token);
     }
 
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
@@ -1451,6 +1592,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _positionTimer.Stop();
+        _playlistParseCts?.Cancel();
         if (_builtinEqWindow is not null)
         {
             _builtinEqWindow.Closed -= OnBuiltinEqWindowClosed;
@@ -1469,7 +1611,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         App.Current.SkinManager.SkinChanged -= OnSkinChanged;
         _player.EqStateChanged -= OnPlayerEqStateChanged;
         _player.PluginStateChanged -= OnPlayerPluginStateChanged;
-        _player.Dispose();
+
+        if (_disposePlayerOnClose)
+        {
+            _player.Dispose();
+        }
     }
 
     private static string FormatTime(double seconds)
@@ -2196,4 +2342,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _midiEventsWindow.Closed -= OnMidiEventsWindowClosed;
         _midiEventsWindow = null;
     }
+
+    private sealed record MainWindowStateSnapshot(
+        PlaylistItem[] PlaylistItems,
+        bool IsPlaylistSortAscending,
+        bool IsPlaylistVisible,
+        bool PlaylistUsesExplicitOrder,
+        int CurrentPlaylistSourceIndex,
+        string CurrentMidiMixKey,
+        VisualizerView SelectedVisualizerView,
+        PianoRollNote[] PianoRollNotes,
+        string MidiDisplayName,
+        string StatusText,
+        bool WasBuiltinEqWindowOpen,
+        bool WasMidiEventsWindowOpen);
 }

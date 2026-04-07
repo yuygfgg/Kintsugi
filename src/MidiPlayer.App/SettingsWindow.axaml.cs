@@ -241,6 +241,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
 
         var skinId = _pendingSkinId;
         _pendingSkinId = null;
-        App.Current.SkinManager.ApplySkin(skinId);
+        Close();
+        Dispatcher.UIThread.Post(() => App.Current.SkinManager.ApplySkin(skinId), DispatcherPriority.Background);
     }
 }

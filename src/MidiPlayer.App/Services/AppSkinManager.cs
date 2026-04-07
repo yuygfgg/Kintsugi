@@ -75,6 +75,40 @@ public sealed class AppSkinManager
             return false;
         }
 
+        IClassicDesktopStyleApplicationLifetime? desktop = _application.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        bool hasOpenWindows = desktop?.Windows.Count > 0;
+
+        ApplySkinStyles(skin);
+
+        if (hasOpenWindows)
+        {
+            RecreateDesktopWindows(desktop!);
+        }
+        else
+        {
+            ApplySkinToOpenWindows();
+        }
+
+        SkinChanged?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
+    public IBrush GetBrush(string key, string fallbackColor)
+        => GetResource(key) as IBrush ?? new SolidColorBrush(Color.Parse(fallbackColor));
+
+    public Color GetColor(string key, string fallbackColor)
+    {
+        var resource = GetResource(key);
+        return resource switch
+        {
+            Color color => color,
+            ISolidColorBrush brush => brush.Color,
+            _ => Color.Parse(fallbackColor)
+        };
+    }
+
+    private void ApplySkinStyles(AppSkinDefinition skin)
+    {
         if (_frameworkTheme is not null)
         {
             _application.Styles.Remove(_frameworkTheme);
@@ -97,23 +131,32 @@ public sealed class AppSkinManager
         _application.Styles.Add(_skinStyles);
         _application.RequestedThemeVariant = skin.ThemeVariant;
         CurrentSkinId = skin.Id;
-        ApplySkinToOpenWindows();
-        SkinChanged?.Invoke(this, EventArgs.Empty);
-        return true;
     }
 
-    public IBrush GetBrush(string key, string fallbackColor)
-        => GetResource(key) as IBrush ?? new SolidColorBrush(Color.Parse(fallbackColor));
-
-    public Color GetColor(string key, string fallbackColor)
+    private void RecreateDesktopWindows(IClassicDesktopStyleApplicationLifetime desktop)
     {
-        var resource = GetResource(key);
-        return resource switch
+        if (desktop.MainWindow is not MainWindow currentMainWindow)
         {
-            Color color => color,
-            ISolidColorBrush brush => brush.Color,
-            _ => Color.Parse(fallbackColor)
-        };
+            ApplySkinToOpenWindows();
+            return;
+        }
+
+        // Avalonia resolves framework ControlThemes statically, so swapping theme families
+        // requires recreating windows instead of keeping the existing visual tree alive.
+        var placement = WindowPlacement.Capture(currentMainWindow);
+        var replacementMainWindow = currentMainWindow.CreateSkinReplacementWindow();
+        placement.ApplyTo(replacementMainWindow);
+
+        desktop.MainWindow = replacementMainWindow;
+        replacementMainWindow.Show();
+
+        foreach (var window in desktop.Windows.ToArray())
+        {
+            if (!ReferenceEquals(window, replacementMainWindow))
+            {
+                window.Close();
+            }
+        }
     }
 
     private object? GetResource(string key)
@@ -169,6 +212,37 @@ public sealed class AppSkinManager
         foreach (var window in desktop.Windows.ToArray())
         {
             ApplySkinToWindow(window);
+        }
+    }
+
+    private readonly record struct WindowPlacement(WindowState WindowState, PixelPoint Position, double Width, double Height)
+    {
+        public static WindowPlacement Capture(Window window)
+            => new(
+                window.WindowState,
+                window.Position,
+                window.Width,
+                window.Height);
+
+        public void ApplyTo(Window window)
+        {
+            if (!double.IsNaN(Width) && Width > 0)
+            {
+                window.Width = Width;
+            }
+
+            if (!double.IsNaN(Height) && Height > 0)
+            {
+                window.Height = Height;
+            }
+
+            if (WindowState == WindowState.Normal)
+            {
+                window.Position = Position;
+                return;
+            }
+
+            window.WindowState = WindowState;
         }
     }
 }
