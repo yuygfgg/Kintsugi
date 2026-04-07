@@ -17,7 +17,7 @@
     <StackPanel Grid.Row="1" Spacing="8">
       <TextBlock Text="Bundle Path" FontWeight="SemiBold" />
       <TextBox Text="{Binding ManualPath, Mode=TwoWay}"
-               Watermark="/Library/Audio/Plug-Ins/VST3/YourPlugin.vst3" />
+               PlaceholderText="/Library/Audio/Plug-Ins/VST3/YourPlugin.vst3" />
       <TextBlock Classes="hint"
                  Text="Paste a full .vst3 or .component bundle path, or pick one from the detected list below." />
     </StackPanel>

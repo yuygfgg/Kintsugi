@@ -7,6 +7,7 @@
     <IsWindowsTarget Condition="'$(IsWindowsTarget)' == ''">false</IsWindowsTarget>
     <TargetFramework Condition="'$(IsWindowsTarget)' == 'true'">net10.0-windows10.0.19041.0</TargetFramework>
     <TargetFramework Condition="'$(TargetFramework)' == ''">net10.0</TargetFramework>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -37,10 +38,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.3.13" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.13" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.13" />
-    <PackageReference Include="Avalonia.Themes.Simple" Version="11.3.13" />
+    <PackageReference Include="Avalonia" Version="12.0.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.0.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.0" />
+    <PackageReference Include="Avalonia.Themes.Simple" Version="12.0.0" />
     <PackageReference Include="ManagedBass" Version="4.0.2" />
     <PackageReference Include="ManagedBass.Enc" Version="4.0.2" />
     <PackageReference Include="ManagedBass.Midi" Version="4.0.2" />
@@ -98,14 +99,22 @@
     <Copy SourceFiles="@(BundledAssetFiles)" DestinationFiles="@(BundledAssetFiles -> '$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="CopyNativeDependenciesToPublishDir" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true'">
+  <Target Name="SyncBuildOutputToPublishDir" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true'">
+    <RemoveDir Directories="$(PublishDir)" Condition="'$(PublishDir)' != '' and Exists('$(PublishDir)')" />
+    <ItemGroup>
+      <PublishOutputFiles Include="$(TargetDir)**/*" Exclude="$(TargetDir)**/.DS_Store" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PublishOutputFiles)" DestinationFiles="@(PublishOutputFiles -> '$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyNativeDependenciesToPublishDir" AfterTargets="SyncBuildOutputToPublishDir" Condition="'$(DesignTimeBuild)' != 'true'">
     <ItemGroup>
       <NativeDependencyFiles Include="$(NativeAssetsDir)/*.*" Exclude="$(NativeAssetsDir)/.cache/**/*;$(NativeAssetsDir)/.asset-manifest" />
     </ItemGroup>
     <Copy SourceFiles="@(NativeDependencyFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="CopyBundledAssetsToPublishDir" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true'">
+  <Target Name="CopyBundledAssetsToPublishDir" AfterTargets="CopyNativeDependenciesToPublishDir" Condition="'$(DesignTimeBuild)' != 'true'">
     <RemoveDir Directories="$(PublishDir)SoundFonts" Condition="Exists('$(PublishDir)SoundFonts')" />
     <ItemGroup>
       <BundledAssetFiles Include="$(BundledAssetsDir)/**/*.*" Exclude="$(BundledAssetsDir)/.cache/**/*;$(BundledAssetsDir)/.asset-manifest" />

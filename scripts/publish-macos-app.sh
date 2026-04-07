@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT="$ROOT_DIR/src/MidiPlayer.App/MidiPlayer.App.csproj"
+PUBLISH_ROOT="$ROOT_DIR/artifacts/publish"
 
 RID="${1:-}"
 if [[ -z "$RID" ]]; then
@@ -16,12 +17,18 @@ if [[ -z "$RID" ]]; then
   esac
 fi
 
+PUBLISH_DIR="$PUBLISH_ROOT/$RID"
+
 dotnet publish "$PROJECT" \
   -c Release \
   -r "$RID" \
+  -o "$PUBLISH_DIR" \
   -p:CreateMacAppBundle=true \
   --self-contained true
 
+echo
+echo "Published files created under:"
+echo "  $PUBLISH_DIR"
 echo
 echo "App bundle created under:"
 echo "  $ROOT_DIR/artifacts/macos/Release/$RID/Kintsugi Midi Player.app"
