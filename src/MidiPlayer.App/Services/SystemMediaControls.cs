@@ -307,15 +307,19 @@ public class SystemMediaControls : IDisposable
 
     public void Dispose()
     {
-        _instance = null;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            try
+            if (ReferenceEquals(_instance, this))
             {
-                UpdatePlaybackStateMac(0, 0);
-            }
-            catch
-            {
+                _instance = null;
+
+                try
+                {
+                    UpdatePlaybackStateMac(0, 0);
+                }
+                catch
+                {
+                }
             }
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
