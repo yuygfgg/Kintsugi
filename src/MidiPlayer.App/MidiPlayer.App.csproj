@@ -17,6 +17,7 @@
     <AssemblyTitle>Kintsugi Midi Player</AssemblyTitle>
     <Description>A desktop MIDI player with SoundFont playback, visualization, and audio export.</Description>
     <PackageId>Kintsugi.MidiPlayer</PackageId>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
     <UseAppHost>true</UseAppHost>
     <DefineConstants Condition="'$(IsWindowsTarget)' == 'true'">$(DefineConstants);WINDOWS</DefineConstants>
     <NativeAssetsRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</NativeAssetsRid>
