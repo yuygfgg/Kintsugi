@@ -1528,7 +1528,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(PlayPauseIconMargin));
         OnPropertyChanged(nameof(CurrentBpmText));
         RefreshLoopBindings();
-        RefreshAudioPluginBindings();
     }
 
     private async Task<string?> PickSingleFileAsync(FilePickerFileType fileType)
@@ -1881,6 +1880,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void RefreshEffectChainItems()
     {
         var items = _player.GetEffectChainItems();
+
+        if (EffectChainItems.Count == items.Length)
+        {
+            var canUpdateInPlace = true;
+            for (var index = 0; index < items.Length; index++)
+            {
+                if (EffectChainItems[index].ItemId == items[index].ItemId)
+                {
+                    continue;
+                }
+
+                canUpdateInPlace = false;
+                break;
+            }
+
+            if (canUpdateInPlace)
+            {
+                for (var index = 0; index < items.Length; index++)
+                {
+                    if (EffectChainItems[index] != items[index])
+                    {
+                        EffectChainItems[index] = items[index];
+                    }
+                }
+
+                return;
+            }
+        }
+
         EffectChainItems.Clear();
         foreach (var item in items)
         {
