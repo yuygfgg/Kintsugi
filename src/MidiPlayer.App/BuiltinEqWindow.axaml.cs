@@ -10,7 +10,7 @@ namespace MidiPlayer.App;
 
 public partial class BuiltinEqWindow : Window, INotifyPropertyChanged
 {
-    private readonly BassMidiPlayer _player;
+    private readonly BassMidiPlayer? _player;
     private bool _isEqEnabled;
 
     public BuiltinEqWindow()
@@ -27,16 +27,13 @@ public partial class BuiltinEqWindow : Window, INotifyPropertyChanged
         _player = player;
         _isEqEnabled = player.IsEqEnabled;
 
-        InitializeComponent();
-        DataContext = this;
-
         _player.EqStateChanged += OnPlayerEqStateChanged;
         Closed += OnWindowClosed;
     }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
-    public BassMidiPlayer Player => _player;
+    public BassMidiPlayer? Player => _player;
 
     public bool IsEqEnabled
     {
@@ -48,7 +45,11 @@ public partial class BuiltinEqWindow : Window, INotifyPropertyChanged
                 return;
             }
 
-            _player.IsEqEnabled = value;
+            if (_player is not null)
+            {
+                _player.IsEqEnabled = value;
+            }
+
             OnPropertyChanged(nameof(EqStatusText));
             OnPropertyChanged(nameof(ToggleEqToolTip));
         }
@@ -71,6 +72,11 @@ public partial class BuiltinEqWindow : Window, INotifyPropertyChanged
 
     private void RefreshEqBindings()
     {
+        if (_player is null)
+        {
+            return;
+        }
+
         if (_isEqEnabled != _player.IsEqEnabled)
         {
             _isEqEnabled = _player.IsEqEnabled;
@@ -84,7 +90,10 @@ public partial class BuiltinEqWindow : Window, INotifyPropertyChanged
     private void OnWindowClosed(object? sender, EventArgs e)
     {
         Closed -= OnWindowClosed;
-        _player.EqStateChanged -= OnPlayerEqStateChanged;
+        if (_player is not null)
+        {
+            _player.EqStateChanged -= OnPlayerEqStateChanged;
+        }
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
