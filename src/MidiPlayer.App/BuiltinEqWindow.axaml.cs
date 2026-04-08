@@ -25,10 +25,11 @@ public partial class BuiltinEqWindow : Window, INotifyPropertyChanged
         ArgumentNullException.ThrowIfNull(player);
 
         _player = player;
-        _isEqEnabled = player.IsEqEnabled;
-
         _player.EqStateChanged += OnPlayerEqStateChanged;
         Closed += OnWindowClosed;
+
+        OnPropertyChanged(nameof(Player));
+        RefreshEqBindings(forceStateNotification: true);
     }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
@@ -71,13 +72,16 @@ public partial class BuiltinEqWindow : Window, INotifyPropertyChanged
     }
 
     private void RefreshEqBindings()
+        => RefreshEqBindings(forceStateNotification: false);
+
+    private void RefreshEqBindings(bool forceStateNotification)
     {
         if (_player is null)
         {
             return;
         }
 
-        if (_isEqEnabled != _player.IsEqEnabled)
+        if (forceStateNotification || _isEqEnabled != _player.IsEqEnabled)
         {
             _isEqEnabled = _player.IsEqEnabled;
             OnPropertyChanged(nameof(IsEqEnabled));
