@@ -47,6 +47,20 @@
       </StackPanel>
 
       <StackPanel Spacing="8">
+        <TextBlock Text="Playback Buffer Samples" FontWeight="SemiBold" />
+        <NumericUpDown
+            x:Name="PlaybackBufferSampleCountUpDown"
+            Minimum="256"
+            Maximum="480000"
+            Increment="256"
+            ClipValueToMinMax="True"
+            FormatString="F0"
+            ValueChanged="OnPlaybackBufferSampleCountChanged"
+            HorizontalAlignment="Stretch" />
+        <TextBlock Classes="hint" Text="{Binding PlaybackBufferSampleCountHint}" />
+      </StackPanel>
+
+      <StackPanel Spacing="8">
         <TextBlock Text="Skin" FontWeight="SemiBold" />
         <ComboBox x:Name="SkinComboBox" SelectionChanged="OnSkinChanged" HorizontalAlignment="Stretch">
           <ComboBox.ItemTemplate>

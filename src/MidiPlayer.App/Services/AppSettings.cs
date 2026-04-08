@@ -12,7 +12,8 @@ public class AppSettings
     public string UiSkinId { get; set; } = AppSkinManager.ModernDarkSkinId;
     public string? SoundFontPath { get; set; }
     public MidiSystem SystemMode { get; set; } = MidiSystem.Default;
-    public int SampleRate { get; set; } = 44100;
+    public int SampleRate { get; set; } = BassMidiPlayer.DefaultSampleRate;
+    public int PlaybackBufferSampleCount { get; set; } = BassMidiPlayer.DefaultPlaybackBufferSampleCount;
     public Dictionary<string, MidiMixSettings> MidiMixSettingsByHash { get; set; } = [];
 
     private static string GetConfigPath()
@@ -121,6 +122,12 @@ public class AppSettings
 
     private void Normalize()
     {
+        if (SampleRate <= 0)
+        {
+            SampleRate = BassMidiPlayer.DefaultSampleRate;
+        }
+
+        PlaybackBufferSampleCount = BassMidiPlayer.NormalizePlaybackBufferSampleCount(PlaybackBufferSampleCount, SampleRate);
         MidiMixSettingsByHash ??= [];
         var normalizedByHash = new Dictionary<string, MidiMixSettings>();
         foreach (var pair in MidiMixSettingsByHash)

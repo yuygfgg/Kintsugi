@@ -31,6 +31,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         SkinComboBox.DropDownClosed += OnSkinDropDownClosed;
         SkinComboBox.SelectedItem = App.Current.SkinManager.AvailableSkins.FirstOrDefault(skin => skin.Id == _settings.UiSkinId)
             ?? App.Current.SkinManager.AvailableSkins[0];
+        RefreshPlaybackBufferSampleCountControl();
     }
 
     public SettingsWindow(BassMidiPlayer player) : this()
@@ -53,6 +54,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
             96000 => 3,
             _ => 0
         };
+        RefreshPlaybackBufferSampleCountControl();
         _isInitializing = false;
     }
 
@@ -68,6 +70,17 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
                 _soundFontDisplayName = value;
                 OnPropertyChanged();
             }
+        }
+    }
+
+    public string PlaybackBufferSampleCountHint
+    {
+        get
+        {
+            var sampleRate = GetCurrentSampleRate();
+            var sampleCount = GetCurrentPlaybackBufferSampleCount();
+            var bufferLengthMs = BassMidiPlayer.ConvertPlaybackBufferSampleCountToMilliseconds(sampleCount, sampleRate);
+            return $"Set the playback buffer size in samples. Approx. {bufferLengthMs} ms at {sampleRate} Hz.";
         }
     }
 
@@ -181,6 +194,22 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
 
         _player.SampleRate = rate;
         _settings.SampleRate = rate;
+        _settings.PlaybackBufferSampleCount = _player.PlaybackBufferSampleCount;
+        RefreshPlaybackBufferSampleCountControl();
+        _settings.Save();
+    }
+
+    private void OnPlaybackBufferSampleCountChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+    {
+        if (_isInitializing || _player == null || PlaybackBufferSampleCountUpDown?.Value is not decimal rawValue)
+        {
+            return;
+        }
+
+        var sampleCount = decimal.ToInt32(decimal.Round(rawValue, MidpointRounding.AwayFromZero));
+        _player.PlaybackBufferSampleCount = sampleCount;
+        _settings.PlaybackBufferSampleCount = _player.PlaybackBufferSampleCount;
+        RefreshPlaybackBufferSampleCountControl();
         _settings.Save();
     }
 
@@ -243,5 +272,34 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         _pendingSkinId = null;
         Close();
         Dispatcher.UIThread.Post(() => App.Current.SkinManager.ApplySkin(skinId), DispatcherPriority.Background);
+    }
+
+    private int GetCurrentSampleRate()
+    {
+        var sampleRate = _player?.SampleRate ?? _settings.SampleRate;
+        return sampleRate > 0 ? sampleRate : BassMidiPlayer.DefaultSampleRate;
+    }
+
+    private int GetCurrentPlaybackBufferSampleCount()
+    {
+        var sampleCount = _player?.PlaybackBufferSampleCount ?? _settings.PlaybackBufferSampleCount;
+        return BassMidiPlayer.NormalizePlaybackBufferSampleCount(sampleCount, GetCurrentSampleRate());
+    }
+
+    private void RefreshPlaybackBufferSampleCountControl()
+    {
+        if (PlaybackBufferSampleCountUpDown is not null)
+        {
+            var normalizedValue = (decimal)GetCurrentPlaybackBufferSampleCount();
+            if (PlaybackBufferSampleCountUpDown.Value != normalizedValue)
+            {
+                var wasInitializing = _isInitializing;
+                _isInitializing = true;
+                PlaybackBufferSampleCountUpDown.Value = normalizedValue;
+                _isInitializing = wasInitializing;
+            }
+        }
+
+        OnPropertyChanged(nameof(PlaybackBufferSampleCountHint));
     }
 }

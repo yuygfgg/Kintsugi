@@ -14,6 +14,12 @@ public sealed class BassMidiPlayer : IDisposable
 {
     private static readonly Guid EqEffectItemId = Guid.Empty;
     private const int DefaultTempoMicrosecondsPerQuarterNote = 500000;
+    public const int DefaultSampleRate = 44100;
+    public const int DefaultPlaybackBufferLengthMilliseconds = 500;
+    private const int MinimumUpdatePeriodMilliseconds = 5;
+    private const int MaximumUpdatePeriodMilliseconds = 100;
+    private const int MinimumPlaybackBufferLengthMilliseconds = MinimumUpdatePeriodMilliseconds + 1;
+    private const int MaximumPlaybackBufferLengthMilliseconds = 5000;
     private const double EqMinFrequency = 20.0;
     private const double EqMaxFrequency = 20000.0;
     private const int EqPeakBandOffset = 1;
@@ -21,6 +27,7 @@ public sealed class BassMidiPlayer : IDisposable
     private const int EqMaxCutStages = 4;
     private const int EqChannelCount = 2;
     private const int DefaultPluginMaxBlockSize = 16384;
+    public const int DefaultPlaybackBufferSampleCount = DefaultSampleRate * DefaultPlaybackBufferLengthMilliseconds / 1000;
 
     private int _streamHandle;
     private int _soundFontHandle;
@@ -29,7 +36,8 @@ public sealed class BassMidiPlayer : IDisposable
     private bool _isLooping;
     private bool _isEqEnabled = true;
     private MidiSystem _systemMode = MidiSystem.Default;
-    private int _sampleRate = 44100;
+    private int _sampleRate = DefaultSampleRate;
+    private int _playbackBufferSampleCount = DefaultPlaybackBufferSampleCount;
     private TempoPoint[] _tempoMap = [new(0, 60_000_000d / DefaultTempoMicrosecondsPerQuarterNote)];
     private MidiFilterProcedure? _midiFilter;
     private DSPProcedure? _effectChainDspProc;
@@ -145,6 +153,32 @@ public sealed class BassMidiPlayer : IDisposable
     public const int MaxOpusBitrateKbps = 510;
     public const int OpusExportSampleRate = 48000;
     public static bool SupportsCompressedAudioExport => !OperatingSystem.IsWindows() || RuntimeInformation.ProcessArchitecture != Architecture.Arm64;
+
+    public static int GetMinimumPlaybackBufferSampleCount(int sampleRate)
+    {
+        var normalizedSampleRate = sampleRate > 0 ? sampleRate : DefaultSampleRate;
+        return Math.Max(1, (normalizedSampleRate * MinimumPlaybackBufferLengthMilliseconds + 999) / 1000);
+    }
+
+    public static int GetMaximumPlaybackBufferSampleCount(int sampleRate)
+    {
+        var normalizedSampleRate = sampleRate > 0 ? sampleRate : DefaultSampleRate;
+        return Math.Max(GetMinimumPlaybackBufferSampleCount(normalizedSampleRate), normalizedSampleRate * MaximumPlaybackBufferLengthMilliseconds / 1000);
+    }
+
+    public static int NormalizePlaybackBufferSampleCount(int sampleCount, int sampleRate)
+        => Math.Clamp(
+            sampleCount,
+            GetMinimumPlaybackBufferSampleCount(sampleRate),
+            GetMaximumPlaybackBufferSampleCount(sampleRate));
+
+    public static int ConvertPlaybackBufferSampleCountToMilliseconds(int sampleCount, int sampleRate)
+    {
+        var normalizedSampleRate = sampleRate > 0 ? sampleRate : DefaultSampleRate;
+        var normalizedSampleCount = NormalizePlaybackBufferSampleCount(sampleCount, normalizedSampleRate);
+        var milliseconds = (int)Math.Ceiling(normalizedSampleCount * 1000d / normalizedSampleRate);
+        return Math.Clamp(milliseconds, MinimumPlaybackBufferLengthMilliseconds, MaximumPlaybackBufferLengthMilliseconds);
+    }
 
     public static bool IsExportFormatAvailable(AudioExportFormat format)
         => format == AudioExportFormat.Wav || SupportsCompressedAudioExport;
@@ -729,8 +763,29 @@ public sealed class BassMidiPlayer : IDisposable
         get => _sampleRate;
         set
         {
-            if (_sampleRate == value) return;
-            _sampleRate = value;
+            var normalizedValue = value > 0 ? value : DefaultSampleRate;
+            if (_sampleRate == normalizedValue) return;
+            _sampleRate = normalizedValue;
+            _playbackBufferSampleCount = NormalizePlaybackBufferSampleCount(_playbackBufferSampleCount, _sampleRate);
+            if (_bassInitialized)
+            {
+                Reinitialize();
+            }
+        }
+    }
+
+    public int PlaybackBufferSampleCount
+    {
+        get => _playbackBufferSampleCount;
+        set
+        {
+            var clampedValue = NormalizePlaybackBufferSampleCount(value, _sampleRate);
+            if (_playbackBufferSampleCount == clampedValue)
+            {
+                return;
+            }
+
+            _playbackBufferSampleCount = clampedValue;
             if (_bassInitialized)
             {
                 Reinitialize();
@@ -1778,6 +1833,9 @@ public sealed class BassMidiPlayer : IDisposable
             return;
         }
 
+        Bass.UpdatePeriod = GetPlaybackUpdatePeriodMilliseconds(_playbackBufferSampleCount, _sampleRate);
+        Bass.PlaybackBufferLength = ConvertPlaybackBufferSampleCountToMilliseconds(_playbackBufferSampleCount, _sampleRate);
+
         if (!Bass.Init(-1, SampleRate, DeviceInitFlags.Default, IntPtr.Zero, IntPtr.Zero))
         {
             throw CreateBassException("Failed to initialize BASS");
@@ -1823,6 +1881,12 @@ public sealed class BassMidiPlayer : IDisposable
 
     private void OnEqStateChanged()
         => EqStateChanged?.Invoke(this, EventArgs.Empty);
+
+    private static int GetPlaybackUpdatePeriodMilliseconds(int sampleCount, int sampleRate)
+    {
+        var bufferLengthMilliseconds = ConvertPlaybackBufferSampleCountToMilliseconds(sampleCount, sampleRate);
+        return Math.Clamp(bufferLengthMilliseconds / 2, MinimumUpdatePeriodMilliseconds, MaximumUpdatePeriodMilliseconds);
+    }
 
     private void OnPluginStateChanged()
         => PluginStateChanged?.Invoke(this, EventArgs.Empty);

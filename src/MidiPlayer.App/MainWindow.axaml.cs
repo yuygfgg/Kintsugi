@@ -171,6 +171,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void InitializePlayerFromSettings()
     {
         _player.SampleRate = _settings.SampleRate;
+        _player.PlaybackBufferSampleCount = _settings.PlaybackBufferSampleCount;
 
         var initialSoundFontPath = BundledSoundFont.ResolvePreferredPath(_settings.SoundFontPath);
         if (!string.IsNullOrWhiteSpace(initialSoundFontPath))
