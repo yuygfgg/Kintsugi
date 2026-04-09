@@ -855,6 +855,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void OnSettingsClicked(object? sender, RoutedEventArgs e)
     {
+        OpenSettingsWindow();
+    }
+
+    internal void OpenSettingsWindow()
+    {
         if (!CanOpenSettings)
         {
             return;

@@ -1,0 +1,22 @@
+<Window
+    x:Class="MidiPlayer.App.AboutWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Width="420"
+    Height="220"
+    CanResize="False"
+    SizeToContent="Height"
+    WindowStartupLocation="CenterOwner"
+    Title="About Kintsugi Midi Player">
+    <Border Padding="24">
+        <StackPanel Spacing="12">
+            <TextBlock Text="Kintsugi Midi Player" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding VersionText}" Classes="muted" />
+            <TextBlock
+                Text="Modern desktop MIDI player."
+                TextWrapping="Wrap" />
+            <TextBlock Text="Built with Avalonia and ManagedBass." Classes="muted" />
+            <Button HorizontalAlignment="Right" MinWidth="96" Click="OnCloseClicked">Close</Button>
+        </StackPanel>
+    </Border>
+</Window>
