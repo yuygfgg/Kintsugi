@@ -633,24 +633,39 @@ class PluginHost final {
             return;
         }
 
-        ensureAudioBufferCapacity(frames, channels);
+        const auto maxBlockSize = std::max(1, _maximumBlockSize);
+        ensureAudioBufferCapacity(std::min(frames, maxBlockSize), channels);
 
-        for (int channel = 0; channel < channels; channel++) {
-            auto* destination = _audioBuffer.getWritePointer(channel);
-            for (int frame = 0; frame < frames; frame++) {
-                destination[frame] =
-                    interleavedBuffer[(frame * channels) + channel];
-            }
-        }
-
-        _midiBuffer.clear();
         juce::ScopedNoDenormals noDenormals;
-        _plugin->processBlock(_audioBuffer, _midiBuffer);
 
-        for (int channel = 0; channel < channels; channel++) {
-            auto* source = _audioBuffer.getReadPointer(channel);
-            for (int frame = 0; frame < frames; frame++) {
-                interleavedBuffer[(frame * channels) + channel] = source[frame];
+        for (int frameOffset = 0; frameOffset < frames;
+             frameOffset += maxBlockSize) {
+            const auto blockFrames =
+                std::min(maxBlockSize, frames - frameOffset);
+
+            for (int channel = 0; channel < channels; channel++) {
+                auto* destination = _audioBuffer.getWritePointer(channel);
+                _audioBufferViews[static_cast<size_t>(channel)] = destination;
+
+                for (int frame = 0; frame < blockFrames; frame++) {
+                    destination[frame] =
+                        interleavedBuffer[((frameOffset + frame) * channels) +
+                                          channel];
+                }
+            }
+
+            juce::AudioBuffer<float> blockBuffer(_audioBufferViews.data(),
+                                                 channels, blockFrames);
+
+            _midiBuffer.clear();
+            _plugin->processBlock(blockBuffer, _midiBuffer);
+
+            for (int channel = 0; channel < channels; channel++) {
+                auto* source = blockBuffer.getReadPointer(channel);
+                for (int frame = 0; frame < blockFrames; frame++) {
+                    interleavedBuffer[((frameOffset + frame) * channels) +
+                                      channel] = source[frame];
+                }
             }
         }
     }
@@ -1023,6 +1038,7 @@ class PluginHost final {
     std::unique_ptr<juce::AudioPluginInstance> _plugin;
     std::unique_ptr<PluginEditorWindow> _editorWindow;
     juce::AudioBuffer<float> _audioBuffer;
+    std::array<float*, kDefaultChannelCount> _audioBufferViews{};
     juce::MidiBuffer _midiBuffer;
     juce::String _pluginPath;
     juce::String _pluginName;
