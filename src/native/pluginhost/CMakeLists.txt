@@ -60,6 +60,17 @@ target_link_libraries(KintsugiPluginHost
         juce::juce_recommended_warning_flags
 )
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set_source_files_properties(
+      PluginHost.cpp
+      PROPERTIES COMPILE_OPTIONS "-Wno-shadow-field-in-constructor"
+  )
+  set_source_files_properties(
+      "${juce_SOURCE_DIR}/modules/juce_audio_processors_headless/juce_audio_processors_headless.mm"
+      PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations"
+  )
+endif()
+
 if(APPLE)
   target_link_options(KintsugiPluginHost PRIVATE "-Wl,-rpath,@loader_path")
   target_link_libraries(KintsugiPluginHost PRIVATE "-framework CoreAudioKit")
