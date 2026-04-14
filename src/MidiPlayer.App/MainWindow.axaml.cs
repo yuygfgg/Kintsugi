@@ -137,13 +137,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     _player.Seek(0);
                     StatusText = "Stopped";
                     RefreshTransport(true);
-                    _mediaControls?.UpdatePlaybackState(false, 0);
+                    _mediaControls?.UpdatePlaybackState(SystemMediaPlaybackState.Stopped, 0);
                 }
             },
             onToggle: () => { if (CanTogglePlayback) OnPlayPauseClicked(this, new RoutedEventArgs()); },
             onSeek: (pos) => { if (CanSeek) { _player.Seek(pos); _mediaControls?.UpdatePosition(pos); RefreshTransport(); } },
             onNext: () => Dispatcher.UIThread.Post(() => OnPlayNextClicked(this, new RoutedEventArgs())),
-            onPrevious: () => Dispatcher.UIThread.Post(() => OnPlayPreviousClicked(this, new RoutedEventArgs()))
+            onPrevious: () => Dispatcher.UIThread.Post(() => OnPlayPreviousClicked(this, new RoutedEventArgs())),
+            getVolume: () => _player.MasterVolumePercent / 100d,
+            onSetVolume: volume => MasterVolumePercent = volume * 100d,
+            getRate: () => _player.PlaybackSpeedPercent / 100d,
+            onSetRate: rate => PlaybackSpeedPercent = rate * 100d
         );
         _mediaControls.AttachWindow(this);
 
@@ -533,6 +537,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _player.PlaybackSpeedPercent = intValue;
             OnPropertyChanged();
             OnPropertyChanged(nameof(PlaybackSpeedPercentText));
+            _mediaControls?.UpdateRate(_player.PlaybackSpeedPercent / 100d);
             RefreshTransport();
             PersistCurrentMidiMix();
             UpdateNowPlayingTimeline();
@@ -572,6 +577,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _player.MasterVolumePercent = intValue;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(MasterVolumePercentText));
+                _mediaControls?.UpdateVolume(_player.MasterVolumePercent / 100d);
                 PersistCurrentMidiMix();
             }
         }
@@ -949,7 +955,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 _player.Pause();
                 StatusText = "Paused";
-                _mediaControls.UpdatePlaybackState(false, PositionSeconds);
+                _mediaControls.UpdatePlaybackState(SystemMediaPlaybackState.Paused, PositionSeconds);
             }
             else
             {
@@ -963,7 +969,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
                 _player.Play();
                 StatusText = "Playing";
-                _mediaControls.UpdatePlaybackState(true, PositionSeconds);
+                _mediaControls.UpdatePlaybackState(SystemMediaPlaybackState.Playing, PositionSeconds);
             }
 
             OnPropertyChanged(nameof(PlayPauseIcon));
@@ -1516,7 +1522,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             else
             {
                 StatusText = "Finished";
-                _mediaControls.UpdatePlaybackState(false, PositionSeconds);
+                _mediaControls.UpdatePlaybackState(SystemMediaPlaybackState.Stopped, PositionSeconds);
             }
         }
 
@@ -2076,7 +2082,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _player.Play();
             RefreshTransport(resetPosition: true);
             _mediaControls.UpdateNowPlaying(title, "Kintsugi Midi Player", DurationSeconds, PositionSeconds);
-            _mediaControls.UpdatePlaybackState(true, PositionSeconds);
+            _mediaControls.UpdatePlaybackState(SystemMediaPlaybackState.Playing, PositionSeconds);
             if (_midiEventsWindow is not null)
             {
                 _ = _midiEventsWindow.LoadMidiAsync(path);
@@ -2350,7 +2356,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _mediaControls.UpdateNowPlaying(MidiDisplayName, "Kintsugi Midi Player", DurationSeconds, PositionSeconds);
-        _mediaControls.UpdatePlaybackState(_player.IsPlaying, PositionSeconds);
+        _mediaControls.UpdatePlaybackState(_player.IsPlaying ? SystemMediaPlaybackState.Playing : SystemMediaPlaybackState.Paused, PositionSeconds);
     }
 
     private static string GetExportFormatLabel(AudioExportFormat format)

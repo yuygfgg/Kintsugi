@@ -46,6 +46,16 @@
     <PackageReference Include="ManagedBass" Version="4.0.2" />
     <PackageReference Include="ManagedBass.Enc" Version="4.0.2" />
     <PackageReference Include="ManagedBass.Midi" Version="4.0.2" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.92.0" />
+    <PackageReference Include="Tmds.DBus.SourceGenerator" Version="0.0.22">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)DbusXml/org.mpris.MediaPlayer2.xml" DBusGeneratorMode="Handler" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)DbusXml/org.mpris.MediaPlayer2.Player.xml" DBusGeneratorMode="Handler" />
   </ItemGroup>
 
   <Target Name="PrepareNativeDependencies" BeforeTargets="Build;Publish" Condition="'$(DesignTimeBuild)' != 'true'">
