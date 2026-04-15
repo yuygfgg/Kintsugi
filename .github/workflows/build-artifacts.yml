@@ -24,37 +24,37 @@ jobs:
           - label: Windows x86
             runner: windows-latest
             rid: win-x86
-            package_name: Kintsugi.MidiPlayer-win-x86
+            package_name: Kintsugi.MidiPlayer-win-x86-portable
             package_ext: zip
             mac_app_bundle: false
           - label: Windows x64
             runner: windows-latest
             rid: win-x64
-            package_name: Kintsugi.MidiPlayer-win-x64
+            package_name: Kintsugi.MidiPlayer-win-x64-portable
             package_ext: zip
             mac_app_bundle: false
           - label: Windows ARM64
             runner: windows-11-arm
             rid: win-arm64
-            package_name: Kintsugi.MidiPlayer-win-arm64
+            package_name: Kintsugi.MidiPlayer-win-arm64-portable
             package_ext: zip
             mac_app_bundle: false
           - label: Linux x64
             runner: ubuntu-24.04
             rid: linux-x64
-            package_name: Kintsugi.MidiPlayer-linux-x64
+            package_name: Kintsugi.MidiPlayer-linux-x64-portable
             package_ext: tar.gz
             mac_app_bundle: false
           - label: Linux ARM
             runner: ubuntu-24.04-arm
             rid: linux-arm
-            package_name: Kintsugi.MidiPlayer-linux-arm
+            package_name: Kintsugi.MidiPlayer-linux-arm-portable
             package_ext: tar.gz
             mac_app_bundle: false
           - label: Linux ARM64
             runner: ubuntu-24.04-arm
             rid: linux-arm64
-            package_name: Kintsugi.MidiPlayer-linux-arm64
+            package_name: Kintsugi.MidiPlayer-linux-arm64-portable
             package_ext: tar.gz
             mac_app_bundle: false
           - label: macOS Intel
@@ -98,7 +98,7 @@ jobs:
         run: dotnet restore src/MidiPlayer.App/MidiPlayer.App.csproj --runtime ${{ matrix.rid }}
 
       - name: Publish
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: |
           dotnet publish src/MidiPlayer.App/MidiPlayer.App.csproj \
             -c Release \
@@ -107,52 +107,16 @@ jobs:
             -p:CreateMacAppBundle=${{ matrix.mac_app_bundle }} \
             -o artifacts/publish/${{ matrix.rid }}
 
-      - name: Publish
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          dotnet publish src/MidiPlayer.App/MidiPlayer.App.csproj `
-            -c Release `
-            -r ${{ matrix.rid }} `
-            --self-contained true `
-            -p:CreateMacAppBundle=${{ matrix.mac_app_bundle }} `
-            -o artifacts/publish/${{ matrix.rid }}
-
-      - name: Package Windows artifact
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $packageRoot = "artifacts/package/${{ matrix.package_name }}"
-          $archivePath = "artifacts/dist/${{ matrix.package_name }}.${{ matrix.package_ext }}"
-
-          New-Item -ItemType Directory -Force -Path $packageRoot | Out-Null
-          New-Item -ItemType Directory -Force -Path "artifacts/dist" | Out-Null
-
-          Copy-Item "artifacts/publish/${{ matrix.rid }}/*" $packageRoot -Recurse -Force
-          Copy-Item README.md $packageRoot -Force
-          Copy-Item LICENSE $packageRoot -Force
-
-          if (Test-Path $archivePath) {
-            Remove-Item $archivePath -Force
-          }
-
-          Compress-Archive -Path $packageRoot -DestinationPath $archivePath -Force
-
-          $hash = (Get-FileHash $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
-          Set-Content -Path "$archivePath.sha256" -Value "$hash *$(Split-Path $archivePath -Leaf)"
-
-      - name: Package Linux artifact
+      - name: Build Linux portable package
         if: runner.os == 'Linux'
         run: |
-          package_root="artifacts/package/${{ matrix.package_name }}"
-          archive_path="artifacts/dist/${{ matrix.package_name }}.${{ matrix.package_ext }}"
+          bash scripts/publish-portable-package.sh ${{ matrix.rid }}
 
-          mkdir -p "$package_root" artifacts/dist
-          cp -a "artifacts/publish/${{ matrix.rid }}/." "$package_root/"
-          cp README.md LICENSE "$package_root/"
-
-          tar -C artifacts/package -czf "$archive_path" "${{ matrix.package_name }}"
-          shasum -a 256 "$archive_path" > "$archive_path.sha256"
+      - name: Build Windows portable package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          scripts/publish-windows-portable.ps1 -Rid ${{ matrix.rid }}
 
       - name: Package macOS artifact
         if: runner.os == 'macOS'
